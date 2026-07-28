@@ -7,7 +7,7 @@
  * in your Vercel project settings. Keeping it env-only is what lets every
  * serverless instance stay stateless.
  */
-import 'dotenv/config';
+import './env';
 import { provisionAgent } from '../src/lib/agent';
 import { agentId } from '../src/lib/config';
 

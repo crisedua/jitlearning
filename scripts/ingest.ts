@@ -9,13 +9,28 @@
  * the ingest secret. Blocks until every document is queryable, which makes it
  * safe to use in a provisioning or CI step.
  */
-import 'dotenv/config';
+import './env';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { ingest, waitForIndexing } from '../src/lib/knowledge';
 import { syncAgentKnowledge } from '../src/lib/agent';
 
-const SUPPORTED = new Set(['.pdf', '.txt', '.md', '.docx', '.html', '.htm', '.epub']);
+/**
+ * ElevenLabs validates the upload's MIME type and rejects
+ * `application/octet-stream`, which is what `new File()` defaults to. Map each
+ * extension explicitly rather than relying on the runtime to guess.
+ */
+const MIME_TYPES: Record<string, string> = {
+  '.pdf': 'application/pdf',
+  '.txt': 'text/plain',
+  '.md': 'text/markdown',
+  '.html': 'text/html',
+  '.htm': 'text/html',
+  '.epub': 'application/epub+zip',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+};
+
+const SUPPORTED = new Set(Object.keys(MIME_TYPES));
 
 async function collect(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -53,8 +68,9 @@ async function main() {
     const name = path.basename(file);
     try {
       const buffer = await readFile(file);
+      const type = MIME_TYPES[path.extname(file).toLowerCase()] ?? 'text/plain';
       const doc = await ingest(
-        { kind: 'file', file: new File([new Uint8Array(buffer)], name) },
+        { kind: 'file', file: new File([new Uint8Array(buffer)], name, { type }) },
         { name },
       );
       ids.push(doc.id);

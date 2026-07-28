@@ -64,21 +64,48 @@ curl -X POST https://<app>.vercel.app/api/agent \
 | `/api/knowledge/[id]` | DELETE | secret | Delete and detach |
 | `/api/agent` | GET | secret | Agent status, attached count |
 | `/api/agent` | POST | secret | Re-attach all ready documents |
+| `/api/agent/provision` | POST | secret | Create the agent (hosted `setup:agent`) |
+| `/api/health` | GET | secret | Config diagnostics: key, scope, agent |
 | `/api/signed-url` | GET | **open** | Short-lived WebSocket URL for the browser |
 
 ## Deploying to Vercel
 
-```bash
-npm install
-cp .env.example .env.local          # add ELEVENLABS_API_KEY + INGEST_SECRET
-npm run setup:agent                 # prints the agent id
-# paste the printed id into .env.local as ELEVENLABS_AGENT_ID
+You never need the ElevenLabs key on your own machine — the agent can be created
+from the deployed app, using the key already in Vercel's environment.
 
-npx vercel                          # first deploy
+```bash
+npx vercel                     # deploy
 ```
 
-Then set all three required variables in **Project Settings → Environment
-Variables** and redeploy:
+Set these in **Project Settings → Environment Variables**, then redeploy:
+
+- `ELEVENLABS_API_KEY` — your key, with Conversational AI read+write
+- `INGEST_SECRET` — `openssl rand -hex 32`
+
+Create the agent by calling the deployed app:
+
+```bash
+curl -X POST https://<app>.vercel.app/api/agent/provision \
+  -H "x-ingest-secret: $INGEST_SECRET"
+# -> {"agentId":"agent_...","created":true}
+```
+
+Set the returned id as `ELEVENLABS_AGENT_ID`, redeploy once more, then confirm
+the whole deployment is wired correctly:
+
+```bash
+curl https://<app>.vercel.app/api/health -H "x-ingest-secret: $INGEST_SECRET"
+```
+
+`{"ready": true}` means the key authenticates, carries the right scope, and the
+agent exists. Anything false tells you which of the three is wrong.
+
+### Local development (optional)
+
+If you'd rather work locally, put the same values in `.env.local` and run
+`npm run setup:agent` instead of the provision endpoint.
+
+### Environment variables
 
 | Variable | Required | Notes |
 |---|---|---|
@@ -130,6 +157,20 @@ The knobs live in `ragConfig()` in [`src/lib/agent.ts`](src/lib/agent.ts):
 - **`embedding_model`** — `e5_mistral_7b_instruct` is English-first. Switch to
   `multilingual_e5_large_instruct` for non-English corpora. Changing it later
   means re-indexing every document.
+
+### Choosing the agent LLM
+
+`ELEVENLABS_AGENT_LLM` accepts these Claude identifiers (verified against the
+live API — an unrecognised value is **silently ignored** and ElevenLabs falls
+back to `gemini-2.5-flash`, so check `/api/health` after changing it):
+
+```
+claude-sonnet-4-5   claude-sonnet-4-6   claude-opus-4-7
+claude-haiku-4-5    claude-sonnet-4     claude-3-7-sonnet
+```
+
+Leave the variable unset and you get the ElevenLabs workspace default rather
+than a Claude model.
 
 The tutor persona is `TUTOR_SYSTEM_PROMPT` in the same file. It's written for
 voice — short turns, no formatting read aloud — and for JIT pedagogy: answer the
