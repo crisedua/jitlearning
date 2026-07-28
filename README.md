@@ -1,0 +1,173 @@
+# JIT Learning
+
+A just-in-time learning system: a voice coach that answers the question blocking
+you *right now*, grounded in your own material via RAG.
+
+Built on the [ElevenLabs Agents Platform](https://elevenlabs.io/docs/eleven-agents)
+— ElevenLabs handles speech-to-text, the LLM turn, text-to-speech, chunking,
+embedding and vector retrieval. This repo is the ingestion backend, the agent
+configuration, and the UI around it.
+
+**Fully stateless.** There is no database. ElevenLabs holds the documents and
+their indexes; the agent's own config records which documents are attached and
+in which mode. Any number of Vercel instances see identical state.
+
+## Feeding knowledge from your backend
+
+This is the endpoint that matters. Three source types, one route:
+
+```bash
+# From a URL
+curl -X POST https://<app>.vercel.app/api/knowledge \
+  -H "x-ingest-secret: $INGEST_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://docs.internal/runbook", "name": "Deploy runbook"}'
+
+# From raw text
+curl -X POST https://<app>.vercel.app/api/knowledge \
+  -H "x-ingest-secret: $INGEST_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Rollbacks run through deploy.sh --rollback ...", "name": "Rollback notes"}'
+
+# From a file
+curl -X POST https://<app>.vercel.app/api/knowledge \
+  -H "x-ingest-secret: $INGEST_SECRET" \
+  -F "file=@./handbook.pdf"
+```
+
+Returns `201` with the document id and its initial index status.
+
+**Indexing is asynchronous.** A document is not retrievable the moment upload
+returns — ElevenLabs chunks and embeds it in the background. Poll until it
+succeeds, then attach it:
+
+```bash
+# Poll — repeat until {"status":"succeeded"}
+curl https://<app>.vercel.app/api/knowledge/$DOC_ID \
+  -H "x-ingest-secret: $INGEST_SECRET"
+
+# Attach every ready document to the coach
+curl -X POST https://<app>.vercel.app/api/agent \
+  -H "x-ingest-secret: $INGEST_SECRET"
+```
+
+`Authorization: Bearer $INGEST_SECRET` works anywhere `x-ingest-secret` does.
+
+### Routes
+
+| Route | Method | Auth | Purpose |
+|---|---|---|---|
+| `/api/knowledge` | GET | secret | Catalog with index + attachment state |
+| `/api/knowledge` | POST | secret | Ingest file / url / text |
+| `/api/knowledge/[id]` | GET | secret | Index status (poll target) |
+| `/api/knowledge/[id]` | POST | secret | Retry a failed index |
+| `/api/knowledge/[id]` | DELETE | secret | Delete and detach |
+| `/api/agent` | GET | secret | Agent status, attached count |
+| `/api/agent` | POST | secret | Re-attach all ready documents |
+| `/api/signed-url` | GET | **open** | Short-lived WebSocket URL for the browser |
+
+## Deploying to Vercel
+
+```bash
+npm install
+cp .env.example .env.local          # add ELEVENLABS_API_KEY + INGEST_SECRET
+npm run setup:agent                 # prints the agent id
+# paste the printed id into .env.local as ELEVENLABS_AGENT_ID
+
+npx vercel                          # first deploy
+```
+
+Then set all three required variables in **Project Settings → Environment
+Variables** and redeploy:
+
+| Variable | Required | Notes |
+|---|---|---|
+| `ELEVENLABS_API_KEY` | yes | Needs Agents + Knowledge Base read/write |
+| `ELEVENLABS_AGENT_ID` | yes | From `npm run setup:agent` |
+| `INGEST_SECRET` | yes | `openssl rand -hex 32` |
+| `ELEVENLABS_VOICE_ID` | no | Defaults to a stock voice |
+| `ELEVENLABS_AGENT_LLM` | no | Blank = workspace default |
+| `ELEVENLABS_EMBEDDING_MODEL` | no | Set before indexing anything |
+
+Nothing else to provision — no database, no volume, no cron.
+
+### Bulk loading
+
+For a large initial corpus, run against the ElevenLabs API directly rather than
+through the deployed app. This blocks until every document is queryable, so it
+is safe in a provisioning or CI step and avoids the serverless timeout:
+
+```bash
+npm run ingest -- ./docs
+```
+
+## Auth model
+
+Every knowledge and agent route requires `INGEST_SECRET`, compared in constant
+time. Routes **fail closed** — if the variable is unset they return `503` in
+every environment, including local development. Security that behaves
+differently in dev than in production is how things ship open by accident.
+
+`/api/signed-url` is deliberately open: the learner-facing coach page needs it
+and a browser cannot hold a shared secret. **This is the remaining exposure** —
+anyone with the URL can start a billable conversation. Put a real session check
+there before this reaches an audience you don't control.
+
+The Knowledge UI prompts for the secret and keeps it in `sessionStorage`, so it
+dies with the tab.
+
+## Tuning retrieval
+
+The knobs live in `ragConfig()` in [`src/lib/agent.ts`](src/lib/agent.ts):
+
+- **`max_vector_distance`** (0.6) — the relevance gate, and the setting that
+  matters most. Too high and the coach pulls in loosely-related chunks and
+  answers confidently from them; too low and it retrieves nothing and silently
+  falls back to general knowledge. Tune this against real questions first.
+- **`max_retrieved_rag_chunks_count`** (12) and **`max_documents_length`**
+  (12,000 tokens) — retrieval budget. Larger mostly buys latency, which is felt
+  much more sharply in voice than in text.
+- **`embedding_model`** — `e5_mistral_7b_instruct` is English-first. Switch to
+  `multilingual_e5_large_instruct` for non-English corpora. Changing it later
+  means re-indexing every document.
+
+The tutor persona is `TUTOR_SYSTEM_PROMPT` in the same file. It's written for
+voice — short turns, no formatting read aloud — and for JIT pedagogy: answer the
+blocking question, then check it landed, rather than delivering a curriculum.
+
+### `auto` vs `prompt` usage mode
+
+| Mode | Behavior | Use for |
+|---|---|---|
+| `auto` (default) | Retrieved via RAG only when relevant | Everything. Scales to large corpora. |
+| `prompt` | Pinned into the system prompt every turn | Short, always-needed context only |
+
+`prompt` mode costs tokens on *every* turn, so reserve it for things like a
+glossary of internal acronyms. Pass `"usageMode": "prompt"` on upload, or tick
+"Always in context" in the UI.
+
+## Layout
+
+```
+src/lib/elevenlabs.ts   Typed REST client (knowledge base, RAG, agents, signed URLs)
+src/lib/knowledge.ts    Ingestion + index status
+src/lib/catalog.ts      Assembles document state from ElevenLabs + agent config
+src/lib/agent.ts        Tutor persona, RAG config, knowledge sync
+src/lib/auth.ts         Shared-secret gate
+src/lib/config.ts       Env config + bounded-concurrency helper
+src/app/api/            Route handlers
+src/components/         VoiceTutor, KnowledgeManager
+scripts/                setup-agent, bulk ingest
+```
+
+## Known limits
+
+- **Topic grouping and session history were dropped** when the app went
+  stateless — both needed a database. RAG relevance handles scoping in
+  practice. If you want them back, Vercel KV is the smallest addition.
+- **The catalog fans out one status request per document**, capped at 8
+  concurrent. Past a few hundred documents, paginate the list route.
+- **The agent attaches every ready document in the workspace.** If you run other
+  ElevenLabs agents off the same knowledge base, they'll share a corpus.
+- **Voice needs HTTPS.** Fine on Vercel and on `localhost`; a plain-HTTP host
+  will silently fail to get mic access.
