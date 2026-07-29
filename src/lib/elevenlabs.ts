@@ -185,6 +185,12 @@ export interface AgentPromptConfig {
   llm?: string;
   knowledge_base: KnowledgeBaseEntry[];
   rag: RagConfig;
+  /**
+   * Tools live as workspace-level objects and are referenced by id. The older
+   * inline `tools` array still exists on the agent but is the deprecated path;
+   * only `tool_ids` is written here.
+   */
+  tool_ids?: string[];
 }
 
 export interface AgentConfig {
@@ -224,6 +230,53 @@ export async function updateAgent(
   return request<Agent>(`/convai/agents/${agentId}`, {
     method: 'PATCH',
     body: JSON.stringify(patch),
+  });
+}
+
+/* ------------------------------------------------------------------- tools */
+
+/**
+ * A tool the *browser* executes. ElevenLabs relays the call over the open
+ * WebSocket to the client SDK; nothing runs on our server, which is why this
+ * works on Vercel with no extra endpoint.
+ */
+export interface ClientToolConfig {
+  type: 'client';
+  name: string;
+  description: string;
+  response_timeout_secs?: number;
+  /** When true the agent waits for the browser's return value before speaking. */
+  expects_response?: boolean;
+  parameters: {
+    type: 'object';
+    properties: Record<string, { type: string; description: string }>;
+    required?: string[];
+  };
+}
+
+export interface ToolRecord {
+  id: string;
+  tool_config: { name: string; type: string };
+}
+
+export async function listTools(): Promise<{ tools: ToolRecord[] }> {
+  return request<{ tools: ToolRecord[] }>('/convai/tools', { method: 'GET' });
+}
+
+export async function createTool(config: ClientToolConfig): Promise<ToolRecord> {
+  return request<ToolRecord>('/convai/tools', {
+    method: 'POST',
+    body: JSON.stringify({ tool_config: config }),
+  });
+}
+
+export async function updateTool(
+  toolId: string,
+  config: ClientToolConfig,
+): Promise<ToolRecord> {
+  return request<ToolRecord>(`/convai/tools/${toolId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ tool_config: config }),
   });
 }
 

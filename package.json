@@ -10,7 +10,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "setup:agent": "tsx scripts/setup-agent.ts",
-    "ingest": "tsx scripts/ingest.ts"
+    "ingest": "tsx scripts/ingest.ts",
+    "build:tutorials": "tsx scripts/build-tutorial-docs.ts"
   },
   "dependencies": {
     "@elevenlabs/react": "^0.7.0",

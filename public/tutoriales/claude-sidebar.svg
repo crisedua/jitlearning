@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img"
+     aria-label="Esquema de la interfaz de Claude: la barra lateral izquierda con la opción Proyectos resaltada.">
+  <style>
+    .s{fill:#151b23}.l{stroke:#232c37;stroke-width:1;fill:none}
+    .t{fill:#e6edf3;font:13px system-ui,sans-serif}
+    .m{fill:#7d8792;font:12px system-ui,sans-serif}
+    .k{fill:#5b8cff;font:600 13px system-ui,sans-serif}
+    .tag{fill:#5b8cff;font:600 10px system-ui,sans-serif;letter-spacing:.08em}
+    .bar{fill:#232c37}
+  </style>
+  <rect x="1" y="1" width="638" height="358" rx="10" class="s" stroke="#232c37"/>
+  <text x="16" y="24" class="tag">ESQUEMA</text>
+
+  <!-- sidebar -->
+  <rect x="16" y="38" width="176" height="306" rx="8" fill="#0d1117" stroke="#232c37"/>
+  <rect x="32" y="56" width="96" height="10" rx="5" class="bar"/>
+  <rect x="32" y="88" width="120" height="9" rx="4.5" class="bar"/>
+  <rect x="32" y="112" width="88" height="9" rx="4.5" class="bar"/>
+
+  <!-- highlighted Proyectos row -->
+  <rect x="24" y="138" width="160" height="34" rx="7" fill="#5b8cff" fill-opacity=".14" stroke="#5b8cff"/>
+  <circle cx="42" cy="155" r="5" fill="#5b8cff"/>
+  <text x="56" y="160" class="k">Proyectos</text>
+
+  <rect x="32" y="190" width="104" height="9" rx="4.5" class="bar"/>
+  <rect x="32" y="214" width="120" height="9" rx="4.5" class="bar"/>
+  <rect x="32" y="238" width="76" height="9" rx="4.5" class="bar"/>
+
+  <!-- main area -->
+  <rect x="208" y="38" width="416" height="306" rx="8" fill="#0d1117" stroke="#232c37"/>
+  <text x="230" y="72" class="t">Proyectos</text>
+  <rect x="470" y="56" width="132" height="28" rx="6" fill="#5b8cff" fill-opacity=".14" stroke="#5b8cff"/>
+  <text x="486" y="75" class="k">+ Nuevo proyecto</text>
+
+  <rect x="230" y="104" width="372" height="1" class="bar"/>
+  <g>
+    <rect x="230" y="122" width="176" height="86" rx="8" class="s" stroke="#232c37"/>
+    <rect x="246" y="142" width="96" height="9" rx="4.5" class="bar"/>
+    <rect x="246" y="162" width="132" height="7" rx="3.5" fill="#1c242e"/>
+    <rect x="246" y="176" width="112" height="7" rx="3.5" fill="#1c242e"/>
+  </g>
+  <g>
+    <rect x="426" y="122" width="176" height="86" rx="8" class="s" stroke="#232c37"/>
+    <rect x="442" y="142" width="80" height="9" rx="4.5" class="bar"/>
+    <rect x="442" y="162" width="132" height="7" rx="3.5" fill="#1c242e"/>
+    <rect x="442" y="176" width="96" height="7" rx="3.5" fill="#1c242e"/>
+  </g>
+
+  <text x="230" y="248" class="m">Paso 1 — abre Proyectos en la barra lateral.</text>
+  <text x="230" y="270" class="m">Paso 2 — crea el proyecto desde el botón de arriba a la derecha.</text>
+</svg>

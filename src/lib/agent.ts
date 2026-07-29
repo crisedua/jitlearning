@@ -4,13 +4,18 @@
  */
 import {
   createAgent,
+  createTool,
   getAgent,
+  listTools,
   updateAgent,
+  updateTool,
   type AgentConfig,
+  type ClientToolConfig,
   type RagConfig,
 } from './elevenlabs';
 import { agentId, agentLanguage, embeddingModel, requireAgentId } from './config';
 import { attachableEntries } from './catalog';
+import { TUTORIALS } from './tutorials';
 import type { UsageMode } from './types';
 
 /**
@@ -21,7 +26,7 @@ import type { UsageMode } from './types';
  * the question that blocks the learner right now, then check it landed, rather
  * than delivering a curriculum.
  */
-export const TUTOR_SYSTEM_PROMPT = `Eres un coach de aprendizaje justo a tiempo. Quien te consulta está a mitad de una tarea, atascado en algo concreto, y necesita desbloquearse y seguir avanzando.
+const TUTOR_PERSONA = `Eres un coach de aprendizaje justo a tiempo. Quien te consulta está a mitad de una tarea, atascado en algo concreto, y necesita desbloquearse y seguir avanzando.
 
 ## Idioma
 
@@ -59,6 +64,55 @@ Estás hablando, no escribiendo. Usa frases cortas y completas. Nunca leas en vo
 
 Suena como un colega con experiencia en el escritorio de al lado: directo, cercano, sin prisa. Sin muletillas de apertura y sin repetir la pregunta antes de responderla.`;
 
+/** The client tool the browser implements in `VoiceTutor`. */
+export const TUTORIAL_TOOL_NAME = 'mostrar_tutorial';
+
+/**
+ * The visual-tutorial half of the persona.
+ *
+ * Generated from `TUTORIALS` so the ids the agent is allowed to name are always
+ * the ids that actually exist. Hardcoding them here would let the list rot into
+ * a set of tutorials the tool then refuses, which the agent experiences as a
+ * random failure and papers over by improvising steps — the exact behaviour the
+ * panel exists to replace.
+ */
+function tutorialInstructions(): string {
+  const catalogue = TUTORIALS.map(
+    (t) => `- ${t.id} — ${t.title} (${t.product}). ${t.goal}`,
+  ).join('\n');
+
+  return `## Tutoriales en pantalla
+
+Tienes una herramienta, ${TUTORIAL_TOOL_NAME}, que muestra un tutorial ilustrado paso a paso en la pantalla de la persona. Recibe el identificador del tutorial y, opcionalmente, el número de paso.
+
+Estos son los únicos tutoriales que existen:
+
+${catalogue}
+
+Cuando alguien pregunte cómo se hace algo que esté en esa lista, llama a la herramienta antes de empezar a explicar, y luego vuelve a llamarla con el número de paso cada vez que pases al siguiente. Así lo que oye y lo que ve van sincronizados. No anuncies que has puesto algo en pantalla hasta que la herramienta te haya confirmado que se mostró.
+
+Si el tema no está en la lista, no llames a la herramienta. Explícalo de palabra y di que para eso no tienes un tutorial ilustrado. Mostrar un tutorial parecido pero de otra cosa es peor que no mostrar ninguno.
+
+Aunque la pantalla acompañe, tu explicación tiene que sostenerse sola: puede que te estén escuchando sin mirar. Describe cada paso completo, sin decir "como ves aquí" ni "esto de la derecha".
+
+Nunca deletrees un comando ni una dirección web. Decir "curl guion efe ese ese ele" no le sirve a nadie: es más lento de seguir que leerlo, se presta a error en cada carácter, y el comando o funciona entero o no funciona. Di qué hace y remite a la pantalla. Por ejemplo: "ejecuta la línea que tienes en pantalla en el paso uno, que descarga el instalador y lo lanza". Díctalo carácter por carácter solo si te lo piden expresamente, y ofrécelo antes: "si no puedes verla, te la dicto".
+
+Las imágenes son esquemas dibujados, no capturas del producto real. Si alguien te pregunta si eso es lo que va a ver, dilo tal cual: los esquemas señalan dónde está cada cosa, pero la pantalla real no se ve idéntica.
+
+## Cuando no tienes material
+
+Si lo que te preguntan no está en la base de conocimiento ni en la lista de tutoriales, dilo en una frase antes de responder: que sobre eso no tienes material suyo y que vas a responder de conocimiento general. Después responde igual, lo mejor que puedas. Avisar no es negarse a ayudar.
+
+No te saltes ese aviso porque la respuesta te salga fluida. Justamente cuando te sale fluida es cuando más falta hace: quien te escucha no puede distinguir una respuesta fundamentada de una improvisada, porque las dos suenan igual de firmes, y esa frase es lo único que se lo dice.
+
+Y al responder así, sé explícito con lo que no sabes en vez de disimularlo. Si no estás seguro de cómo se llama hoy un botón, dilo y descríbelo por su función y su ubicación. No des un nombre aproximado seguido de "o algo parecido": eso suena a que lo comprobaste cuando no lo hiciste.`;
+}
+
+/** Full system prompt: persona plus the generated tutorial section. */
+export function tutorSystemPrompt(): string {
+  return `${TUTOR_PERSONA}\n\n${tutorialInstructions()}`;
+}
+
 export const DEFAULT_FIRST_MESSAGE =
   '¿En qué estás trabajando y dónde te has atascado?';
 
@@ -89,6 +143,57 @@ export function ragConfig(): RagConfig {
   };
 }
 
+function tutorialToolConfig(): ClientToolConfig {
+  return {
+    type: 'client',
+    name: TUTORIAL_TOOL_NAME,
+    description:
+      'Muestra en la pantalla de la persona un tutorial ilustrado paso a paso. Llámala al empezar a explicar un procedimiento y otra vez, con el número de paso, cada vez que avances.',
+    // The browser answers instantly, and waiting is what lets the agent find out
+    // that an id was wrong before it starts narrating a tutorial nobody can see.
+    expects_response: true,
+    response_timeout_secs: 5,
+    parameters: {
+      type: 'object',
+      properties: {
+        tutorial_id: {
+          type: 'string',
+          description: `Identificador exacto del tutorial. Valores válidos: ${TUTORIALS.map(
+            (t) => t.id,
+          ).join(', ')}.`,
+        },
+        paso: {
+          type: 'integer',
+          description:
+            'Número del paso que se está explicando, empezando en 1. Si se omite, se muestra el primero.',
+        },
+      },
+      required: ['tutorial_id'],
+    },
+  };
+}
+
+/**
+ * Create or update the tutorial client tool, returning its id.
+ *
+ * Tools are workspace-level objects keyed by name, and deleting one that an
+ * agent still references is refused by the API. So this reconciles by name:
+ * update in place if it exists, create otherwise. Provisioning twice is safe
+ * and leaves exactly one tool behind.
+ */
+export async function ensureTutorialTool(): Promise<string> {
+  const { tools } = await listTools();
+  const existing = tools.find((t) => t.tool_config?.name === TUTORIAL_TOOL_NAME);
+  const config = tutorialToolConfig();
+
+  if (existing) {
+    await updateTool(existing.id, config);
+    return existing.id;
+  }
+  const created = await createTool(config);
+  return created.id;
+}
+
 /**
  * Create the tutor agent. Returns the new id, which the caller must persist
  * into the environment — nothing is written back at runtime.
@@ -96,6 +201,7 @@ export function ragConfig(): RagConfig {
 export async function provisionAgent(): Promise<string> {
   const llm = process.env.ELEVENLABS_AGENT_LLM?.trim();
   const voiceId = process.env.ELEVENLABS_VOICE_ID?.trim();
+  const toolId = await ensureTutorialTool();
 
   const config: AgentConfig = {
     name: 'JIT Learning Coach',
@@ -104,11 +210,12 @@ export async function provisionAgent(): Promise<string> {
         first_message: DEFAULT_FIRST_MESSAGE,
         language: agentLanguage(),
         prompt: {
-          prompt: TUTOR_SYSTEM_PROMPT,
+          prompt: tutorSystemPrompt(),
           // Omitted entirely when unset, so ElevenLabs picks its workspace default.
           ...(llm ? { llm } : {}),
           knowledge_base: [],
           rag: ragConfig(),
+          tool_ids: [toolId],
         },
       },
       tts: {
@@ -139,15 +246,20 @@ export async function syncAgentKnowledge(
   const id = requireAgentId();
   const entries = await attachableEntries(overrides);
   const llm = process.env.ELEVENLABS_AGENT_LLM?.trim();
+  // Re-asserted on every sync, not just at provision: an agent created before
+  // the tutorials existed would otherwise keep a prompt that promises a tool it
+  // does not have, and quietly narrate steps to a blank screen.
+  const toolId = await ensureTutorialTool();
 
   await updateAgent(id, {
     conversation_config: {
       agent: {
         prompt: {
-          prompt: TUTOR_SYSTEM_PROMPT,
+          prompt: tutorSystemPrompt(),
           ...(llm ? { llm } : {}),
           knowledge_base: entries,
           rag: ragConfig(),
+          tool_ids: [toolId],
         },
       },
     },
