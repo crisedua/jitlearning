@@ -13,3 +13,7 @@ build/
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+
+# Source material and derived study guides. Book content is copyrighted —
+# keep it out of a public repo. Ingested via `npm run ingest -- ./knowledge`.
+knowledge/
