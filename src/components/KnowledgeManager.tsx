@@ -6,17 +6,24 @@ import type { DocumentView, RagIndexStatus } from '@/lib/types';
 
 type Mode = 'file' | 'url' | 'text';
 
+/** The union values are the wire format; these are what the tabs display. */
+const MODE_LABEL: Record<Mode, string> = {
+  file: 'Archivo',
+  url: 'Enlace',
+  text: 'Texto',
+};
+
 const SECRET_KEY = 'jit.ingestSecret';
 
 const STATUS_LABEL: Record<RagIndexStatus, string> = {
-  new: 'Not indexed',
-  created: 'Queued',
-  processing: 'Indexing…',
-  succeeded: 'Ready',
-  failed: 'Failed',
-  rag_limit_exceeded: 'Storage full',
-  document_too_small: 'Too short to index',
-  cannot_index_folder: 'Folders not indexable',
+  new: 'Sin indexar',
+  created: 'En cola',
+  processing: 'Indexando…',
+  succeeded: 'Listo',
+  failed: 'Falló',
+  rag_limit_exceeded: 'Almacenamiento lleno',
+  document_too_small: 'Demasiado corto para indexar',
+  cannot_index_folder: 'Las carpetas no se indexan',
 };
 
 export function KnowledgeManager() {
@@ -47,7 +54,7 @@ export function KnowledgeManager() {
     const res = await fetch('/api/knowledge', { headers: { 'x-ingest-secret': secret } });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
-      setError(data.error ?? 'Could not load documents.');
+      setError(data.error ?? 'No se pudieron cargar los documentos.');
       return;
     }
     const data = (await res.json()) as { documents: DocumentView[] };
@@ -77,7 +84,7 @@ export function KnowledgeManager() {
       if (stillPending.length === 0 && newlyReady) {
         await fetch('/api/agent', { method: 'POST', headers: authHeaders() });
         await load();
-        setNotice('Indexing finished — coach updated.');
+        setNotice('Indexación terminada: el coach ya lo tiene.');
       }
     }, 3000);
     return () => clearInterval(timer);
@@ -99,7 +106,7 @@ export function KnowledgeManager() {
 
       if (mode === 'file') {
         const file = fileRef.current?.files?.[0];
-        if (!file) throw new Error('Choose a file first.');
+        if (!file) throw new Error('Elige un archivo primero.');
         const form = new FormData();
         form.append('file', file);
         form.append('usageMode', usageMode);
@@ -122,14 +129,14 @@ export function KnowledgeManager() {
       }
 
       const data = (await res.json()) as { error?: string; syncError?: string };
-      if (!res.ok) throw new Error(data.error ?? 'Upload failed.');
+      if (!res.ok) throw new Error(data.error ?? 'Falló la subida.');
 
       setNotice(
         pinned
-          ? 'Uploaded and attached to the coach.'
-          : 'Uploaded. Indexing now — the coach picks it up automatically when it finishes.',
+          ? 'Subido y adjuntado al coach.'
+          : 'Subido. Indexando: el coach lo tomará automáticamente al terminar.',
       );
-      if (data.syncError) setError(`Attached with a warning: ${data.syncError}`);
+      if (data.syncError) setError(`Adjuntado con una advertencia: ${data.syncError}`);
 
       setUrl('');
       setText('');
@@ -137,7 +144,7 @@ export function KnowledgeManager() {
       if (fileRef.current) fileRef.current.value = '';
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed.');
+      setError(err instanceof Error ? err.message : 'Falló la subida.');
     } finally {
       setBusy(false);
     }
@@ -159,11 +166,11 @@ export function KnowledgeManager() {
     try {
       const res = await fetch('/api/agent', { method: 'POST', headers: authHeaders() });
       const data = (await res.json()) as { attached?: number; error?: string };
-      if (!res.ok) throw new Error(data.error ?? 'Sync failed.');
-      setNotice(`Coach now has ${data.attached} document(s) attached.`);
+      if (!res.ok) throw new Error(data.error ?? 'Falló la sincronización.');
+      setNotice(`El coach tiene ahora ${data.attached} documento(s) adjunto(s).`);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sync failed.');
+      setError(err instanceof Error ? err.message : 'Falló la sincronización.');
     } finally {
       setBusy(false);
     }
@@ -173,7 +180,7 @@ export function KnowledgeManager() {
     return (
       <div className="max-w-md space-y-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-5">
         <p className="text-sm text-gray-300">
-          Enter the ingest secret to manage the knowledge base.
+          Introduce el secreto de ingesta para gestionar la base de conocimiento.
         </p>
         <input
           type="password"
@@ -182,8 +189,8 @@ export function KnowledgeManager() {
           className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-ink)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
         />
         <p className="text-xs text-gray-500">
-          Stored for this browser tab only. It is the same value as the{' '}
-          <code>INGEST_SECRET</code> environment variable.
+          Se guarda solo en esta pestaña. Es el mismo valor que la variable de entorno{' '}
+          <code>INGEST_SECRET</code>.
         </p>
       </div>
     );
@@ -201,13 +208,13 @@ export function KnowledgeManager() {
               key={m}
               type="button"
               onClick={() => setMode(m)}
-              className={`rounded-md px-3 py-1.5 text-sm capitalize ${
+              className={`rounded-md px-3 py-1.5 text-sm ${
                 mode === m
                   ? 'bg-[var(--color-accent)] text-white'
                   : 'border border-[var(--color-line)] text-gray-400 hover:text-white'
               }`}
             >
-              {m}
+              {MODE_LABEL[m]}
             </button>
           ))}
         </div>
@@ -233,7 +240,7 @@ export function KnowledgeManager() {
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={6}
-            placeholder="Paste notes, a transcript, a runbook…"
+            placeholder="Pega notas, una transcripción, un manual…"
             className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-ink)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
           />
         )}
@@ -241,7 +248,7 @@ export function KnowledgeManager() {
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Display name (optional)"
+          placeholder="Nombre visible (opcional)"
           className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-ink)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
         />
 
@@ -253,10 +260,10 @@ export function KnowledgeManager() {
             className="mt-1"
           />
           <span>
-            Always in context (skips RAG).
+            Siempre en contexto (omite RAG).
             <span className="block text-xs text-gray-500">
-              Use only for short, always-relevant material — it costs prompt tokens on
-              every single turn.
+              Úsalo solo para material corto y siempre relevante: consume tokens en cada
+              turno.
             </span>
           </span>
         </label>
@@ -266,7 +273,7 @@ export function KnowledgeManager() {
             disabled={busy}
             className="rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium disabled:opacity-50 hover:brightness-110"
           >
-            {busy ? 'Working…' : 'Add to knowledge base'}
+            {busy ? 'Trabajando…' : 'Añadir a la base de conocimiento'}
           </button>
           <button
             type="button"
@@ -274,7 +281,7 @@ export function KnowledgeManager() {
             disabled={busy}
             className="rounded-md border border-[var(--color-line)] px-4 py-2 text-sm text-gray-300 disabled:opacity-50 hover:border-gray-500"
           >
-            Re-sync coach
+            Resincronizar coach
           </button>
         </div>
 
@@ -284,12 +291,12 @@ export function KnowledgeManager() {
 
       <section>
         <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-gray-500">
-          Documents ({docs.length})
+          Documentos ({docs.length})
         </h2>
         {docs.length === 0 ? (
           <p className="text-sm text-gray-500">
-            Nothing uploaded yet. The coach will answer from general knowledge until you
-            add material.
+            Todavía no hay nada. El coach responderá desde conocimiento general hasta que
+            añadas material.
           </p>
         ) : (
           <ul className="divide-y divide-[var(--color-line)] rounded-lg border border-[var(--color-line)]">
@@ -302,8 +309,8 @@ export function KnowledgeManager() {
                     <p className="truncate text-sm text-gray-200">{d.name}</p>
                     <p className="text-xs text-gray-500">
                       {d.type}
-                      {d.usageMode === 'prompt' && ' · pinned to prompt'}
-                      {d.ready && !d.attached && ' · ready, not attached'}
+                      {d.usageMode === 'prompt' && ' · fijado al prompt'}
+                      {d.ready && !d.attached && ' · listo, sin adjuntar'}
                       {d.indexError && ` · ${d.indexError}`}
                     </p>
                   </div>
@@ -316,21 +323,21 @@ export function KnowledgeManager() {
                           : 'bg-amber-950 text-amber-400'
                     }`}
                   >
-                    {d.usageMode === 'prompt' ? 'Pinned' : STATUS_LABEL[d.indexStatus]}
+                    {d.usageMode === 'prompt' ? 'Fijado' : STATUS_LABEL[d.indexStatus]}
                   </span>
                   {failed && (
                     <button
                       onClick={() => void retry(d.id)}
                       className="shrink-0 text-xs text-gray-400 hover:text-white"
                     >
-                      Retry
+                      Reintentar
                     </button>
                   )}
                   <button
                     onClick={() => void remove(d.id)}
                     className="shrink-0 text-xs text-gray-500 hover:text-red-400"
                   >
-                    Delete
+                    Eliminar
                   </button>
                 </li>
               );
