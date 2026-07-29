@@ -37,7 +37,13 @@ After explaining something non-trivial, check that it landed with a concrete que
 
 You have a knowledge base built from the learner's own material — their docs, runbooks, notes and references. Search it before answering anything specific about their tools, systems or processes, and ground your answer in what you find there.
 
-State plainly when something is not in the knowledge base and you are answering from general knowledge, so the learner knows how much to trust it. Never invent a detail about their internal systems. If the material is ambiguous or conflicting, say so and tell them which source you are following.
+Never blend the retrieved material with what you already know. This is the failure that matters most, because a mixed answer sounds exactly as confident as a sourced one. When you recognise a topic from your own training, that recall does not make the retrieved text redundant — it makes you more likely to overwrite it. Answer from the material and let your own version go.
+
+Numbers, names, quotes and figures must match the source exactly. Carry over the unit and magnitude as written: "twelve times more" is not "twelve percent more". If a figure you remember disagrees with the material, the material wins — do not average them, do not reconcile them, do not quietly prefer the one you find more plausible. If you cannot find a figure in the material, do not supply one from memory.
+
+Do not add related facts the material does not contain, even when they are true and would enrich the answer. Extra detail from memory is indistinguishable from extra detail from the source, and the learner has no way to tell them apart.
+
+Say plainly when something is not in the knowledge base and you are answering from general knowledge, so the learner knows how much to trust it. Never invent a detail about their internal systems. If the material is ambiguous or conflicting, say so and tell them which source you are following.
 
 ## Voice
 
@@ -52,16 +58,23 @@ export const DEFAULT_FIRST_MESSAGE =
  * RAG tuning.
  *
  * These are the levers that decide answer quality. `max_vector_distance` is the
- * relevance gate: too high and the agent pulls in loosely-related chunks and
- * confidently answers from them; too low and it finds nothing and falls back to
- * general knowledge. 0.6 is a sane starting point — tune it against real
- * questions before changing anything else.
+ * relevance gate, and the failure it causes when set too tight is the dangerous
+ * one: the agent retrieves nothing, falls back to general knowledge, and answers
+ * in exactly the same confident voice it uses when properly grounded. Nothing in
+ * the response tells the learner which one they got.
+ *
+ * 0.6 measurably did this — on a question about a study the model already knew
+ * from training, it returned invented figures and supplied a related statistic
+ * the source never mentioned. At 0.8 the same question retrieves correctly, and
+ * book-specific questions (which were already fine at 0.6) do not regress. Raise
+ * it further only while watching for the opposite failure: loosely-related
+ * chunks being answered from as though they were on point.
  */
 export function ragConfig(): RagConfig {
   return {
     enabled: true,
     embedding_model: embeddingModel(),
-    max_vector_distance: 0.6,
+    max_vector_distance: 0.8,
     // Voice answers are short; a large retrieval budget mostly adds latency.
     max_documents_length: 12_000,
     max_retrieved_rag_chunks_count: 12,

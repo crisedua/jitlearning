@@ -147,10 +147,18 @@ dies with the tab.
 
 The knobs live in `ragConfig()` in [`src/lib/agent.ts`](src/lib/agent.ts):
 
-- **`max_vector_distance`** (0.6) — the relevance gate, and the setting that
-  matters most. Too high and the coach pulls in loosely-related chunks and
-  answers confidently from them; too low and it retrieves nothing and silently
-  falls back to general knowledge. Tune this against real questions first.
+- **`max_vector_distance`** (0.8) — the relevance gate, and the setting that
+  matters most. Set too tight, the coach retrieves nothing and falls back to
+  general knowledge **in the same confident voice** it uses when grounded, so
+  the learner cannot tell the difference. This is not theoretical: at 0.6, a
+  question about a study the model already knew from training produced invented
+  figures plus a statistic the source never contained. At 0.8 it retrieves
+  correctly. Raise it further only while watching for the opposite failure —
+  loosely-related chunks answered from as if they were on point.
+
+  Tune it against questions whose answers you can check by hand, and include at
+  least one on a topic the model likely knows independently. Questions only your
+  corpus can answer will pass at almost any threshold and tell you nothing.
 - **`max_retrieved_rag_chunks_count`** (12) and **`max_documents_length`**
   (12,000 tokens) — retrieval budget. Larger mostly buys latency, which is felt
   much more sharply in voice than in text.
