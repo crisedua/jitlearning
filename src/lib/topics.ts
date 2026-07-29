@@ -1,0 +1,84 @@
+/**
+ * What the coach actually knows, for display on the learner-facing page.
+ *
+ * Hand-maintained on purpose. The obvious alternative — listing the knowledge
+ * base straight from the API — does not work here for two reasons: the catalog
+ * routes are behind `INGEST_SECRET` and this page is public, and the documents
+ * are named after their files (`02-paso-2-validar-con-dinero.md`), which tells a
+ * learner nothing about what they may ask.
+ *
+ * The cost of that choice is that this list can drift from the corpus. Drift in
+ * one direction is uncomfortable but harmless: a topic in the base that nobody
+ * knows to ask about. Drift in the other is the one to avoid — a topic listed
+ * here with no material behind it, which the coach answers from general
+ * knowledge. Update this file whenever documents are ingested or deleted.
+ */
+
+export interface Topic {
+  title: string;
+  /** One line on what the material covers. Written for a learner, not an index. */
+  blurb: string;
+  /** Real questions the corpus can answer. They double as tappable prompts. */
+  examples: string[];
+  /** True when the coach can also open an illustrated step-by-step panel. */
+  illustrated?: boolean;
+}
+
+export const TOPICS: readonly Topic[] = [
+  {
+    title: 'Usar Claude y ChatGPT paso a paso',
+    blurb:
+      'Proyectos en Claude, Cowork sobre tus archivos, instalar Claude Code, y Proyectos en ChatGPT.',
+    illustrated: true,
+    examples: [
+      '¿Cómo subo mis documentos a un Proyecto de Claude?',
+      '¿Cómo instalo Claude Code?',
+      '¿Qué hace Cowork con mis archivos?',
+      '¿Cómo creo un Proyecto en ChatGPT?',
+    ],
+  },
+  {
+    title: 'Elegir entre asistentes de IA',
+    blurb: 'En qué se diferencian ChatGPT, Claude y Gemini, y cuál conviene para cada tarea.',
+    examples: [
+      '¿Cuál me conviene para escribir documentos largos?',
+      '¿En qué se diferencian Claude y ChatGPT?',
+    ],
+  },
+  {
+    title: 'Liderar con IA',
+    blurb: 'Cómo incorporar la IA al trabajo de un equipo sin quedarse en la demo.',
+    examples: [
+      '¿Por dónde empiezo a meter IA en mi equipo?',
+      '¿Qué tareas conviene delegar a la IA y cuáles no?',
+    ],
+  },
+  {
+    title: 'Montar tu propio negocio',
+    blurb:
+      'Encontrar un dolor real, validarlo con dinero antes de construir, y hacer un producto mínimo. Noah Kagan, Dan Martell y Ali Abdaal.',
+    examples: [
+      'Tengo una idea, pero no sé si alguien pagaría por ella',
+      '¿Cómo sé si mi idea resuelve un dolor de verdad?',
+      '¿Qué construyo primero y qué dejo fuera?',
+      '¿Cómo consigo mis tres primeros clientes?',
+    ],
+  },
+  {
+    title: 'Productividad y energía para sostenerlo',
+    blurb:
+      'Qué hacer cuando no arrancas, cómo fijar objetivos que dependan de ti, y cómo recomprar tu tiempo.',
+    examples: [
+      'Sé lo que tengo que hacer y no arranco',
+      '¿Qué tareas debería dejar de hacer yo?',
+    ],
+  },
+];
+
+/**
+ * Shown under the list. The coach announces out loud when it is answering
+ * without material, but that notice arrives after the question — saying it here
+ * sets the expectation before someone spends a turn on it.
+ */
+export const OUT_OF_SCOPE_NOTE =
+  'Fuera de estos temas el coach te avisará de que no tiene material tuyo y responderá de conocimiento general.';

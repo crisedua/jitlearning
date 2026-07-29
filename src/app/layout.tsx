@@ -17,9 +17,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" className="text-sm text-gray-400 hover:text-white">
               Coach
             </Link>
-            <Link href="/knowledge" className="text-sm text-gray-400 hover:text-white">
-              Conocimiento
-            </Link>
+            {/*
+              No link to /knowledge. The route still works for whoever
+              administers the corpus — it asks for the ingest secret anyway — but
+              it is not part of the learner's navigation.
+            */}
           </nav>
         </header>
         <main className="mx-auto max-w-5xl px-6 py-10">{children}</main>

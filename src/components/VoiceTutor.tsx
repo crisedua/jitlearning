@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConversation } from '@elevenlabs/react';
 import { TUTORIALS, tutorialById } from '@/lib/tutorials';
+import { KnownTopics } from './KnownTopics';
 import { TutorialPanel } from './TutorialPanel';
 
 interface Turn {
@@ -130,102 +131,120 @@ export function VoiceTutor() {
 
   const shownTutorial = showing ? tutorialById(showing.id) : undefined;
 
-  return (
-    <div className="space-y-6">
-      <label className="block max-w-xl">
-        <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">
-          ¿Con qué te has atascado?
-        </span>
-        <input
-          value={objective}
-          onChange={(e) => setObjective(e.target.value)}
-          placeholder="revertir una versión que falló"
-          disabled={connected}
-          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
-        />
-      </label>
+  /**
+   * A tapped example means something different either side of the connection.
+   * Before the session it seeds the objective, which is what gets sent as
+   * context on connect; during the session there is nothing to seed, so it goes
+   * in as the learner's turn.
+   */
+  const pickExample = useCallback(
+    (question: string) => {
+      if (connected) sendUserMessage(question);
+      else setObjective(question);
+    },
+    [connected, sendUserMessage],
+  );
 
-      <div className="flex items-center gap-4">
-        {connected ? (
-          <button
-            onClick={() => void endSession()}
-            className="rounded-md bg-red-600 px-5 py-2.5 text-sm font-medium hover:bg-red-500"
-          >
-            Terminar sesión
-          </button>
-        ) : (
-          <button
-            onClick={() => void start()}
-            disabled={starting || status === 'connecting'}
-            className="rounded-md bg-[var(--color-accent)] px-5 py-2.5 text-sm font-medium disabled:opacity-50 hover:brightness-110"
-          >
-            {starting || status === 'connecting' ? 'Conectando…' : 'Empezar'}
-          </button>
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+      <div className="space-y-6">
+        <label className="block max-w-xl">
+          <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">
+            ¿Con qué te has atascado?
+          </span>
+          <input
+            value={objective}
+            onChange={(e) => setObjective(e.target.value)}
+            placeholder="revertir una versión que falló"
+            disabled={connected}
+            className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+          />
+        </label>
+
+        <div className="flex items-center gap-4">
+          {connected ? (
+            <button
+              onClick={() => void endSession()}
+              className="rounded-md bg-red-600 px-5 py-2.5 text-sm font-medium hover:bg-red-500"
+            >
+              Terminar sesión
+            </button>
+          ) : (
+            <button
+              onClick={() => void start()}
+              disabled={starting || status === 'connecting'}
+              className="rounded-md bg-[var(--color-accent)] px-5 py-2.5 text-sm font-medium disabled:opacity-50 hover:brightness-110"
+            >
+              {starting || status === 'connecting' ? 'Conectando…' : 'Empezar'}
+            </button>
+          )}
+
+          <span className="flex items-center gap-2 text-sm text-gray-400">
+            <span
+              aria-hidden
+              className={`h-2.5 w-2.5 rounded-full ${
+                connected
+                  ? isSpeaking
+                    ? 'animate-pulse bg-[var(--color-accent)]'
+                    : 'bg-emerald-500'
+                  : 'bg-gray-600'
+              }`}
+            />
+            {connected
+              ? isSpeaking
+                ? 'El coach está hablando'
+                : 'Escuchando'
+              : STATUS_ES[status] ?? status}
+          </span>
+        </div>
+
+        {error && (
+          <p className="rounded-md border border-red-900 bg-red-950/50 px-4 py-3 text-sm text-red-300">
+            {error}
+          </p>
         )}
 
-        <span className="flex items-center gap-2 text-sm text-gray-400">
-          <span
-            aria-hidden
-            className={`h-2.5 w-2.5 rounded-full ${
-              connected
-                ? isSpeaking
-                  ? 'animate-pulse bg-[var(--color-accent)]'
-                  : 'bg-emerald-500'
-                : 'bg-gray-600'
-            }`}
+        {shownTutorial && showing && (
+          <TutorialPanel
+            tutorial={shownTutorial}
+            step={showing.step}
+            onStep={(step) => setShowing({ id: shownTutorial.id, step })}
+            onClose={() => setShowing(null)}
           />
-          {connected
-            ? isSpeaking
-              ? 'El coach está hablando'
-              : 'Escuchando'
-            : STATUS_ES[status] ?? status}
-        </span>
+        )}
+
+        <section
+          ref={transcriptRef}
+          className="h-80 overflow-y-auto rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-4"
+        >
+          {turns.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              La transcripción aparecerá aquí cuando empiece la sesión.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {turns.map((turn, i) => (
+                <li key={i} className="text-sm">
+                  <span
+                    className={
+                      turn.role === 'user'
+                        ? 'font-medium text-gray-400'
+                        : 'font-medium text-[var(--color-accent)]'
+                    }
+                  >
+                    {turn.role === 'user' ? 'Tú' : 'Coach'}:{' '}
+                  </span>
+                  <span className="text-gray-200">{turn.text}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {connected && <TextFallback onSend={sendUserMessage} />}
       </div>
 
-      {error && (
-        <p className="rounded-md border border-red-900 bg-red-950/50 px-4 py-3 text-sm text-red-300">
-          {error}
-        </p>
-      )}
-
-      {shownTutorial && showing && (
-        <TutorialPanel
-          tutorial={shownTutorial}
-          step={showing.step}
-          onStep={(step) => setShowing({ id: shownTutorial.id, step })}
-          onClose={() => setShowing(null)}
-        />
-      )}
-
-      <section
-        ref={transcriptRef}
-        className="h-80 overflow-y-auto rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-4"
-      >
-        {turns.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            La transcripción aparecerá aquí cuando empiece la sesión.
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {turns.map((turn, i) => (
-              <li key={i} className="text-sm">
-                <span
-                  className={
-                    turn.role === 'user'
-                      ? 'font-medium text-gray-400'
-                      : 'font-medium text-[var(--color-accent)]'
-                  }
-                >
-                  {turn.role === 'user' ? 'Tú' : 'Coach'}:{' '}
-                </span>
-                <span className="text-gray-200">{turn.text}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {connected && <TextFallback onSend={sendUserMessage} />}
+      <KnownTopics onPick={pickExample} connected={connected} />
     </div>
   );
 }
