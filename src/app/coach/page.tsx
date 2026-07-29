@@ -24,8 +24,8 @@ export default function CoachPage() {
           ¿En qué te has atascado?
         </h1>
         <p className="mt-3 max-w-2xl text-[17px] leading-relaxed text-muted">
-          Habla con el coach sobre lo que te está bloqueando ahora mismo. Responde con tu
-          propio material, no con generalidades, y te avisa cuando no lo tiene.
+          Habla con el coach sobre lo que te está bloqueando ahora mismo. Responde apoyándose
+          en su base de conocimiento, no en generalidades, y te avisa cuando no tiene material.
         </p>
       </header>
 

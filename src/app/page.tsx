@@ -48,7 +48,7 @@ export default function HomePage() {
           </h1>
 
           <p className="animate-rise mt-7 max-w-[48ch] text-[19px] leading-[1.58] text-body [animation-delay:400ms]">
-            Un coach de voz al que le cuentas en qué estás atascado y te desbloquea. Sin
+            Un tutor experto por voz. Le cuentas en qué estás atascado y te desbloquea: sin
             temario, sin buscar en diez pestañas, y sin inventarse lo que no sabe.
           </p>
 
@@ -66,7 +66,7 @@ export default function HomePage() {
               href="#temas"
               className="inline-flex items-center rounded-full border border-line-strong bg-surface px-6 py-4 text-[17px] font-medium text-ink transition duration-200 ease-out hover:-translate-y-0.5 hover:border-accent"
             >
-              Ver de qué sabe
+              Ver qué temas domina
             </a>
           </div>
 
@@ -88,7 +88,7 @@ export default function HomePage() {
           Qué hace
         </p>
         <h2 className="reveal mt-4 max-w-[22ch] font-serif text-[clamp(2rem,4.5vw,3.25rem)] font-normal leading-[1.08] tracking-[-0.02em]">
-          Un colega con experiencia, no un buscador
+          Un tutor experto, no una respuesta genérica
         </h2>
 
         <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -115,7 +115,7 @@ export default function HomePage() {
             Temas
           </p>
           <h2 className="reveal mt-4 max-w-[24ch] font-serif text-[clamp(2rem,4.5vw,3.25rem)] font-normal leading-[1.08] tracking-[-0.02em]">
-            De lo que sí tiene material
+            Los temas que domina
           </h2>
           <p className="mt-4 max-w-[56ch] text-[17px] leading-relaxed text-muted">
             Si preguntas algo fuera de estas áreas, te lo dirá antes de contestar y responderá
@@ -177,7 +177,7 @@ export default function HomePage() {
               Cómo funciona
             </p>
             <h2 className="reveal mt-4 font-serif text-[clamp(2rem,4.5vw,3rem)] font-normal leading-[1.08] tracking-[-0.02em]">
-              Tres minutos, no tres semanas
+              De atascado a desbloqueado, en una conversación
             </h2>
           </div>
 

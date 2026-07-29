@@ -42,12 +42,12 @@ export const hasContact = Boolean(PROFILE.email || PROFILE.bookingUrl);
 export const CAPABILITIES = [
   {
     title: 'Responde a lo que te bloquea ahora',
-    body: 'No es un curso ni un temario. Le cuentas en qué estás atascado y te da la parte que te desbloquea, en la mitad del tiempo que tardarías en buscarlo.',
+    body: 'No es un curso ni un temario. Le cuentas en qué estás atascado y te da exactamente la parte que te desbloquea, sin empezar por los fundamentos que no pediste.',
     icon: 'bolt',
   },
   {
-    title: 'Habla desde tu material, no de oídas',
-    body: 'Responde apoyándose en documentos concretos de la base de conocimiento. Y cuando no tiene material sobre algo, te lo dice antes de responder en vez de improvisar con la misma seguridad.',
+    title: 'Responde con fuentes, no de oídas',
+    body: 'Se apoya en documentos concretos de su base de conocimiento y te dice en cuál. Cuando no tiene material sobre algo, lo dice antes de responder en vez de improvisar con la misma seguridad.',
     icon: 'book',
   },
   {
