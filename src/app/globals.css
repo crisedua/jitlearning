@@ -1,15 +1,119 @@
 @import 'tailwindcss';
 
+/**
+ * Design tokens — the "Mist" palette: cool, light, calm.
+ *
+ * Everything downstream uses these names, never raw hex. The backgrounds are
+ * light and the text is a deep navy rather than pure black, which is what keeps
+ * a light interface from reading as harsh.
+ *
+ * Tailwind v4 generates utilities straight from these names, so `--color-muted`
+ * gives `text-muted`, `--radius-md` gives `rounded-md`, and so on.
+ */
 @theme {
-  --color-ink: #0d1117;
-  --color-surface: #151b23;
-  --color-line: #232c37;
-  --color-accent: #5b8cff;
+  /* Surfaces */
+  --color-bg: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-surface-alt: #ebf0f6;
+  --color-line: #dce3ec;
+  --color-line-strong: #c2ccda;
+  /*
+   * Form-control boundary. WCAG 1.4.11 wants 3:1 for the edge that identifies a
+   * control, which `line` (1.29:1 on white) does not reach — fine for a card
+   * edge or a divider, not for the thing that tells you where the input is.
+   */
+  --color-field: #8796ab;
+
+  /*
+   * Text. Deep navy family — never #000.
+   *
+   * Two tiers, not three. A third, lighter tier cannot reach 4.5:1 on these
+   * surfaces without collapsing into `muted`, so hierarchy below `muted` is
+   * carried by size and weight instead of by a paler colour. `subtle` is for
+   * decoration only — icons and marks that are aria-hidden — never for text.
+   */
+  --color-ink: #1a2332;
+  --color-muted: #5a6b82;
+  --color-subtle: #7c8aa0;
+
+  /* Accent */
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-soft: #dbeafe;
+
+  /* Status. Paired with an icon or word everywhere — never colour alone. */
+  --color-success: #15803d;
+  --color-success-soft: #dcfce7;
+  --color-warning: #b45309;
+  --color-warning-soft: #fef3c7;
+  --color-danger: #b91c1c;
+  --color-danger-soft: #fee2e2;
+
+  --font-sans: var(--font-manrope), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+
+  --shadow-sm: 0 1px 2px rgba(20, 25, 35, 0.04), 0 1px 3px rgba(20, 25, 35, 0.06);
+  --shadow-md: 0 4px 12px rgba(20, 25, 35, 0.06), 0 2px 6px rgba(20, 25, 35, 0.04);
+  --shadow-lg: 0 12px 32px rgba(20, 25, 35, 0.08), 0 4px 12px rgba(20, 25, 35, 0.04);
+
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 html,
 body {
-  background: var(--color-ink);
-  color: #e6edf3;
+  background: var(--color-bg);
+  color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * A visible focus ring on everything interactive. The default outline is
+ * invisible against a light surface, and removing it without replacement is the
+ * most common way a polished-looking page becomes unusable by keyboard.
+ */
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Scrollbars inside cards, so the transcript doesn't get a heavy native bar. */
+@supports (scrollbar-width: thin) {
+  .scroll-soft {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+}
+
+/*
+ * Entrance for transcript turns and panels. Small and quick — the point is to
+ * show that something arrived, not to make the reader wait for it.
+ */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-rise {
+  animation: rise 220ms var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

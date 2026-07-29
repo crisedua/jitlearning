@@ -17,7 +17,7 @@ interface Turn {
  * should look untranslated, not missing.
  */
 const STATUS_ES: Record<string, string> = {
-  disconnected: 'Desconectado',
+  disconnected: 'Sin conectar',
   connecting: 'Conectando…',
   connected: 'Conectado',
   disconnecting: 'Desconectando…',
@@ -146,61 +146,61 @@ export function VoiceTutor() {
   );
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_24rem] xl:gap-8">
       <div className="space-y-6">
-        <label className="block max-w-xl">
-          <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">
-            ¿Con qué te has atascado?
-          </span>
-          <input
-            value={objective}
-            onChange={(e) => setObjective(e.target.value)}
-            placeholder="revertir una versión que falló"
-            disabled={connected}
-            className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
-          />
-        </label>
-
-        <div className="flex items-center gap-4">
-          {connected ? (
-            <button
-              onClick={() => void endSession()}
-              className="rounded-md bg-red-600 px-5 py-2.5 text-sm font-medium hover:bg-red-500"
-            >
-              Terminar sesión
-            </button>
-          ) : (
-            <button
-              onClick={() => void start()}
-              disabled={starting || status === 'connecting'}
-              className="rounded-md bg-[var(--color-accent)] px-5 py-2.5 text-sm font-medium disabled:opacity-50 hover:brightness-110"
-            >
-              {starting || status === 'connecting' ? 'Conectando…' : 'Empezar'}
-            </button>
-          )}
-
-          <span className="flex items-center gap-2 text-sm text-gray-400">
-            <span
-              aria-hidden
-              className={`h-2.5 w-2.5 rounded-full ${
-                connected
-                  ? isSpeaking
-                    ? 'animate-pulse bg-[var(--color-accent)]'
-                    : 'bg-emerald-500'
-                  : 'bg-gray-600'
-              }`}
+        {/* Session controls */}
+        <section className="rounded-lg border border-line bg-surface p-5 shadow-sm sm:p-6">
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-muted">
+              Tu objetivo de hoy
+            </span>
+            <input
+              value={objective}
+              onChange={(e) => setObjective(e.target.value)}
+              placeholder="revertir una versión que falló"
+              disabled={connected}
+              className="w-full max-w-xl rounded-md border border-field bg-surface px-3.5 py-2.5 text-[15px] text-ink transition-colors duration-150 ease-out placeholder:text-muted hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft disabled:bg-surface-alt disabled:text-muted"
             />
-            {connected
-              ? isSpeaking
-                ? 'El coach está hablando'
-                : 'Escuchando'
-              : STATUS_ES[status] ?? status}
-          </span>
-        </div>
+          </label>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            {connected ? (
+              <button
+                onClick={() => void endSession()}
+                className="rounded-md bg-danger px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-150 ease-out hover:brightness-110"
+              >
+                Terminar sesión
+              </button>
+            ) : (
+              <button
+                onClick={() => void start()}
+                disabled={starting || status === 'connecting'}
+                className="rounded-md bg-accent px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-150 ease-out hover:-translate-y-px hover:bg-accent-hover hover:shadow-md disabled:translate-y-0 disabled:opacity-55 disabled:shadow-sm"
+              >
+                {starting || status === 'connecting' ? 'Conectando…' : 'Empezar a hablar'}
+              </button>
+            )}
+
+            <StatusPill connected={connected} isSpeaking={isSpeaking} status={status} />
+          </div>
+
+          {!connected && (
+            <p className="mt-3 text-xs text-muted">
+              Se pedirá permiso para usar el micrófono. Si prefieres escribir, puedes
+              hacerlo una vez empezada la sesión.
+            </p>
+          )}
+        </section>
 
         {error && (
-          <p className="rounded-md border border-red-900 bg-red-950/50 px-4 py-3 text-sm text-red-300">
-            {error}
+          <p
+            role="alert"
+            className="flex items-start gap-2.5 rounded-md border border-danger/25 bg-danger-soft/60 px-4 py-3 text-sm text-danger"
+          >
+            <span aria-hidden className="mt-px font-semibold">
+              !
+            </span>
+            <span className="text-ink/85">{error}</span>
           </p>
         )}
 
@@ -213,39 +213,129 @@ export function VoiceTutor() {
           />
         )}
 
-        <section
-          ref={transcriptRef}
-          className="h-80 overflow-y-auto rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-4"
-        >
-          {turns.length === 0 ? (
-            <p className="text-sm text-gray-500">
-              La transcripción aparecerá aquí cuando empiece la sesión.
-            </p>
-          ) : (
-            <ul className="space-y-3">
-              {turns.map((turn, i) => (
-                <li key={i} className="text-sm">
-                  <span
-                    className={
-                      turn.role === 'user'
-                        ? 'font-medium text-gray-400'
-                        : 'font-medium text-[var(--color-accent)]'
-                    }
-                  >
-                    {turn.role === 'user' ? 'Tú' : 'Coach'}:{' '}
-                  </span>
-                  <span className="text-gray-200">{turn.text}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <Transcript turns={turns} scrollRef={transcriptRef} />
 
         {connected && <TextFallback onSend={sendUserMessage} />}
       </div>
 
       <KnownTopics onPick={pickExample} connected={connected} />
     </div>
+  );
+}
+
+/**
+ * Connection state, said in words as well as colour.
+ *
+ * The dot alone would encode the whole state in hue, which is exactly the thing
+ * a colour-blind learner cannot read.
+ */
+function StatusPill({
+  connected,
+  isSpeaking,
+  status,
+}: {
+  connected: boolean;
+  isSpeaking: boolean;
+  status: string;
+}) {
+  const label = connected
+    ? isSpeaking
+      ? 'El coach está hablando'
+      : 'Te escucha'
+    : STATUS_ES[status] ?? status;
+
+  return (
+    <span
+      aria-live="polite"
+      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${
+        connected
+          ? 'border-success/25 bg-success-soft/70 text-success'
+          : 'border-line bg-surface-alt text-muted'
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`h-2 w-2 rounded-full ${
+          connected ? (isSpeaking ? 'animate-pulse bg-accent' : 'bg-success') : 'bg-subtle'
+        }`}
+      />
+      {label}
+    </span>
+  );
+}
+
+/** The conversation so far, as chat rows. */
+function Transcript({
+  turns,
+  scrollRef,
+}: {
+  turns: Turn[];
+  scrollRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <section
+      aria-label="Transcripción de la conversación"
+      ref={scrollRef}
+      className={`scroll-soft overflow-y-auto rounded-lg border border-line bg-surface-alt/60 p-4 transition-[height] duration-300 ease-out sm:p-5 ${
+        // Empty, this box is just a hole in the page. It earns its height once
+        // there is something in it.
+        turns.length === 0 ? 'h-56' : 'h-96 xl:h-[32rem]'
+      }`}
+    >
+      {turns.length === 0 ? (
+        <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+          <span
+            aria-hidden
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-soft text-accent ring-4 ring-surface"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-5 w-5"
+            >
+              <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z" />
+              <path d="M5 11a7 7 0 0 0 14 0" />
+              <path d="M12 18v3" />
+            </svg>
+          </span>
+          <p className="text-sm font-medium text-muted">Aquí aparecerá la conversación</p>
+          <p className="max-w-xs text-xs leading-relaxed text-muted">
+            Empieza la sesión y cuéntale en qué estás trabajando. Puedes interrumpirle
+            cuando quieras.
+          </p>
+        </div>
+      ) : (
+        <ul className="mx-auto max-w-3xl space-y-3">
+          {turns.map((turn, i) => (
+            <li
+              key={i}
+              className={`animate-rise flex ${turn.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div
+                className={`max-w-[85%] rounded-lg px-4 py-2.5 text-sm leading-relaxed ${
+                  turn.role === 'user'
+                    ? 'bg-accent text-white'
+                    : 'border border-line bg-surface text-ink shadow-sm'
+                }`}
+              >
+                <span
+                  className={`mb-0.5 block text-[11px] font-semibold uppercase tracking-[0.06em] ${
+                    turn.role === 'user' ? 'text-white/75' : 'text-accent'
+                  }`}
+                >
+                  {turn.role === 'user' ? 'Tú' : 'Coach'}
+                </span>
+                {turn.text}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -263,13 +353,17 @@ function TextFallback({ onSend }: { onSend: (text: string) => void }) {
       }}
       className="flex gap-2"
     >
+      <label className="sr-only" htmlFor="fallback">
+        Escribe tu pregunta
+      </label>
       <input
+        id="fallback"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="O escribe tu pregunta…"
-        className="flex-1 rounded-md border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+        className="flex-1 rounded-md border border-field bg-surface px-3.5 py-2.5 text-sm text-ink transition-colors duration-150 ease-out placeholder:text-muted hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft"
       />
-      <button className="rounded-md border border-[var(--color-line)] px-4 py-2 text-sm hover:border-gray-500">
+      <button className="rounded-md border border-line bg-surface px-5 py-2.5 text-sm font-semibold text-ink shadow-sm transition duration-150 ease-out hover:border-line-strong hover:shadow-md">
         Enviar
       </button>
     </form>

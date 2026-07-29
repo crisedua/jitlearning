@@ -178,19 +178,20 @@ export function KnowledgeManager() {
 
   if (!secret) {
     return (
-      <div className="max-w-md space-y-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-5">
-        <p className="text-sm text-gray-300">
+      <div className="max-w-md space-y-3 rounded-lg border border-line bg-surface p-5 shadow-sm">
+        <p className="text-sm text-ink">
           Introduce el secreto de ingesta para gestionar la base de conocimiento.
         </p>
         <input
           type="password"
           onChange={(e) => saveSecret(e.target.value.trim())}
+          aria-label="Secreto de ingesta"
           placeholder="INGEST_SECRET"
-          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-ink)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+          className="w-full rounded-md border border-field bg-surface px-3.5 py-2.5 font-mono text-sm text-ink transition-colors duration-150 ease-out placeholder:text-muted hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft"
         />
-        <p className="text-xs text-gray-500">
+        <p className="text-xs leading-relaxed text-muted">
           Se guarda solo en esta pestaña. Es el mismo valor que la variable de entorno{' '}
-          <code>INGEST_SECRET</code>.
+          <code className="font-mono">INGEST_SECRET</code>.
         </p>
       </div>
     );
@@ -200,7 +201,7 @@ export function KnowledgeManager() {
     <div className="space-y-8">
       <form
         onSubmit={upload}
-        className="space-y-4 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-5"
+        className="space-y-4 rounded-lg border border-line bg-surface p-5 shadow-sm sm:p-6"
       >
         <div className="flex gap-2">
           {(['file', 'url', 'text'] as Mode[]).map((m) => (
@@ -208,10 +209,11 @@ export function KnowledgeManager() {
               key={m}
               type="button"
               onClick={() => setMode(m)}
-              className={`rounded-md px-3 py-1.5 text-sm ${
+              aria-pressed={mode === m}
+              className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition duration-150 ease-out ${
                 mode === m
-                  ? 'bg-[var(--color-accent)] text-white'
-                  : 'border border-[var(--color-line)] text-gray-400 hover:text-white'
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'border border-line text-muted hover:border-line-strong hover:text-ink'
               }`}
             >
               {MODE_LABEL[m]}
@@ -223,16 +225,18 @@ export function KnowledgeManager() {
           <input
             ref={fileRef}
             type="file"
+            aria-label="Archivo a subir"
             accept=".pdf,.txt,.md,.docx,.html,.epub"
-            className="w-full text-sm text-gray-300 file:mr-3 file:rounded-md file:border-0 file:bg-[var(--color-line)] file:px-3 file:py-2 file:text-sm file:text-white"
+            className="w-full text-sm text-muted file:mr-3 file:rounded-md file:border-0 file:bg-surface-alt file:px-3.5 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-accent-soft"
           />
         )}
         {mode === 'url' && (
           <input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
+            aria-label="Enlace del que extraer el contenido"
             placeholder="https://docs.internal/runbook"
-            className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-ink)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+            className="w-full rounded-md border border-field bg-surface px-3.5 py-2.5 text-sm text-ink transition-colors duration-150 ease-out placeholder:text-muted hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft"
           />
         )}
         {mode === 'text' && (
@@ -240,38 +244,40 @@ export function KnowledgeManager() {
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={6}
+            aria-label="Texto a indexar"
             placeholder="Pega notas, una transcripción, un manual…"
-            className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-ink)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+            className="w-full rounded-md border border-field bg-surface px-3.5 py-2.5 text-sm leading-relaxed text-ink transition-colors duration-150 ease-out placeholder:text-muted hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft"
           />
         )}
 
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
+          aria-label="Nombre visible del documento (opcional)"
           placeholder="Nombre visible (opcional)"
-          className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-ink)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+          className="w-full rounded-md border border-field bg-surface px-3.5 py-2.5 text-sm text-ink transition-colors duration-150 ease-out placeholder:text-muted hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft"
         />
 
-        <label className="flex items-start gap-2 text-sm text-gray-400">
+        <label className="flex items-start gap-2.5 text-sm text-ink">
           <input
             type="checkbox"
             checked={pinned}
             onChange={(e) => setPinned(e.target.checked)}
-            className="mt-1"
+            className="mt-1 accent-[var(--color-accent)]"
           />
           <span>
             Siempre en contexto (omite RAG).
-            <span className="block text-xs text-gray-500">
+            <span className="mt-0.5 block text-xs leading-relaxed text-muted">
               Úsalo solo para material corto y siempre relevante: consume tokens en cada
               turno.
             </span>
           </span>
         </label>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             disabled={busy}
-            className="rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium disabled:opacity-50 hover:brightness-110"
+            className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-150 ease-out hover:-translate-y-px hover:bg-accent-hover hover:shadow-md disabled:translate-y-0 disabled:opacity-55 disabled:shadow-sm"
           >
             {busy ? 'Trabajando…' : 'Añadir a la base de conocimiento'}
           </button>
@@ -279,35 +285,49 @@ export function KnowledgeManager() {
             type="button"
             onClick={() => void sync()}
             disabled={busy}
-            className="rounded-md border border-[var(--color-line)] px-4 py-2 text-sm text-gray-300 disabled:opacity-50 hover:border-gray-500"
+            className="rounded-md border border-line bg-surface px-5 py-2.5 text-sm font-semibold text-ink shadow-sm transition duration-150 ease-out hover:border-line-strong hover:shadow-md disabled:opacity-55"
           >
             Resincronizar coach
           </button>
         </div>
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        {notice && <p className="text-sm text-emerald-400">{notice}</p>}
+        {error && (
+          <p
+            role="alert"
+            className="rounded-md border border-danger/25 bg-danger-soft/60 px-3.5 py-2.5 text-sm text-danger"
+          >
+            {error}
+          </p>
+        )}
+        {notice && (
+          <p className="rounded-md border border-success/25 bg-success-soft/60 px-3.5 py-2.5 text-sm text-success">
+            {notice}
+          </p>
+        )}
       </form>
 
       <section>
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-gray-500">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-muted">
           Documentos ({docs.length})
         </h2>
         {docs.length === 0 ? (
-          <p className="text-sm text-gray-500">
+          <p className="rounded-lg border border-dashed border-line bg-surface px-4 py-6 text-center text-sm text-muted">
             Todavía no hay nada. El coach responderá desde conocimiento general hasta que
             añadas material.
           </p>
         ) : (
-          <ul className="divide-y divide-[var(--color-line)] rounded-lg border border-[var(--color-line)]">
+          <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface shadow-sm">
             {docs.map((d) => {
               const inFlight = IN_FLIGHT_STATUSES.includes(d.indexStatus);
               const failed = !d.ready && !inFlight;
               return (
-                <li key={d.id} className="flex items-center gap-4 px-4 py-3">
+                <li
+                  key={d.id}
+                  className="flex items-center gap-4 px-4 py-3 transition-colors duration-150 ease-out hover:bg-surface-alt/50"
+                >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-gray-200">{d.name}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="truncate text-sm font-medium text-ink">{d.name}</p>
+                    <p className="text-xs text-muted">
                       {d.type}
                       {d.usageMode === 'prompt' && ' · fijado al prompt'}
                       {d.ready && !d.attached && ' · listo, sin adjuntar'}
@@ -315,12 +335,12 @@ export function KnowledgeManager() {
                     </p>
                   </div>
                   <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs ${
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
                       d.ready
-                        ? 'bg-emerald-950 text-emerald-400'
+                        ? 'bg-success-soft text-success'
                         : failed
-                          ? 'bg-red-950 text-red-400'
-                          : 'bg-amber-950 text-amber-400'
+                          ? 'bg-danger-soft text-danger'
+                          : 'bg-warning-soft text-warning'
                     }`}
                   >
                     {d.usageMode === 'prompt' ? 'Fijado' : STATUS_LABEL[d.indexStatus]}
@@ -328,14 +348,14 @@ export function KnowledgeManager() {
                   {failed && (
                     <button
                       onClick={() => void retry(d.id)}
-                      className="shrink-0 text-xs text-gray-400 hover:text-white"
+                      className="shrink-0 rounded-sm text-xs font-medium text-accent hover:text-accent-hover"
                     >
                       Reintentar
                     </button>
                   )}
                   <button
                     onClick={() => void remove(d.id)}
-                    className="shrink-0 text-xs text-gray-500 hover:text-red-400"
+                    className="shrink-0 rounded-sm text-xs font-medium text-muted hover:text-danger"
                   >
                     Eliminar
                   </button>

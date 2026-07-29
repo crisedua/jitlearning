@@ -21,37 +21,47 @@ export function KnownTopics({
   connected: boolean;
 }) {
   return (
-    <aside className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-4">
-      <h2 className="text-sm font-semibold tracking-tight">Sobre esto puedes preguntar</h2>
-      <p className="mt-1 text-xs text-gray-500">
-        {connected ? 'Toca un ejemplo para enviarlo.' : 'Toca un ejemplo para empezar por ahí.'}
-      </p>
+    <aside className="overflow-hidden rounded-lg border border-line bg-surface shadow-sm lg:sticky lg:top-20">
+      <div className="border-b border-line bg-surface-alt/60 px-5 py-4">
+        <h2 className="text-sm font-semibold tracking-tight">Sobre esto puedes preguntar</h2>
+        <p className="mt-1 text-xs leading-relaxed text-muted">
+          {connected
+            ? 'Toca un ejemplo para enviarlo a la conversación.'
+            : 'Toca un ejemplo para empezar por ahí.'}
+        </p>
+      </div>
 
-      <ul className="mt-4 space-y-5">
+      <ul className="divide-y divide-line">
         {TOPICS.map((topic) => (
-          <li key={topic.title}>
-            <h3 className="flex items-center gap-2 text-sm font-medium text-gray-200">
+          <li key={topic.title} className="px-5 py-4">
+            <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-ink">
               {topic.title}
               {topic.illustrated && (
                 <span
                   title="El coach puede mostrar un tutorial ilustrado en pantalla"
-                  className="rounded-full border border-[var(--color-line)] px-1.5 py-0.5 text-[10px] font-normal text-gray-500"
+                  className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-accent-hover"
                 >
                   con pantalla
                 </span>
               )}
             </h3>
-            <p className="mt-0.5 text-xs leading-relaxed text-gray-500">{topic.blurb}</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted">{topic.blurb}</p>
 
-            <ul className="mt-2 space-y-1">
+            <ul className="mt-2.5 space-y-1">
               {topic.examples.map((example) => (
                 <li key={example}>
                   <button
                     type="button"
                     onClick={() => onPick(example)}
-                    className="w-full rounded px-2 py-1 text-left text-xs leading-relaxed text-gray-400 hover:bg-white/5 hover:text-gray-200"
+                    className="group flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-xs leading-relaxed text-muted transition-colors duration-150 ease-out hover:bg-accent-soft/50 hover:text-accent-hover"
                   >
-                    {example}
+                    <span
+                      aria-hidden
+                      className="mt-px text-muted transition-colors duration-150 ease-out group-hover:text-accent"
+                    >
+                      →
+                    </span>
+                    <span className="min-w-0">{example}</span>
                   </button>
                 </li>
               ))}
@@ -60,7 +70,7 @@ export function KnownTopics({
         ))}
       </ul>
 
-      <p className="mt-5 border-t border-[var(--color-line)] pt-3 text-xs leading-relaxed text-gray-500">
+      <p className="border-t border-line bg-surface-alt/60 px-5 py-3.5 text-xs leading-relaxed text-muted">
         {OUT_OF_SCOPE_NOTE}
       </p>
     </aside>

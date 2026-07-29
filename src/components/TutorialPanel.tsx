@@ -36,19 +36,19 @@ export function TutorialPanel({
   return (
     <section
       aria-label={`Tutorial: ${tutorial.title}`}
-      className="overflow-hidden rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)]"
+      className="animate-rise overflow-hidden rounded-lg border border-line bg-surface shadow-md"
     >
-      <header className="flex items-start gap-4 border-b border-[var(--color-line)] px-5 py-4">
+      <header className="flex items-start gap-4 border-b border-line bg-surface-alt/60 px-5 py-4">
         <div className="min-w-0 flex-1">
-          <p className="text-xs uppercase tracking-wide text-[var(--color-accent)]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-accent">
             {tutorial.product}
           </p>
-          <h2 className="mt-0.5 text-sm font-medium text-gray-100">{tutorial.title}</h2>
+          <h2 className="mt-1 text-sm font-semibold text-ink">{tutorial.title}</h2>
         </div>
         <button
           onClick={onClose}
           aria-label="Cerrar el tutorial"
-          className="shrink-0 rounded-md border border-[var(--color-line)] px-2.5 py-1 text-xs text-gray-400 hover:border-gray-500 hover:text-white"
+          className="shrink-0 rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-muted shadow-sm transition duration-150 ease-out hover:border-line-strong hover:text-ink"
         >
           Cerrar
         </button>
@@ -56,7 +56,7 @@ export function TutorialPanel({
 
       <div className="grid gap-0 md:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
         {/* Step rail */}
-        <ol className="max-h-[26rem] overflow-y-auto border-b border-[var(--color-line)] md:border-b-0 md:border-r">
+        <ol className="scroll-soft max-h-[26rem] overflow-y-auto border-b border-line md:border-b-0 md:border-r">
           {tutorial.steps.map((s, i) => {
             const active = i === step;
             return (
@@ -67,18 +67,18 @@ export function TutorialPanel({
                   }}
                   onClick={() => onStep(i)}
                   aria-current={active ? 'step' : undefined}
-                  className={`flex w-full items-start gap-3 px-4 py-3 text-left text-sm transition ${
+                  className={`flex w-full items-start gap-3 px-4 py-3 text-left text-sm transition-colors duration-150 ease-out ${
                     active
-                      ? 'bg-[var(--color-accent)]/10 text-gray-100'
-                      : 'text-gray-400 hover:bg-white/[0.03] hover:text-gray-200'
+                      ? 'bg-accent-soft/60 font-medium text-ink'
+                      : 'text-muted hover:bg-surface-alt/70 hover:text-ink'
                   }`}
                 >
                   <span
                     aria-hidden
-                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs ${
+                    className={`mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
                       active
-                        ? 'bg-[var(--color-accent)] text-white'
-                        : 'border border-[var(--color-line)] text-gray-500'
+                        ? 'bg-accent text-white'
+                        : 'border border-line-strong text-muted'
                     }`}
                   >
                     {i + 1}
@@ -96,19 +96,21 @@ export function TutorialPanel({
             <img
               src={figureUrl}
               alt={`Esquema del paso ${step + 1}: ${current.title}`}
-              className="w-full rounded-md border border-[var(--color-line)]"
+              className="w-full rounded-md border border-line bg-surface-alt/40"
             />
           )}
 
           <div>
-            <h3 className="text-sm font-medium text-gray-100">
+            <h3 className="text-sm font-semibold text-ink">
               Paso {step + 1} de {tutorial.steps.length} · {current.title}
             </h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-gray-300">{current.detail}</p>
+            <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-muted">
+              {current.detail}
+            </p>
           </div>
 
           {current.note && (
-            <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-md border border-[var(--color-line)] bg-[var(--color-ink)] px-3 py-2.5 font-mono text-xs text-gray-300">
+            <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-md border border-line bg-surface-alt/70 px-3.5 py-3 font-mono text-xs leading-relaxed text-ink">
               {current.note}
             </pre>
           )}
@@ -117,14 +119,14 @@ export function TutorialPanel({
             <button
               onClick={() => onStep(Math.max(0, step - 1))}
               disabled={step === 0}
-              className="rounded-md border border-[var(--color-line)] px-3 py-1.5 text-xs text-gray-300 disabled:opacity-40 hover:border-gray-500"
+              className="rounded-md border border-line bg-surface px-3.5 py-1.5 text-xs font-medium text-ink shadow-sm transition duration-150 ease-out hover:border-line-strong disabled:opacity-40 disabled:shadow-none"
             >
               Anterior
             </button>
             <button
               onClick={() => onStep(Math.min(tutorial.steps.length - 1, step + 1))}
               disabled={step === tutorial.steps.length - 1}
-              className="rounded-md border border-[var(--color-line)] px-3 py-1.5 text-xs text-gray-300 disabled:opacity-40 hover:border-gray-500"
+              className="rounded-md border border-line bg-surface px-3.5 py-1.5 text-xs font-medium text-ink shadow-sm transition duration-150 ease-out hover:border-line-strong disabled:opacity-40 disabled:shadow-none"
             >
               Siguiente
             </button>
@@ -132,19 +134,19 @@ export function TutorialPanel({
         </div>
       </div>
 
-      <footer className="space-y-1 border-t border-[var(--color-line)] px-5 py-3">
-        <p className="text-xs text-gray-500">
-          Requisitos: <span className="text-gray-400">{tutorial.requires}</span>
+      <footer className="space-y-1 border-t border-line bg-surface-alt/60 px-5 py-3.5">
+        <p className="text-xs text-muted">
+          Requisitos: <span className="text-ink/75">{tutorial.requires}</span>
         </p>
         {/*
           Said plainly and permanently. These are drawn diagrams, not captures of
           the real product, and a learner comparing them against their own screen
           needs to know that before they conclude they're on the wrong version.
         */}
-        <p className="text-xs text-gray-500">
-          Las imágenes son esquemas dibujados, no capturas reales. Pasos contrastados
-          con la documentación oficial el {tutorial.checkedOn}; las interfaces cambian
-          sin aviso.
+        <p className="text-xs leading-relaxed text-muted">
+          Las imágenes son esquemas dibujados, no capturas reales. Pasos contrastados con
+          la documentación oficial el {tutorial.checkedOn}; las interfaces cambian sin
+          aviso.
         </p>
       </footer>
     </section>
