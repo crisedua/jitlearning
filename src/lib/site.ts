@@ -60,15 +60,15 @@ export const CAPABILITIES = [
 /** How a session actually goes, so nobody has to guess before clicking. */
 export const STEPS = [
   {
-    title: 'Dices dónde te atascaste',
-    body: 'Escribes tu objetivo en una línea y empiezas. Necesita permiso del micrófono; también puedes escribir.',
+    title: 'Abres el navegador y hablas',
+    body: 'Nada que instalar. Le cuentas el problema como se lo contarías a un colega en el pasillo. Pide permiso del micrófono; si prefieres, escribe.',
   },
   {
-    title: 'Hablas como con un colega',
-    body: 'Preguntas, te responde, le interrumpes. Sin turnos formales ni menús.',
+    title: 'Busca en su base, no en internet',
+    body: 'Recupera el fragmento que aplica a tu caso y te dice de dónde sale. Si no tiene material sobre eso, lo dice antes de responder.',
   },
   {
-    title: 'Sales con la tarea desbloqueada',
-    body: 'Comprueba que lo entendiste pidiéndote que lo apliques a tu caso, no que repitas una definición.',
+    title: 'Sales con el siguiente paso',
+    body: 'Antes de terminar comprueba que lo entendiste pidiéndote que lo apliques a tu caso, no que repitas una definición.',
   },
 ] as const;

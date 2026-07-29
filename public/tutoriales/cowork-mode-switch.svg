@@ -1,39 +1,39 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img"
      aria-label="Esquema del cuadro de mensaje de Claude con el selector de modo: Chat sin seleccionar y Cowork seleccionado.">
   <style>
-    .s{fill:#ffffff}.t{fill:#1a2332;font:13px system-ui,sans-serif}
-    .m{fill:#5a6b82;font:12px system-ui,sans-serif}
-    .k{fill:#2563eb;font:600 13px system-ui,sans-serif}
-    .tag{fill:#2563eb;font:600 10px system-ui,sans-serif;letter-spacing:.08em}
-    .h{fill:#1a2332;font:600 15px system-ui,sans-serif}
-    .bar{fill:#dce3ec}
+    .s{fill:#ffffff}.t{fill:#14130f;font:13px system-ui,sans-serif}
+    .m{fill:#57544b;font:12px system-ui,sans-serif}
+    .k{fill:#2b4e7e;font:600 13px system-ui,sans-serif}
+    .tag{fill:#2b4e7e;font:600 10px system-ui,sans-serif;letter-spacing:.08em}
+    .h{fill:#14130f;font:600 15px system-ui,sans-serif}
+    .bar{fill:#e5e0d4}
   </style>
-  <rect x="1" y="1" width="638" height="358" rx="10" class="s" stroke="#dce3ec"/>
+  <rect x="1" y="1" width="638" height="358" rx="10" class="s" stroke="#e5e0d4"/>
   <text x="16" y="24" class="tag">ESQUEMA</text>
 
   <text x="24" y="64" class="h">El mismo cuadro de mensaje. Solo cambia el modo.</text>
 
   <!-- message box -->
-  <rect x="24" y="92" width="592" height="150" rx="14" fill="#f5f7fa" stroke="#2563eb"/>
+  <rect x="24" y="92" width="592" height="150" rx="14" fill="#faf8f3" stroke="#2b4e7e"/>
   <text x="48" y="132" class="m">Describe la tarea…</text>
 
   <!-- mode toggle -->
-  <rect x="44" y="182" width="200" height="38" rx="19" class="s" stroke="#dce3ec"/>
+  <rect x="44" y="182" width="200" height="38" rx="19" class="s" stroke="#e5e0d4"/>
   <rect x="46" y="184" width="96" height="34" rx="17" fill="none"/>
   <text x="72" y="206" class="m">Chat</text>
-  <rect x="146" y="184" width="96" height="34" rx="17" fill="#2563eb" fill-opacity=".18" stroke="#2563eb"/>
+  <rect x="146" y="184" width="96" height="34" rx="17" fill="#2b4e7e" fill-opacity=".18" stroke="#2b4e7e"/>
   <text x="170" y="206" class="k">Cowork</text>
 
-  <rect x="540" y="182" width="52" height="38" rx="19" fill="#2563eb" fill-opacity=".18" stroke="#2563eb"/>
-  <path d="M558 207l14-14 14 14" stroke="#2563eb" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(-6,-6)"/>
+  <rect x="540" y="182" width="52" height="38" rx="19" fill="#2b4e7e" fill-opacity=".18" stroke="#2b4e7e"/>
+  <path d="M558 207l14-14 14 14" stroke="#2b4e7e" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(-6,-6)"/>
 
   <!-- contrast -->
-  <rect x="24" y="264" width="288" height="76" rx="8" fill="#f5f7fa" stroke="#dce3ec"/>
+  <rect x="24" y="264" width="288" height="76" rx="8" fill="#faf8f3" stroke="#e5e0d4"/>
   <text x="44" y="292" class="t">Chat</text>
   <text x="44" y="316" class="m">El resultado es una respuesta.</text>
   <text x="44" y="332" class="m">Aplicarla la aplicas tú.</text>
 
-  <rect x="328" y="264" width="288" height="76" rx="8" fill="#f5f7fa" stroke="#2563eb"/>
+  <rect x="328" y="264" width="288" height="76" rx="8" fill="#faf8f3" stroke="#2b4e7e"/>
   <text x="348" y="292" class="k">Cowork</text>
   <text x="348" y="316" class="m">El resultado es el archivo,</text>
   <text x="348" y="332" class="m">ya hecho, en tu carpeta.</text>

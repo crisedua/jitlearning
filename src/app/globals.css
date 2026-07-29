@@ -1,66 +1,80 @@
 @import 'tailwindcss';
 
 /**
- * Design tokens — the "Mist" palette: cool, light, calm.
+ * Design tokens: warm cream paper, deep navy, gold accent.
  *
- * Everything downstream uses these names, never raw hex. The backgrounds are
- * light and the text is a deep navy rather than pure black, which is what keeps
- * a light interface from reading as harsh.
+ * The page is light and warm rather than clinical white. Gold is a *decorative*
+ * accent only — it sits at 2:1 against the cream and can never carry text. On
+ * the dark navy panel a lighter gold is used instead, which does clear 4.5:1.
  *
  * Tailwind v4 generates utilities straight from these names, so `--color-muted`
- * gives `text-muted`, `--radius-md` gives `rounded-md`, and so on.
+ * gives `text-muted`, `--radius-lg` gives `rounded-lg`, and so on.
  */
 @theme {
-  /* Surfaces */
-  --color-bg: #f5f7fa;
+  /* Paper */
+  --color-bg: #faf8f3;
   --color-surface: #ffffff;
-  --color-surface-alt: #ebf0f6;
-  --color-line: #dce3ec;
-  --color-line-strong: #c2ccda;
+  --color-surface-alt: #f2eee4;
+  --color-line: rgba(20, 19, 15, 0.08);
+  --color-line-strong: rgba(20, 19, 15, 0.16);
   /*
    * Form-control boundary. WCAG 1.4.11 wants 3:1 for the edge that identifies a
-   * control, which `line` (1.29:1 on white) does not reach — fine for a card
-   * edge or a divider, not for the thing that tells you where the input is.
+   * control, which the hairline above does not reach — fine for a card edge,
+   * not for the thing that tells you where the input is.
    */
-  --color-field: #8796ab;
+  --color-field: #a09a8b;
 
   /*
-   * Text. Deep navy family — never #000.
-   *
-   * Two tiers, not three. A third, lighter tier cannot reach 4.5:1 on these
-   * surfaces without collapsing into `muted`, so hierarchy below `muted` is
-   * carried by size and weight instead of by a paler colour. `subtle` is for
-   * decoration only — icons and marks that are aria-hidden — never for text.
+   * Ink. Three tiers, all of which clear 4.5:1 on every surface above — `soft`
+   * is deliberately a touch darker than it looks in a mockup so it still passes
+   * on the alt band, which is the surface that eats contrast.
    */
-  --color-ink: #1a2332;
-  --color-muted: #5a6b82;
-  --color-subtle: #7c8aa0;
+  --color-ink: #14130f;
+  --color-body: #423f37;
+  --color-muted: #57544b;
+  --color-soft: #706b5f;
 
-  /* Accent */
-  --color-accent: #2563eb;
-  --color-accent-hover: #1d4ed8;
-  --color-accent-soft: #dbeafe;
+  /* Navy */
+  --color-accent: #2b4e7e;
+  --color-accent-hover: #1b3252;
+  --color-accent-deep: #14263f;
+  --color-accent-lift: #3e6690;
+  --color-accent-soft: #e4ebf4;
 
-  /* Status. Paired with an icon or word everywhere — never colour alone. */
-  --color-success: #15803d;
-  --color-success-soft: #dcfce7;
-  --color-warning: #b45309;
-  --color-warning-soft: #fef3c7;
-  --color-danger: #b91c1c;
-  --color-danger-soft: #fee2e2;
+  /* Gold — decoration only, never text on light surfaces. */
+  --color-gold: #d9a83b;
+  --color-gold-soft: #f0dfb4;
+  --color-gold-light: #e5be64;
 
-  --font-sans: var(--font-manrope), system-ui, sans-serif;
+  /* Status. Paired with a word everywhere — never colour alone. */
+  --color-success: #1f6b45;
+  --color-success-soft: #dff0e6;
+  --color-warning: #8a5a12;
+  --color-warning-soft: #f7ead0;
+  --color-danger: #9c2f2b;
+  --color-danger-soft: #f7e2e0;
+
+  --font-sans: var(--font-instrument-sans), system-ui, sans-serif;
+  --font-serif: var(--font-instrument-serif), Georgia, serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 
-  --radius-sm: 6px;
-  --radius-md: 12px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
   --radius-lg: 20px;
+  --radius-xl: 26px;
 
-  --shadow-sm: 0 1px 2px rgba(20, 25, 35, 0.04), 0 1px 3px rgba(20, 25, 35, 0.06);
-  --shadow-md: 0 4px 12px rgba(20, 25, 35, 0.06), 0 2px 6px rgba(20, 25, 35, 0.04);
-  --shadow-lg: 0 12px 32px rgba(20, 25, 35, 0.08), 0 4px 12px rgba(20, 25, 35, 0.04);
+  --shadow-sm: 0 1px 2px rgba(20, 19, 15, 0.04), 0 1px 3px rgba(20, 19, 15, 0.05);
+  --shadow-md: 0 18px 40px -28px rgba(20, 19, 15, 0.45);
+  --shadow-lg: 0 40px 80px -40px rgba(20, 19, 15, 0.35), 0 2px 6px rgba(20, 19, 15, 0.04);
 
-  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* Below this the wordmark and the nav CTA cannot sit side by side. */
+  --breakpoint-xs: 26rem;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 html,
@@ -70,6 +84,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+::selection {
+  background: var(--color-gold-soft);
+}
+
 /*
  * A visible focus ring on everything interactive. The default outline is
  * invisible against a light surface, and removing it without replacement is the
@@ -77,7 +95,7 @@ body {
  */
 *:focus-visible {
   outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+  outline-offset: 3px;
   border-radius: var(--radius-sm);
 }
 
@@ -89,14 +107,10 @@ body {
   }
 }
 
-/*
- * Entrance for transcript turns and panels. Small and quick — the point is to
- * show that something arrived, not to make the reader wait for it.
- */
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(24px);
   }
   to {
     opacity: 1;
@@ -104,8 +118,119 @@ body {
   }
 }
 
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Draws the gold rule and the highlight behind the headline. */
+@keyframes wipe {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes bar {
+  0%,
+  100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes ring {
+  from {
+    box-shadow: 0 0 0 0 rgba(217, 168, 59, 0.55);
+  }
+  to {
+    box-shadow: 0 0 0 16px rgba(217, 168, 59, 0);
+  }
+}
+
+@keyframes caret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
 .animate-rise {
-  animation: rise 220ms var(--ease-out) both;
+  animation: rise 0.9s var(--ease-out) both;
+}
+.animate-fade {
+  animation: fade 0.9s ease both;
+}
+.animate-pop {
+  animation: pop 0.45s var(--ease-out) both;
+}
+
+/*
+ * Scroll-driven reveal. Where `animation-timeline` is unsupported the
+ * declaration is dropped and the zero-duration animation lands on its end
+ * state immediately — the section is visible, just not animated. Never the
+ * other way round: content that needs a scroll timeline to become visible
+ * disappears entirely in Safari and Firefox.
+ */
+.reveal {
+  animation: rise linear both;
+  animation-timeline: view();
+  animation-range: entry 0% entry 60%;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -113,6 +238,7 @@ body {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }

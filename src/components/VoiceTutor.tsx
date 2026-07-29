@@ -256,7 +256,7 @@ function StatusPill({
       <span
         aria-hidden
         className={`h-2 w-2 rounded-full ${
-          connected ? (isSpeaking ? 'animate-pulse bg-accent' : 'bg-success') : 'bg-subtle'
+          connected ? (isSpeaking ? 'animate-pulse bg-accent' : 'bg-success') : 'bg-soft'
         }`}
       />
       {label}

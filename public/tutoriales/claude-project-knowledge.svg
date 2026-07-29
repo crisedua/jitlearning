@@ -1,47 +1,47 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img"
      aria-label="Esquema de la página de un proyecto en Claude: el panel de conocimiento del proyecto a la derecha, con el botón de más resaltado.">
   <style>
-    .s{fill:#ffffff}.t{fill:#1a2332;font:13px system-ui,sans-serif}
-    .m{fill:#5a6b82;font:12px system-ui,sans-serif}
-    .k{fill:#2563eb;font:600 13px system-ui,sans-serif}
-    .tag{fill:#2563eb;font:600 10px system-ui,sans-serif;letter-spacing:.08em}
-    .bar{fill:#dce3ec}
+    .s{fill:#ffffff}.t{fill:#14130f;font:13px system-ui,sans-serif}
+    .m{fill:#57544b;font:12px system-ui,sans-serif}
+    .k{fill:#2b4e7e;font:600 13px system-ui,sans-serif}
+    .tag{fill:#2b4e7e;font:600 10px system-ui,sans-serif;letter-spacing:.08em}
+    .bar{fill:#e5e0d4}
   </style>
-  <rect x="1" y="1" width="638" height="358" rx="10" class="s" stroke="#dce3ec"/>
+  <rect x="1" y="1" width="638" height="358" rx="10" class="s" stroke="#e5e0d4"/>
   <text x="16" y="24" class="tag">ESQUEMA</text>
 
   <!-- chat column -->
-  <rect x="16" y="38" width="360" height="306" rx="8" fill="#f5f7fa" stroke="#dce3ec"/>
+  <rect x="16" y="38" width="360" height="306" rx="8" fill="#faf8f3" stroke="#e5e0d4"/>
   <text x="36" y="70" class="t">Mi proyecto</text>
-  <rect x="36" y="90" width="240" height="7" rx="3.5" fill="#f5f7fa"/>
+  <rect x="36" y="90" width="240" height="7" rx="3.5" fill="#faf8f3"/>
 
-  <rect x="36" y="124" width="320" height="44" rx="8" class="s" stroke="#dce3ec"/>
+  <rect x="36" y="124" width="320" height="44" rx="8" class="s" stroke="#e5e0d4"/>
   <rect x="52" y="141" width="180" height="9" rx="4.5" class="bar"/>
-  <rect x="36" y="182" width="320" height="44" rx="8" class="s" stroke="#dce3ec"/>
+  <rect x="36" y="182" width="320" height="44" rx="8" class="s" stroke="#e5e0d4"/>
   <rect x="52" y="199" width="140" height="9" rx="4.5" class="bar"/>
 
-  <rect x="36" y="288" width="320" height="38" rx="19" fill="#f5f7fa" stroke="#dce3ec"/>
+  <rect x="36" y="288" width="320" height="38" rx="19" fill="#faf8f3" stroke="#e5e0d4"/>
   <text x="56" y="312" class="m">Escribe aquí…</text>
 
   <!-- knowledge panel -->
-  <rect x="392" y="38" width="232" height="306" rx="8" fill="#f5f7fa" stroke="#2563eb"/>
+  <rect x="392" y="38" width="232" height="306" rx="8" fill="#faf8f3" stroke="#2b4e7e"/>
   <text x="410" y="68" class="k">Conocimiento del proyecto</text>
 
-  <rect x="576" y="52" width="30" height="26" rx="6" fill="#2563eb" fill-opacity=".18" stroke="#2563eb"/>
-  <path d="M591 59v12M585 65h12" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/>
+  <rect x="576" y="52" width="30" height="26" rx="6" fill="#2b4e7e" fill-opacity=".18" stroke="#2b4e7e"/>
+  <path d="M591 59v12M585 65h12" stroke="#2b4e7e" stroke-width="2" stroke-linecap="round"/>
 
   <g>
-    <rect x="410" y="90" width="196" height="34" rx="6" class="s" stroke="#dce3ec"/>
-    <rect x="424" y="103" width="14" height="9" rx="2" fill="#c2ccda"/>
+    <rect x="410" y="90" width="196" height="34" rx="6" class="s" stroke="#e5e0d4"/>
+    <rect x="424" y="103" width="14" height="9" rx="2" fill="#c9c2b1"/>
     <rect x="448" y="103" width="108" height="8" rx="4" class="bar"/>
   </g>
   <g>
-    <rect x="410" y="132" width="196" height="34" rx="6" class="s" stroke="#dce3ec"/>
-    <rect x="424" y="145" width="14" height="9" rx="2" fill="#c2ccda"/>
+    <rect x="410" y="132" width="196" height="34" rx="6" class="s" stroke="#e5e0d4"/>
+    <rect x="424" y="145" width="14" height="9" rx="2" fill="#c9c2b1"/>
     <rect x="448" y="145" width="86" height="8" rx="4" class="bar"/>
   </g>
 
-  <rect x="410" y="188" width="196" height="34" rx="6" fill="#ffffff" stroke="#dce3ec" stroke-dasharray="4 3"/>
+  <rect x="410" y="188" width="196" height="34" rx="6" fill="#ffffff" stroke="#e5e0d4" stroke-dasharray="4 3"/>
   <text x="424" y="209" class="m">Definir instrucciones</text>
 
   <text x="410" y="258" class="m">El botón de más</text>

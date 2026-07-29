@@ -2,22 +2,22 @@
      aria-label="Esquema de una terminal ejecutando el instalador de Claude Code, la comprobación de versión y el arranque dentro de un proyecto.">
   <style>
     .s{fill:#ffffff}
-    .m{fill:#5a6b82;font:12px system-ui,sans-serif}
-    .tag{fill:#2563eb;font:600 10px system-ui,sans-serif;letter-spacing:.08em}
-    .c{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#1a2332}
-    .p{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#2563eb}
-    .o{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#5a6b82}
-    .ok{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#15803d}
+    .m{fill:#57544b;font:12px system-ui,sans-serif}
+    .tag{fill:#2b4e7e;font:600 10px system-ui,sans-serif;letter-spacing:.08em}
+    .c{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#14130f}
+    .p{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#2b4e7e}
+    .o{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#57544b}
+    .ok{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#1f6b45}
   </style>
-  <rect x="1" y="1" width="638" height="358" rx="10" class="s" stroke="#dce3ec"/>
+  <rect x="1" y="1" width="638" height="358" rx="10" class="s" stroke="#e5e0d4"/>
   <text x="16" y="24" class="tag">ESQUEMA</text>
 
-  <rect x="24" y="38" width="592" height="270" rx="10" fill="#f5f7fa" stroke="#dce3ec"/>
+  <rect x="24" y="38" width="592" height="270" rx="10" fill="#faf8f3" stroke="#e5e0d4"/>
   <rect x="24" y="38" width="592" height="32" rx="10" fill="#ffffff"/>
   <rect x="24" y="62" width="592" height="8" fill="#ffffff"/>
-  <circle cx="46" cy="54" r="5" fill="#b91c1c"/>
-  <circle cx="64" cy="54" r="5" fill="#b45309"/>
-  <circle cx="82" cy="54" r="5" fill="#15803d"/>
+  <circle cx="46" cy="54" r="5" fill="#9c2f2b"/>
+  <circle cx="64" cy="54" r="5" fill="#8a5a12"/>
+  <circle cx="82" cy="54" r="5" fill="#1f6b45"/>
   <text x="270" y="59" class="m">Terminal</text>
 
   <text x="44" y="100" class="p">$</text>

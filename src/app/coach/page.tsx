@@ -14,15 +14,16 @@ export default function CoachPage() {
   const configured = Boolean(agentId());
 
   return (
-    <div className="space-y-7">
+    <div className="mx-auto max-w-[96rem] space-y-8 px-6 py-10">
       <header>
-        <p className="text-xs font-medium uppercase tracking-[0.08em] text-accent">
+        <p className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em] text-accent">
+          <span aria-hidden className="inline-block h-px w-[34px] bg-gold" />
           Aprendizaje justo a tiempo
         </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em] sm:text-4xl">
+        <h1 className="mt-3 font-serif text-[clamp(2.25rem,5vw,3.25rem)] font-normal leading-[1.05] tracking-[-0.02em]">
           ¿En qué te has atascado?
         </h1>
-        <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-muted">
+        <p className="mt-3 max-w-2xl text-[17px] leading-relaxed text-muted">
           Habla con el coach sobre lo que te está bloqueando ahora mismo. Responde con tu
           propio material, no con generalidades, y te avisa cuando no lo tiene.
         </p>

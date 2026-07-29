@@ -1,24 +1,34 @@
 import type { Metadata } from 'next';
-import { JetBrains_Mono, Manrope } from 'next/font/google';
+import { Instrument_Sans, Instrument_Serif, JetBrains_Mono } from 'next/font/google';
 import Link from 'next/link';
+import { BrandMark } from '@/components/BrandMark';
 import { PROFILE, hasContact } from '@/lib/site';
 import './globals.css';
 
 /**
- * Two typefaces, four weights between them. Manrope carries the interface;
- * JetBrains Mono is only for the things a learner must copy exactly — commands,
- * URLs, ids — where a humanist typeface makes `l` and `1` ambiguous.
+ * Three typefaces, each with a job. Instrument Sans runs the interface;
+ * Instrument Serif carries the headlines, where the italic does the work a
+ * second weight would otherwise do; JetBrains Mono is reserved for things a
+ * learner must copy exactly — commands, ids, step numbers — where a humanist
+ * face makes `l` and `1` ambiguous.
  */
-const manrope = Manrope({
+const sans = Instrument_Sans({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-manrope',
+  variable: '--font-instrument-sans',
   display: 'swap',
 });
 
-const jetbrains = JetBrains_Mono({
+const serif = Instrument_Serif({
   subsets: ['latin'],
-  weight: ['400'],
+  weight: '400',
+  style: ['normal', 'italic'],
+  variable: '--font-instrument-serif',
+  display: 'swap',
+});
+
+const mono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
   variable: '--font-jetbrains',
   display: 'swap',
 });
@@ -32,38 +42,46 @@ export const metadata: Metadata = {
 const NAV = [
   { href: '/#que-hace', label: 'Qué hace' },
   { href: '/#temas', label: 'Temas' },
+  { href: '/#como', label: 'Cómo funciona' },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const year = 2026;
 
   return (
-    <html lang="es" className={`${manrope.variable} ${jetbrains.variable}`}>
+    <html lang="es" className={`${sans.variable} ${serif.variable} ${mono.variable}`}>
       <body className="flex min-h-screen flex-col bg-bg font-sans text-ink">
-        <header className="sticky top-0 z-20 border-b border-line bg-surface/85 backdrop-blur">
+        {/*
+          Reading progress. Purely decorative, and driven entirely by the scroll
+          timeline — where that is unsupported the bar simply sits full-width
+          and inert rather than misreporting position.
+        */}
+        <div
+          aria-hidden
+          className="fixed inset-x-0 top-0 z-[60] h-[3px] origin-left bg-gradient-to-r from-accent to-gold [animation-range:0_100%] [animation-timeline:scroll(root)] [animation:wipe_linear_both]"
+        />
+
+        <header className="sticky top-0 z-50 border-b border-line bg-bg/85 backdrop-blur-md">
           <nav
             aria-label="Principal"
-            className="mx-auto flex max-w-[96rem] items-center gap-6 px-6 py-3.5"
+            className="mx-auto flex max-w-[75rem] items-center gap-6 px-6 py-3.5 sm:gap-7"
           >
             <Link
               href="/"
-              className="flex shrink-0 items-center gap-2.5 rounded-sm font-semibold tracking-tight"
+              className="flex shrink-0 items-center gap-2.5 rounded-sm text-[17px] font-semibold tracking-[-0.01em]"
             >
-              <span
-                aria-hidden
-                className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-[13px] font-bold text-white shadow-sm"
-              >
-                JIT
-              </span>
-              Aprendizaje JIT
+              <BrandMark />
+              {/* The mark alone carries the brand on a phone; the wordmark plus
+                  the call to action do not fit side by side at 320px. */}
+              <span className="hidden xs:inline">Aprendizaje JIT</span>
             </Link>
 
-            <ul className="hidden items-center gap-5 sm:flex">
+            <ul className="hidden items-center gap-6 md:flex">
               {NAV.map((item) => (
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className="rounded-sm text-sm font-medium text-muted transition-colors duration-150 ease-out hover:text-ink"
+                    className="rounded-sm border-b border-transparent pb-1 text-[15px] text-muted transition-colors duration-200 ease-out hover:border-gold hover:text-ink"
                   >
                     {item.label}
                   </Link>
@@ -73,7 +91,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <li>
                   <Link
                     href="/#contacto"
-                    className="rounded-sm text-sm font-medium text-muted transition-colors duration-150 ease-out hover:text-ink"
+                    className="rounded-sm border-b border-transparent pb-1 text-[15px] text-muted transition-colors duration-200 ease-out hover:border-gold hover:text-ink"
                   >
                     Contacto
                   </Link>
@@ -83,9 +101,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
             <Link
               href="/coach"
-              className="ml-auto shrink-0 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition duration-150 ease-out hover:-translate-y-px hover:bg-accent-hover hover:shadow-md"
+              className="ml-auto inline-flex shrink-0 items-center gap-2.5 rounded-full bg-accent px-5 py-2.5 text-[15px] font-medium text-bg transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover"
             >
-              Hablar con el coach
+              {/* One flex item, or the parent's gap opens between the two words. */}
+              <span>
+                Hablar<span className="hidden xs:inline"> con el coach</span>
+              </span>
+              <span
+                aria-hidden
+                className="h-[7px] w-[7px] rounded-full bg-gold [animation:ring_2.2s_ease-out_infinite]"
+              />
             </Link>
 
             {/*
@@ -96,46 +121,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </nav>
         </header>
 
-        {/*
-          Wide on purpose: the coach page is a two-column layout, and at a narrow
-          measure the sidebar ate the transcript. Prose that needs a short line
-          length caps itself locally instead.
-        */}
-        <main className="mx-auto w-full max-w-[96rem] flex-1 px-6 py-8 sm:py-12">
-          {children}
-        </main>
+        <main className="flex-1">{children}</main>
 
-        <footer className="mt-20 border-t border-line bg-surface">
-          <div className="mx-auto flex max-w-[96rem] flex-wrap items-center justify-between gap-4 px-6 py-8">
-            <div>
-              <p className="text-sm font-semibold tracking-tight">Aprendizaje JIT</p>
-              <p className="mt-1 max-w-sm text-xs leading-relaxed text-muted">
-                Coach de aprendizaje justo a tiempo. Responde a lo que te bloquea ahora,
-                apoyado en material real.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted">
-              {PROFILE.email && (
-                <a
-                  href={`mailto:${PROFILE.email}`}
-                  className="rounded-sm hover:text-ink"
-                >
-                  {PROFILE.email}
-                </a>
-              )}
-              {PROFILE.linkedin && (
-                <a
-                  href={PROFILE.linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-sm hover:text-ink"
-                >
-                  LinkedIn
-                </a>
-              )}
-              <span>© {year} Aprendizaje JIT</span>
-            </div>
+        <footer className="border-t border-line py-9">
+          <div className="mx-auto flex max-w-[75rem] flex-wrap items-center gap-x-6 gap-y-3 px-6 text-sm text-soft">
+            <span className="flex items-center gap-2.5 font-semibold text-ink">
+              <BrandMark size={28} />
+              Aprendizaje JIT
+            </span>
+            <span className="flex-1" />
+            {NAV.map((item) => (
+              <Link key={item.href} href={item.href} className="rounded-sm hover:text-ink">
+                {item.label}
+              </Link>
+            ))}
+            {PROFILE.email && (
+              <a href={`mailto:${PROFILE.email}`} className="rounded-sm hover:text-ink">
+                {PROFILE.email}
+              </a>
+            )}
+            <span>© {year}</span>
           </div>
         </footer>
       </body>
