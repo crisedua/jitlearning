@@ -1,6 +1,10 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { VoiceTutor } from '@/components/VoiceTutor';
+import { SessionBar } from '@/components/SessionBar';
 import { agentId } from '@/lib/config';
+import { currentUser } from '@/lib/supabase/server';
+import { signInPath } from '@/lib/paths';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,14 +12,27 @@ export const metadata = {
   title: 'Coach de aprendizaje · ModoJIT',
 };
 
-export default function CoachPage() {
+export default async function CoachPage() {
+  /*
+   * Sign-in gate. This page is the entrance to a billable voice session, so it
+   * is the first thing checked — before the agent config, before any markup.
+   *
+   * The check is repeated in `/api/signed-url`, which is what actually mints
+   * the credential. Gating only the page would stop nobody: the endpoint is a
+   * plain GET that anyone can call directly.
+   */
+  if (!(await currentUser())) redirect(signInPath('/coach'));
+
   // Only the agent id is read here — the document list is behind the ingest
-  // secret, so this public page must not try to fetch it.
+  // secret, so this page must not try to fetch it.
   const configured = Boolean(agentId());
 
   return (
     <div className="mx-auto max-w-[96rem] space-y-8 px-6 py-10">
       <header>
+        <div className="mb-5 flex justify-end">
+          <SessionBar />
+        </div>
         <p className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em] text-accent">
           <span aria-hidden className="inline-block h-px w-[34px] bg-gold" />
           Aprendizaje justo a tiempo

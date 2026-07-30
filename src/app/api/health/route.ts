@@ -15,6 +15,7 @@ import { NextResponse } from 'next/server';
 import { getAgent, listDocuments } from '@/lib/elevenlabs';
 import { agentId, embeddingModel } from '@/lib/config';
 import { requireSecret, UnauthorizedError } from '@/lib/auth';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -91,6 +92,43 @@ export async function GET(req: Request) {
         }`,
       };
     }
+  }
+
+  // 4. Can a learner actually sign in? Missing Supabase config does not break
+  //    anything visibly until someone clicks the button and lands on an error,
+  //    which is exactly the kind of failure this endpoint exists to surface.
+  const missingAuth = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'].filter(
+    (name) => !process.env[name],
+  );
+  checks.signIn =
+    missingAuth.length === 0
+      ? { state: 'ok', detail: 'Supabase sign-in configured; /coach is reachable by learners' }
+      : {
+          state: 'fail',
+          detail: `Missing ${missingAuth.join(', ')}. Nobody can sign in, so /coach is unreachable.`,
+        };
+
+  // 5. Is the schema reachable with the service role? Without it sign-in still
+  //    works and the coach still talks — every session just goes unrecorded,
+  //    which is the kind of failure nobody notices until the month's numbers
+  //    are needed.
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    checks.usageLedger = {
+      state: 'fail',
+      detail: 'SUPABASE_SERVICE_ROLE_KEY is missing. Sessions will not be recorded.',
+    };
+  } else if (missingAuth.length > 0) {
+    checks.usageLedger = { state: 'skipped', detail: 'No Supabase URL to test against' };
+  } else {
+    const { error } = await supabaseAdmin()
+      .from('coach_sessions')
+      .select('id', { count: 'exact', head: true });
+    checks.usageLedger = error
+      ? {
+          state: 'fail',
+          detail: `coach_sessions is not queryable: ${error.message}. Run the migration in supabase/migrations/.`,
+        }
+      : { state: 'ok', detail: 'Supabase schema reachable; sessions are being recorded' };
   }
 
   const ready = Object.values(checks).every((c) => c.state === 'ok');

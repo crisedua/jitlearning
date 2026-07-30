@@ -14,6 +14,7 @@
 import './env';
 import { getAgent, listDocuments } from '../src/lib/elevenlabs';
 import { agentId, embeddingModel } from '../src/lib/config';
+import { supabaseAdmin } from '../src/lib/supabase/admin';
 
 const ok = (m: string) => console.log(`  ok    ${m}`);
 const bad = (m: string) => console.log(`  FAIL  ${m}`);
@@ -81,8 +82,48 @@ async function main() {
   // printing because changing it later silently orphans every existing index.
   console.log(`\n  Embedding model: ${embeddingModel()}`);
 
+  // Reported separately from the ElevenLabs checks because it fails
+  // separately: ingestion works fine without any of this, and the only visible
+  // symptom is that no learner gets past /acceso — or, worse, that they do and
+  // nothing about the session is ever recorded.
+  console.log('\nSupabase (sign-in, plans, usage)\n');
+  let supabaseFailures = 0;
+
+  const missingAuth = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'].filter(
+    (name) => !process.env[name]?.trim(),
+  );
+  if (missingAuth.length === 0) {
+    ok('Project URL and anon key are set — learners can sign in');
+  } else {
+    bad(`${missingAuth.join(', ')} missing — nobody can sign in, so /coach is unreachable.`);
+    console.log('        Supabase dashboard -> Project Settings -> API.');
+    supabaseFailures++;
+  }
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+    bad('SUPABASE_SERVICE_ROLE_KEY missing — sessions will not be recorded.');
+    supabaseFailures++;
+  } else if (missingAuth.length === 0) {
+    // Reaching the table proves three things at once: the key works, the
+    // migration ran, and the app is pointed at the right project.
+    const { error } = await supabaseAdmin()
+      .from('coach_sessions')
+      .select('id', { count: 'exact', head: true });
+    if (error) {
+      bad(`coach_sessions is not queryable: ${error.message}`);
+      console.log('        Run supabase/migrations/*.sql in the SQL editor.');
+      supabaseFailures++;
+    } else {
+      ok('Schema reachable — profiles, plans and coach_sessions are in place');
+    }
+  }
+
   if (failures > 0) {
     console.error(`\n${failures} check(s) failed. Ingestion will not work until they pass.\n`);
+    process.exit(1);
+  }
+  if (supabaseFailures > 0) {
+    console.error('\nIngestion is ready, but learners cannot use the coach yet.\n');
     process.exit(1);
   }
   console.log('\nReady to ingest.\n');

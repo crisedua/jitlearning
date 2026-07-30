@@ -8,9 +8,14 @@ Built on the [ElevenLabs Agents Platform](https://elevenlabs.io/docs/eleven-agen
 embedding and vector retrieval. This repo is the ingestion backend, the agent
 configuration, and the UI around it.
 
-**Fully stateless.** There is no database. ElevenLabs holds the documents and
-their indexes; the agent's own config records which documents are attached and
-in which mode. Any number of Vercel instances see identical state.
+**The knowledge side is stateless.** ElevenLabs holds the documents and their
+indexes; the agent's own config records which documents are attached and in
+which mode. Any number of Vercel instances see identical state.
+
+**Supabase holds the people.** Sign-in, profiles, plans, and one row per coach
+session — see [Accounts, plans and usage](#accounts-plans-and-usage). Nothing
+about the corpus lives there, so the two halves fail independently: a Supabase
+outage stops new sign-ins, it does not touch retrieval.
 
 ## Feeding knowledge from your backend
 
@@ -65,8 +70,11 @@ curl -X POST https://<app>.vercel.app/api/agent \
 | `/api/agent` | GET | secret | Agent status, attached count |
 | `/api/agent` | POST | secret | Re-attach all ready documents |
 | `/api/agent/provision` | POST | secret | Create the agent (hosted `setup:agent`) |
-| `/api/health` | GET | secret | Config diagnostics: key, scope, agent |
-| `/api/signed-url` | GET | **open** | Short-lived WebSocket URL for the browser |
+| `/api/health` | GET | secret | Config diagnostics: key, scope, agent, sign-in |
+| `/api/signed-url` | GET | learner session | Short-lived WebSocket URL, opens a usage row |
+| `/api/sessions/[id]` | POST | learner session | Closes their own usage row when a call ends |
+| `/auth/login` | GET | open | Starts the Google handshake (sets the PKCE cookie) |
+| `/auth/callback` | GET | open | Supabase OAuth return: creates the session |
 
 ## Deploying to Vercel
 
@@ -81,6 +89,9 @@ Set these in **Project Settings → Environment Variables**, then redeploy:
 
 - `ELEVENLABS_API_KEY` — your key, with Conversational AI read+write
 - `INGEST_SECRET` — `openssl rand -hex 32`
+- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` — sign-in
+- `SUPABASE_SERVICE_ROLE_KEY` — profiles and usage; see
+  [Learners: Supabase Auth with Google](#learners-supabase-auth-with-google)
 
 Create the agent by calling the deployed app:
 
@@ -112,11 +123,17 @@ If you'd rather work locally, put the same values in `.env.local` and run
 | `ELEVENLABS_API_KEY` | yes | Needs Agents + Knowledge Base read/write |
 | `ELEVENLABS_AGENT_ID` | yes | From `npm run setup:agent` |
 | `INGEST_SECRET` | yes | `openssl rand -hex 32` |
+| `NEXT_PUBLIC_SUPABASE_URL` | yes | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Public key; safe in the browser |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes | **Secret.** Server-only; bypasses RLS |
+| `NEXT_PUBLIC_SITE_URL` | no | Only when the host header isn't the public URL |
 | `ELEVENLABS_VOICE_ID` | no | Defaults to a stock voice |
 | `ELEVENLABS_AGENT_LLM` | no | Blank = workspace default |
 | `ELEVENLABS_EMBEDDING_MODEL` | no | Set before indexing anything |
 
-Nothing else to provision — no database, no volume, no cron.
+Beyond the Supabase project itself, nothing to provision — no volume, no cron.
+`npm run sync:usage` is worth scheduling once there is real traffic, but the app
+is correct without it.
 
 ### Bulk loading
 
@@ -135,13 +152,78 @@ time. Routes **fail closed** — if the variable is unset they return `503` in
 every environment, including local development. Security that behaves
 differently in dev than in production is how things ship open by accident.
 
-`/api/signed-url` is deliberately open: the learner-facing coach page needs it
-and a browser cannot hold a shared secret. **This is the remaining exposure** —
-anyone with the URL can start a billable conversation. Put a real session check
-there before this reaches an audience you don't control.
-
 The Knowledge UI prompts for the secret and keeps it in `sessionStorage`, so it
 dies with the tab.
+
+### Learners: Supabase Auth with Google
+
+Learners never see the ingest secret. `/coach` and `/api/signed-url` are behind
+a Supabase session instead. Both are gated, not just the page: `/api/signed-url`
+is what mints the billable credential, and it is a plain GET anyone could call
+directly.
+
+Any Google account is accepted. The gate is there so every billable
+conversation has an identified person behind it, not to curate access. To
+curate it, filter in `currentUser()` in
+[`src/lib/supabase/server.ts`](src/lib/supabase/server.ts) or set the allowed
+domains in Supabase itself — every gate reads the same session.
+
+**Setup, once:**
+
+1. Create a Supabase project. From **Project Settings → API**, copy
+   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and
+   `SUPABASE_SERVICE_ROLE_KEY`.
+2. **Authentication → Providers → Google**: enable it and paste a Google OAuth
+   client id and secret. In the Google Cloud console (**APIs & Services →
+   Credentials → OAuth client ID → Web application**) the authorized redirect
+   URI is Supabase's, not this app's:
+   `https://<your-project>.supabase.co/auth/v1/callback`
+3. **Authentication → URL Configuration**: add `http://localhost:3000/**` and
+   `https://<app>.vercel.app/**` as redirect URLs.
+4. Run [`supabase/migrations/`](supabase/migrations/) in the SQL editor.
+
+`/api/health` and `npm run doctor` both report which of these is missing.
+
+Sessions are cookie-based and refreshed in [`src/middleware.ts`](src/middleware.ts)
+— without that refresh, Server Components would silently drop rotated tokens
+and learners would be signed out mid-session.
+
+## Accounts, plans and usage
+
+The schema is in [`supabase/migrations/`](supabase/migrations/):
+
+| Table | What it holds |
+|---|---|
+| `profiles` | One row per `auth.users` id — email, name, avatar, `plan_id`. Created by a trigger on sign-up, refreshed from Google on every sign-in. |
+| `plans` | `free` by default. `monthly_minutes` / `monthly_sessions`, both nullable, where null means unlimited. |
+| `coach_sessions` | One row per signed URL minted: who, which agent, conversation id, duration, message count, credits. |
+
+RLS is on for all three, and every policy is scoped to `auth.uid()` — a learner
+can read their own profile and their own sessions, and nothing else. There are
+no insert or update policies at all: name and avatar come from Google, plan is a
+billing decision, and minutes must not be writable by the browser that reports
+them. All of those writes go through the service-role client in
+[`src/lib/supabase/admin.ts`](src/lib/supabase/admin.ts).
+
+**Nothing is enforced yet.** The plan columns exist so the limits can be chosen
+from real numbers rather than guessed. When you want one, the place to add it is
+[`/api/signed-url`](src/app/api/signed-url/route.ts), before `getSignedUrl` —
+that is the single chokepoint through which every billable conversation passes.
+
+### Where the usage numbers come from
+
+A row opens when the signed URL is minted, and the browser closes it over
+`POST /api/sessions/[id]` with the conversation id, duration and turn count.
+That is self-reported: a closed laptop reports nothing, and a hostile tab could
+report anything.
+
+```bash
+npm run sync:usage
+```
+
+overwrites those numbers with ElevenLabs' own and stamps `usage_synced_at`. A
+row with that stamp is a receipt; a row without one is an estimate. Do not bill
+anyone off an unsynced row.
 
 ## Tuning retrieval
 
@@ -305,3 +387,15 @@ scripts/                setup-agent, sync-agent, bulk ingest, doctor
 - **No interface material in the corpus.** Deliberate — the coach advises rather
   than instructs — but it means any procedural question is answered by pointing
   at the vendor docs, not from knowledge.
+- **The coach does not remember you between sessions.** Every conversation
+  starts cold. This is the sharpest remaining gap against a general assistant,
+  which now carries memory across chats — and it bites hardest on the one thing
+  the coach is otherwise best at, since a commitment nobody ever asks you about
+  again is just advice. Closing it means persisting a per-learner summary and
+  replaying it through `sendContextualUpdate`. The two things that used to be
+  missing — an identity for the learner and somewhere to put the summary — now
+  exist: `auth.users` and Supabase. Nothing writes such a summary yet.
+- **The persona is long** (~14.7k characters, roughly 3.7k tokens) and rides on
+  every turn. It is a system prompt, so it caches, but a materially larger one
+  will start to be felt as latency in voice, where it is much more noticeable
+  than in text.

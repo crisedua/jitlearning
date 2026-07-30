@@ -12,10 +12,13 @@
     "doctor": "tsx scripts/doctor.ts",
     "setup:agent": "tsx scripts/setup-agent.ts",
     "sync:agent": "tsx scripts/sync-agent.ts",
+    "sync:usage": "tsx scripts/sync-usage.ts",
     "ingest": "tsx scripts/ingest.ts"
   },
   "dependencies": {
     "@elevenlabs/react": "^0.7.0",
+    "@supabase/ssr": "^0.12.4",
+    "@supabase/supabase-js": "^2.111.0",
     "next": "^15.5.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

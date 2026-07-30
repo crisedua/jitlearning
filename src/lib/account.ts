@@ -1,0 +1,169 @@
+/**
+ * Profiles, plans, and the record of what each learner has used.
+ *
+ * The split between the two Supabase clients is the whole design here:
+ *
+ *   reads about yourself → user-scoped client, row-level security applies
+ *   writes about usage   → service-role client, because the browser reports
+ *                          how long it talked and must not be able to write
+ *                          that straight into the ledger
+ *
+ * Nothing in here throws on a missing table. The schema lives in
+ * `supabase/migrations/`, and a deployment that has not run it yet should still
+ * serve the coach — degraded to "no usage recorded", not broken.
+ */
+import type { User } from '@supabase/supabase-js';
+import { createClient } from './supabase/server';
+import { serviceConfigured, supabaseAdmin } from './supabase/admin';
+
+export interface Plan {
+  id: string;
+  name: string;
+  /** null means unlimited. Nothing enforces these yet — see `docs` in the README. */
+  monthly_minutes: number | null;
+  monthly_sessions: number | null;
+}
+
+export interface Profile {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  plan_id: string;
+}
+
+export interface Account {
+  profile: Profile;
+  plan: Plan | null;
+}
+
+/**
+ * Mirror the Google identity into `public.profiles`.
+ *
+ * A database trigger already does this on first sign-in. This runs on *every*
+ * sign-in anyway, for two reasons: it keeps name and avatar current when they
+ * change at Google, and it means a deployment whose migration has not been
+ * applied to `auth.users` triggers still ends up with profile rows.
+ *
+ * Best-effort by design — a failure here must not block a sign-in that Supabase
+ * already accepted.
+ */
+export async function syncProfile(user: User): Promise<void> {
+  if (!serviceConfigured()) return;
+
+  const meta = user.user_metadata ?? {};
+  const { error } = await supabaseAdmin()
+    .from('profiles')
+    .upsert(
+      {
+        id: user.id,
+        email: user.email ?? null,
+        full_name: (meta.full_name as string) ?? (meta.name as string) ?? null,
+        avatar_url: (meta.avatar_url as string) ?? (meta.picture as string) ?? null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' },
+    );
+
+  if (error) console.error('[account] profile upsert failed:', error.message);
+}
+
+/** The signed-in learner's profile and plan, or null if either is unavailable. */
+export async function getAccount(): Promise<Account | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, email, full_name, avatar_url, plan_id, plans(id, name, monthly_minutes, monthly_sessions)')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (error || !data) {
+    // No row yet (or no schema). Fall back to the identity we already hold, so
+    // the UI can still greet them by name.
+    if (error) console.error('[account] profile read failed:', error.message);
+    const meta = user.user_metadata ?? {};
+    return {
+      profile: {
+        id: user.id,
+        email: user.email ?? null,
+        full_name: (meta.full_name as string) ?? (meta.name as string) ?? null,
+        avatar_url: (meta.avatar_url as string) ?? (meta.picture as string) ?? null,
+        plan_id: 'free',
+      },
+      plan: null,
+    };
+  }
+
+  const { plans, ...profile } = data as unknown as Profile & { plans: Plan | Plan[] | null };
+  return {
+    profile,
+    plan: Array.isArray(plans) ? (plans[0] ?? null) : plans,
+  };
+}
+
+/**
+ * Open a usage row the moment a signed URL is minted.
+ *
+ * Written at mint time rather than at connect time on purpose: the credential
+ * is billable from the moment it exists, and a learner who closes the tab
+ * mid-handshake still cost something. The row starts with only what the server
+ * knows; the browser fills in the rest through `finishCoachSession`.
+ *
+ * Returns the row id, or null when usage recording is not available — the
+ * caller must treat that as "carry on without a receipt", never as an error.
+ */
+export async function startCoachSession(
+  userId: string,
+  agentId: string,
+): Promise<string | null> {
+  if (!serviceConfigured()) return null;
+
+  const { data, error } = await supabaseAdmin()
+    .from('coach_sessions')
+    .insert({ user_id: userId, agent_id: agentId })
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error('[account] could not open usage row:', error.message);
+    return null;
+  }
+  return data.id as string;
+}
+
+/**
+ * Close a usage row with what the browser observed.
+ *
+ * These numbers are a first approximation: the browser can lie, and a closed
+ * laptop reports nothing at all. `npm run sync:usage` later overwrites them
+ * with ElevenLabs' own accounting, which is what any billing decision should
+ * ever be based on.
+ *
+ * Scoped to `user_id` so a learner can only ever close their own row, even
+ * though the write itself runs with the service role.
+ */
+export async function finishCoachSession(
+  sessionId: string,
+  userId: string,
+  patch: { conversationId?: string; durationSeconds?: number; messageCount?: number },
+): Promise<void> {
+  if (!serviceConfigured()) return;
+
+  const { error } = await supabaseAdmin()
+    .from('coach_sessions')
+    .update({
+      conversation_id: patch.conversationId ?? null,
+      duration_seconds: patch.durationSeconds ?? null,
+      message_count: patch.messageCount ?? null,
+      ended_at: new Date().toISOString(),
+    })
+    .eq('id', sessionId)
+    .eq('user_id', userId);
+
+  if (error) console.error('[account] could not close usage row:', error.message);
+}

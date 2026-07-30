@@ -50,9 +50,57 @@ export function VoiceTutor() {
   const [starting, setStarting] = useState(false);
   const transcriptRef = useRef<HTMLDivElement>(null);
 
+  /*
+   * Usage bookkeeping. Refs rather than state: none of it is rendered, and the
+   * report has to be readable from an event that fires while the page is being
+   * torn down, when a re-render will never come.
+   */
+  const usageRef = useRef<{
+    sessionId: string | null;
+    conversationId: string | null;
+    startedAt: number;
+    messages: number;
+  }>({ sessionId: null, conversationId: null, startedAt: 0, messages: 0 });
+
+  /**
+   * Tell the server the conversation is over, so its usage row can be closed.
+   *
+   * Fires at most once per session — `sessionId` is cleared as it goes out,
+   * because both a normal disconnect and the page unloading can reach here for
+   * the same session. `keepalive` is what lets the request outlive the page.
+   *
+   * Failure is silent on purpose: the learner has finished talking and can do
+   * nothing about it, and `npm run sync:usage` reconciles missed rows against
+   * ElevenLabs afterwards.
+   */
+  const reportUsage = useCallback(() => {
+    const usage = usageRef.current;
+    if (!usage.sessionId) return;
+
+    const sessionId = usage.sessionId;
+    usage.sessionId = null;
+
+    const body = JSON.stringify({
+      conversationId: usage.conversationId ?? undefined,
+      durationSeconds: usage.startedAt
+        ? Math.round((Date.now() - usage.startedAt) / 1000)
+        : undefined,
+      messageCount: usage.messages,
+    });
+
+    void fetch(`/api/sessions/${sessionId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: true,
+    }).catch(() => {});
+  }, []);
+
   const conversation = useConversation({
     onConnect: () => setError(null),
+    onDisconnect: () => reportUsage(),
     onMessage: ({ message, source }: { message: string; source: string }) => {
+      usageRef.current.messages += 1;
       setTurns((prev) => [
         ...prev,
         { role: source === 'user' ? 'user' : 'agent', text: message },
@@ -60,6 +108,18 @@ export function VoiceTutor() {
     },
     onError: (message: string) => setError(message),
   });
+
+  // A closed tab is the most common way a session ends. `pagehide` is the last
+  // event that reliably fires for it, including on iOS, where `beforeunload`
+  // does not.
+  useEffect(() => {
+    const onHide = () => reportUsage();
+    window.addEventListener('pagehide', onHide);
+    return () => {
+      window.removeEventListener('pagehide', onHide);
+      reportUsage();
+    };
+  }, [reportUsage]);
 
   const { status, isSpeaking, startSession, endSession, sendUserMessage } = conversation;
   const connected = status === 'connected';
@@ -76,13 +136,40 @@ export function VoiceTutor() {
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
       const res = await fetch('/api/signed-url');
-      const data = (await res.json()) as { signedUrl?: string; error?: string };
+      // The session expired while the page stayed open. Nothing here can
+      // recover it, so send them back through Google rather than showing an
+      // error about a credential they cannot renew from this screen.
+      if (res.status === 401) {
+        window.location.href = '/auth/login?next=%2Fcoach';
+        return;
+      }
+
+      const data = (await res.json()) as {
+        signedUrl?: string;
+        sessionId?: string | null;
+        error?: string;
+      };
       if (!res.ok || !data.signedUrl) {
         throw new Error(data.error ?? 'No se pudo conectar con el coach.');
       }
 
       setTurns([]);
-      await startSession({ signedUrl: data.signedUrl, connectionType: 'websocket' });
+      usageRef.current = {
+        // Null when this deployment records no usage. Everything downstream
+        // checks for it rather than assuming a row exists.
+        sessionId: data.sessionId ?? null,
+        conversationId: null,
+        startedAt: Date.now(),
+        messages: 0,
+      };
+
+      const conversationId = await startSession({
+        signedUrl: data.signedUrl,
+        connectionType: 'websocket',
+      });
+      // The id ElevenLabs bills under. Without it a usage row cannot be
+      // reconciled against their side later.
+      usageRef.current.conversationId = conversationId ?? null;
 
       // Seed the agent without spending a spoken turn.
       //
