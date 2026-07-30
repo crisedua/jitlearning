@@ -51,8 +51,8 @@ export const CAPABILITIES = [
     icon: 'book',
   },
   {
-    title: 'Te lo enseña en pantalla',
-    body: 'Para los procedimientos que tiene documentados abre un tutorial ilustrado y va pasando los pasos mientras habla, así lo que oyes y lo que ves van sincronizados.',
+    title: 'Te discute la decisión, no solo la duda',
+    body: 'Va a lo que hay debajo de la pregunta: para qué es, qué depende de ello, qué pasa si sale mal. Cuando hay que elegir te dice cuál elegiría y qué tendría que cambiar para preferir la otra.',
     icon: 'screen',
   },
 ] as const;

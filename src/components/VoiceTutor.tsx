@@ -2,13 +2,27 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConversation } from '@elevenlabs/react';
-import { TUTORIALS, tutorialById } from '@/lib/tutorials';
 import { KnownTopics } from './KnownTopics';
-import { TutorialPanel } from './TutorialPanel';
 
 interface Turn {
   role: 'user' | 'agent';
   text: string;
+}
+
+/**
+ * Today's date, written the way the coach will say it out loud.
+ *
+ * The weekday is included deliberately: deadlines in conversation are named by
+ * day ("antes del viernes"), and the coach cannot work out that Friday is three
+ * days away from a numeric date alone.
+ */
+function todayInSpanish(): string {
+  return new Date().toLocaleDateString('es-ES', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 /**
@@ -23,28 +37,17 @@ const STATUS_ES: Record<string, string> = {
   disconnecting: 'Desconectando…',
 };
 
-/** What the agent is showing on screen right now. */
-interface Showing {
-  id: string;
-  step: number;
-}
-
 /**
  * Voice interface to the tutor agent.
  *
  * The browser never sees the ElevenLabs API key: it asks `/api/signed-url` for
  * a short-lived signed WebSocket URL and connects with that.
- *
- * The agent can also drive the page. It has one client tool, `mostrar_tutorial`,
- * which opens the step-by-step panel and moves through it while it talks — so
- * spoken instructions and the diagram on screen stay on the same step.
  */
 export function VoiceTutor() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [objective, setObjective] = useState('');
   const [starting, setStarting] = useState(false);
-  const [showing, setShowing] = useState<Showing | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
 
   const conversation = useConversation({
@@ -56,40 +59,6 @@ export function VoiceTutor() {
       ]);
     },
     onError: (message: string) => setError(message),
-    clientTools: {
-      /**
-       * Called by the agent, not by the UI.
-       *
-       * The return value goes back into the conversation, so it is written for
-       * the model to act on: an unknown id returns the list of real ones rather
-       * than failing silently, which is what stops the agent from narrating a
-       * tutorial the learner cannot see.
-       */
-      mostrar_tutorial: ({
-        tutorial_id,
-        paso,
-      }: {
-        tutorial_id?: string;
-        paso?: number | string;
-      }) => {
-        const tutorial = tutorial_id ? tutorialById(tutorial_id) : undefined;
-        if (!tutorial) {
-          return `No existe un tutorial con ese identificador. Los disponibles son: ${TUTORIALS.map(
-            (t) => t.id,
-          ).join(', ')}. No anuncies un tutorial que no esté en esa lista.`;
-        }
-
-        // The model sends 1-based step numbers, and sometimes as a string.
-        const asNumber = typeof paso === 'string' ? Number.parseInt(paso, 10) : paso;
-        const requested = Number.isFinite(asNumber) ? (asNumber as number) : 1;
-        const index = Math.min(Math.max(requested, 1), tutorial.steps.length) - 1;
-
-        setShowing({ id: tutorial.id, step: index });
-        return `En pantalla: "${tutorial.title}", paso ${index + 1} de ${
-          tutorial.steps.length
-        } (${tutorial.steps[index]!.title}).`;
-      },
-    },
   });
 
   const { status, isSpeaking, startSession, endSession, sendUserMessage } = conversation;
@@ -113,23 +82,30 @@ export function VoiceTutor() {
       }
 
       setTurns([]);
-      setShowing(null);
       await startSession({ signedUrl: data.signedUrl, connectionType: 'websocket' });
 
-      // Seed the agent with the learner's goal without spending a spoken turn.
-      if (objective.trim()) {
-        conversation.sendContextualUpdate(
-          `Objetivo declarado para esta sesión: ${objective.trim()}`,
-        );
-      }
+      // Seed the agent without spending a spoken turn.
+      //
+      // The date is not decoration. The persona closes each stretch of
+      // conversation on a commitment with a deadline, and a model has no clock:
+      // left to itself it either invents a date or retreats to "esta semana",
+      // which is the vagueness the commitment exists to remove. Sent from the
+      // browser, so it is the learner's own calendar day rather than the
+      // server's timezone.
+      const context = [
+        `Hoy es ${todayInSpanish()}. Úsalo para fijar plazos concretos.`,
+        objective.trim() && `Objetivo declarado para esta sesión: ${objective.trim()}`,
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      conversation.sendContextualUpdate(context);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo iniciar la sesión.');
     } finally {
       setStarting(false);
     }
   }, [startSession, conversation, objective]);
-
-  const shownTutorial = showing ? tutorialById(showing.id) : undefined;
 
   /**
    * A tapped example means something different either side of the connection.
@@ -202,15 +178,6 @@ export function VoiceTutor() {
             </span>
             <span className="text-ink/85">{error}</span>
           </p>
-        )}
-
-        {shownTutorial && showing && (
-          <TutorialPanel
-            tutorial={shownTutorial}
-            step={showing.step}
-            onStep={(step) => setShowing({ id: shownTutorial.id, step })}
-            onClose={() => setShowing(null)}
-          />
         )}
 
         <Transcript turns={turns} scrollRef={transcriptRef} />

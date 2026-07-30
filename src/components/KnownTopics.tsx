@@ -34,17 +34,7 @@ export function KnownTopics({
       <ul className="divide-y divide-line">
         {TOPICS.map((topic) => (
           <li key={topic.title} className="px-5 py-4">
-            <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-ink">
-              {topic.title}
-              {topic.illustrated && (
-                <span
-                  title="El coach puede mostrar un tutorial ilustrado en pantalla"
-                  className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-accent-hover"
-                >
-                  con pantalla
-                </span>
-              )}
-            </h3>
+            <h3 className="text-sm font-semibold text-ink">{topic.title}</h3>
             <p className="mt-1 text-xs leading-relaxed text-muted">{topic.blurb}</p>
 
             <ul className="mt-2.5 space-y-1">

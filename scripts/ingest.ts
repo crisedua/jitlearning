@@ -68,8 +68,8 @@ async function main() {
    * ElevenLabs happily stores two documents with the same name, so re-running
    * this on a folder used to double it. Nothing errors — retrieval just starts
    * pulling duplicate chunks, which crowds out other material and burns the
-   * chunk budget on text the agent already has. Regenerating tutorials and
-   * re-ingesting is a routine loop, so this has to be idempotent.
+   * chunk budget on text the agent already has. Editing a document and
+   * re-ingesting its folder is a routine loop, so this has to be idempotent.
    */
   const existing = new Map<string, string>();
   for (const doc of (await listDocuments({ pageSize: 100 })).documents) {

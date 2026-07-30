@@ -11,8 +11,7 @@
     "typecheck": "tsc --noEmit",
     "doctor": "tsx scripts/doctor.ts",
     "setup:agent": "tsx scripts/setup-agent.ts",
-    "ingest": "tsx scripts/ingest.ts",
-    "build:tutorials": "tsx scripts/build-tutorial-docs.ts"
+    "ingest": "tsx scripts/ingest.ts"
   },
   "dependencies": {
     "@elevenlabs/react": "^0.7.0",

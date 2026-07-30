@@ -20,29 +20,27 @@ export interface Topic {
   blurb: string;
   /** Real questions the corpus can answer. They double as tappable prompts. */
   examples: string[];
-  /** True when the coach can also open an illustrated step-by-step panel. */
-  illustrated?: boolean;
 }
 
 export const TOPICS: readonly Topic[] = [
   {
-    title: 'Usar Claude y ChatGPT paso a paso',
-    blurb:
-      'Proyectos en Claude, Cowork sobre tus archivos, instalar Claude Code, y Proyectos en ChatGPT.',
-    illustrated: true,
-    examples: [
-      '¿Cómo subo mis documentos a un Proyecto de Claude?',
-      '¿Cómo instalo Claude Code?',
-      '¿Qué hace Cowork con mis archivos?',
-      '¿Cómo creo un Proyecto en ChatGPT?',
-    ],
-  },
-  {
     title: 'Elegir entre asistentes de IA',
-    blurb: 'En qué se diferencian ChatGPT, Claude y Gemini, y cuál conviene para cada tarea.',
+    blurb:
+      'En qué se diferencian ChatGPT, Claude y Gemini, y cuál conviene según lo que tengas entre manos.',
     examples: [
       '¿Cuál me conviene para escribir documentos largos?',
       '¿En qué se diferencian Claude y ChatGPT?',
+      'Pago por uno solo. ¿Cuál elijo?',
+    ],
+  },
+  {
+    title: 'Sacarle partido a un modelo',
+    blurb:
+      'Cómo darle contexto para que responda bien, y qué mecanismo conviene en cada caso: documentos de proyecto, instrucciones fijas o una skill.',
+    examples: [
+      'Le doy instrucciones y no hace lo que quiero',
+      '¿Qué son las Skills y cuándo me conviene una?',
+      '¿Subo el documento al proyecto o lo pego en el chat?',
     ],
   },
   {
