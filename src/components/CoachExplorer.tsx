@@ -96,7 +96,7 @@ export function CoachExplorer({
             Toca cualquiera y la sesión arranca hablando de eso.{' '}
             {audience
               ? 'Todas las preguntas de este tema.'
-              : 'Elige un tema para ver todas las suyas, o escribe la tuya abajo.'}
+              : 'Elige un tema para ver todas las suyas, o escribe la tuya arriba.'}
           </p>
         </div>
 

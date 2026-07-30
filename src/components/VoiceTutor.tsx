@@ -241,15 +241,14 @@ export function VoiceTutor() {
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_24rem] xl:gap-8">
       <div className="space-y-6">
         {/*
-          Before the session only. Once the transcript is live this would
-          compete with it for the same attention, and the sidebar covers the
-          same ground for anyone who needs a prompt mid-conversation.
-        */}
-        {!connected && (
-          <CoachExplorer onAsk={askAndStart} busy={starting || status === 'connecting'} />
-        )}
+          Session controls first, directly under the page heading.
 
-        {/* Session controls */}
+          The explorer below is worth reading, but it is not the reason anyone
+          came: pushing the button that starts the conversation below a screen
+          of question cards hides the primary action behind the thing meant to
+          feed it. Same wording as the header call to action on purpose — they
+          are the same action, and a second name for it reads as a second thing.
+        */}
         <section className="rounded-lg border border-line bg-surface p-5 shadow-sm sm:p-6">
           <label className="block">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-muted">
@@ -268,7 +267,7 @@ export function VoiceTutor() {
             {connected ? (
               <button
                 onClick={() => void endSession()}
-                className="rounded-md bg-danger px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-150 ease-out hover:brightness-110"
+                className="rounded-full bg-danger px-6 py-2.5 text-[15px] font-medium text-white shadow-sm transition duration-150 ease-out hover:brightness-110"
               >
                 Terminar sesión
               </button>
@@ -276,9 +275,13 @@ export function VoiceTutor() {
               <button
                 onClick={() => void start()}
                 disabled={starting || status === 'connecting'}
-                className="rounded-md bg-accent px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-150 ease-out hover:-translate-y-px hover:bg-accent-hover hover:shadow-md disabled:translate-y-0 disabled:opacity-55 disabled:shadow-sm"
+                className="inline-flex items-center gap-2.5 rounded-full bg-accent px-6 py-2.5 text-[15px] font-medium text-white shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md disabled:translate-y-0 disabled:opacity-55 disabled:shadow-sm"
               >
-                {starting || status === 'connecting' ? 'Conectando…' : 'Empezar a hablar'}
+                {starting || status === 'connecting' ? 'Conectando…' : 'Hablar con el coach'}
+                <span
+                  aria-hidden
+                  className="h-[7px] w-[7px] rounded-full bg-gold [animation:ring_2.2s_ease-out_infinite]"
+                />
               </button>
             )}
 
@@ -292,6 +295,15 @@ export function VoiceTutor() {
             </p>
           )}
         </section>
+
+        {/*
+          Before the session only. Once the transcript is live this would
+          compete with it for the same attention, and the sidebar covers the
+          same ground for anyone who needs a prompt mid-conversation.
+        */}
+        {!connected && (
+          <CoachExplorer onAsk={askAndStart} busy={starting || status === 'connecting'} />
+        )}
 
         {error && (
           <p
