@@ -69,9 +69,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           >
             <Link
               href="/"
-              className="flex shrink-0 items-center gap-2.5 rounded-sm text-[17px] font-semibold tracking-[-0.01em]"
+              className="flex shrink-0 items-center gap-3 rounded-sm text-[21px] font-semibold tracking-[-0.01em]"
             >
-              <BrandMark size={26} />
+              <BrandMark size={36} />
               {/* The mark alone carries the brand on a phone; the wordmark plus
                   the call to action do not fit side by side at 320px. */}
               <Wordmark className="hidden xs:inline-flex" />
@@ -126,8 +126,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <footer className="border-t border-line py-9">
           <div className="mx-auto flex max-w-[75rem] flex-wrap items-center gap-x-6 gap-y-3 px-6 text-sm text-soft">
-            <span className="flex items-center gap-2.5 text-[15px] font-semibold text-ink">
-              <BrandMark size={24} />
+            <span className="flex items-center gap-2.5 text-[17px] font-semibold text-ink">
+              <BrandMark size={28} />
               <Wordmark />
             </span>
             <span className="flex-1" />
