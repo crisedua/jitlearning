@@ -42,6 +42,7 @@ export const metadata: Metadata = {
 /** Anchors live on the home page, so they are prefixed to work from any route. */
 const NAV = [
   { href: '/#que-hace', label: 'Qué hace' },
+  { href: '/#diferencia', label: 'La diferencia' },
   { href: '/#temas', label: 'Temas' },
   { href: '/#como', label: 'Cómo funciona' },
 ];

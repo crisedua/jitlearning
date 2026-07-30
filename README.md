@@ -214,6 +214,68 @@ recommendation with the condition that would flip it rather than a comparison
 table, disagrees early when the framing is wrong, and raises the one thing that
 changes what you should do rather than a list of risks.
 
+### Why not just use ChatGPT
+
+Every visitor is asking this, so it is worth being able to answer it in
+behaviour rather than in adjectives. Most of the persona is *prohibitions* —
+don't invent figures, don't deny features from memory, don't dictate click
+paths. Those keep the coach from being **worse** than a general assistant. None
+of them make it better than one.
+
+Four sections do the differentiating, each one checkable in a single
+conversation and each one something a general assistant structurally cannot do
+with this corpus:
+
+- **It names the source out loud, mid-sentence.** "This is Kagan, in *Million
+  Dollar Weekend*." The corpus carries its attributions inside the prose, so the
+  retrieved chunk has the author in it. A general model recalls the same ideas
+  unsourced and — the part that matters — cannot tell you which of the two it is
+  doing. The persona also forbids attributing anything the material didn't
+  attribute: a false citation is worse than none, because it is what the learner
+  repeats in their next meeting.
+- **It refuses to average the authors.** The corpus has an explicit contrast
+  document ([`08-errores-y-desacuerdos.md`](knowledge/negocio/08-errores-y-desacuerdos.md))
+  recording where Kagan, Martell and Abdaal genuinely disagree — validate in 48
+  hours versus build slowly over years while keeping your job. Consensus
+  smoothing is the default failure of a summarising model, and it deletes
+  exactly the information that decides what someone should do. The persona names
+  both positions, picks one for *this* person, and says what would flip it.
+- **It closes on a commitment.** One action, a date, and what signal would count
+  as it having worked — the cheapest test that resolves the biggest doubt, not
+  the most thorough plan. One thing, not three: a list of next steps is
+  forgotten whole.
+- **It doesn't sound like a chatbot.** No "great question", no "hope that
+  helps", no "ultimately it depends on you". That register is the most
+  recognisable tell there is, and removing it costs nothing.
+
+The first three were promised on the marketing page before anything in the
+prompt asked for them. If you drop one from the persona, drop it from
+`DIFFERENCES` in [`src/lib/site.ts`](src/lib/site.ts) in the same change — that
+list is a set of claims a visitor can falsify in one session.
+
+**The date is injected from the browser**, in
+[`VoiceTutor`](src/components/VoiceTutor.tsx), alongside the learner's stated
+objective. Without it the commitment step degrades: a model has no clock, so it
+either invents a date or retreats to "this week", which is the vagueness the
+commitment exists to remove.
+
+### Pushing a persona change
+
+The persona is source code, but the agent holds its own copy — editing
+`TUTOR_PERSONA` changes nothing audible until it is pushed.
+
+```bash
+npm run sync:agent            # report drift, change nothing
+npm run sync:agent -- --push  # apply
+```
+
+Dry by default: it writes to a live agent that someone may be mid-conversation
+with. The same call re-attaches every indexed document, because the prompt and
+the knowledge list go up in one PATCH and are not separable.
+
+`POST /api/agent` on a deployment does the same thing, but requires shipping the
+change before you can hear it.
+
 ## Layout
 
 ```
@@ -225,7 +287,8 @@ src/lib/auth.ts         Shared-secret gate
 src/lib/config.ts       Env config + bounded-concurrency helper
 src/app/api/            Route handlers
 src/components/         VoiceTutor, KnowledgeManager, KnownTopics
-scripts/                setup-agent, bulk ingest, doctor
+src/lib/site.ts         Landing-page copy, incl. the falsifiable DIFFERENCES list
+scripts/                setup-agent, sync-agent, bulk ingest, doctor
 ```
 
 ## Known limits

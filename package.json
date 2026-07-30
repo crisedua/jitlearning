@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "doctor": "tsx scripts/doctor.ts",
     "setup:agent": "tsx scripts/setup-agent.ts",
+    "sync:agent": "tsx scripts/sync-agent.ts",
     "ingest": "tsx scripts/ingest.ts"
   },
   "dependencies": {

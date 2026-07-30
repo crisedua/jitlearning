@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import { SessionPreview } from '@/components/SessionPreview';
 import { TOPICS } from '@/lib/topics';
-import { CAPABILITIES, PROFILE, STEPS, hasContact } from '@/lib/site';
+import { CAPABILITIES, DIFFERENCES, PROFILE, STEPS, hasContact } from '@/lib/site';
 
 export const metadata = {
   title: 'ModoJIT · Un coach que responde a lo que te bloquea ahora',
   description:
-    'Coach de voz de aprendizaje justo a tiempo: responde la pregunta que te tiene atascado, apoyado en material real, y te lo enseña paso a paso en pantalla.',
+    'Coach de voz de aprendizaje justo a tiempo: responde la pregunta que te tiene atascado, te dice de qué fuente sale la respuesta, y cierra con un paso concreto y una fecha.',
 };
 
 /** Two passes of the same list, so the marquee wraps without a visible seam. */
@@ -106,6 +106,62 @@ export default function HomePage() {
             </li>
           ))}
         </ul>
+      </section>
+
+      {/* ---------------------------------------------------------- Difference */}
+      <section
+        id="diferencia"
+        className="scroll-mt-24 border-y border-line bg-surface-alt py-24 lg:py-28"
+      >
+        <div className="mx-auto max-w-[75rem] px-6">
+          <p className="reveal text-xs font-semibold uppercase tracking-[0.14em] text-accent">
+            La diferencia
+          </p>
+          <h2 className="reveal mt-4 max-w-[26ch] font-serif text-[clamp(2rem,4.5vw,3.25rem)] font-normal leading-[1.08] tracking-[-0.02em]">
+            ¿Y esto en qué se diferencia de preguntarle a ChatGPT?
+          </h2>
+          <p className="reveal mt-5 max-w-[58ch] text-[17px] leading-relaxed text-muted">
+            Es la pregunta correcta, así que va contestada. Cuatro diferencias, todas
+            comprobables en una sola conversación.
+          </p>
+
+          <ul className="mt-12 grid gap-4 lg:grid-cols-2">
+            {DIFFERENCES.map((d, i) => (
+              <li
+                key={d.title}
+                style={{ animationRange: `entry 0% entry ${55 + (i % 2) * 10}%` }}
+                className="reveal overflow-hidden rounded-lg border border-line bg-surface transition duration-300 ease-out hover:-translate-y-1.5 hover:border-accent/35 hover:shadow-md"
+              >
+                <h3 className="border-b border-line px-7 pb-4 pt-6 text-xl font-semibold tracking-[-0.01em]">
+                  {d.title}
+                </h3>
+
+                <div className="grid sm:grid-cols-2">
+                  <div className="border-line px-7 py-6 max-sm:border-b sm:border-r">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-soft">
+                      Un asistente general
+                    </p>
+                    <p className="mt-2.5 text-[15px] leading-relaxed text-soft">{d.generic}</p>
+                  </div>
+
+                  <div className="bg-accent-soft/25 px-7 py-6">
+                    <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-accent">
+                      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-gold" />
+                      Este coach
+                    </p>
+                    <p className="mt-2.5 text-[15px] leading-relaxed text-ink">{d.coach}</p>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <p className="reveal mt-10 max-w-[58ch] text-[15px] leading-relaxed text-muted">
+            Lo que no va a hacer: sustituir a un asistente general. Para redactar, programar o
+            resolver algo fuera de sus temas, usa el que ya pagas. Esto es para cuando estás
+            atascado en algo de lo que sí tiene material.
+          </p>
+        </div>
       </section>
 
       {/* -------------------------------------------------------------- Topics */}
