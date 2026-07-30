@@ -41,6 +41,16 @@
   --color-accent-lift: #3e6690;
   --color-accent-soft: #e4ebf4;
 
+  /*
+   * Brand green. The logo's own colour, deliberately separate from `accent`:
+   * navy is the interface, green is the mark. `brand` clears 4.5:1 on every
+   * paper surface and does carry the "JIT" of the wordmark; `brand-soft` is the
+   * logo's back card and is decorative only — it sits near gold's contrast and
+   * must never carry text.
+   */
+  --color-brand: #14382b;
+  --color-brand-soft: #8fb3a0;
+
   /* Gold — decoration only, never text on light surfaces. */
   --color-gold: #d9a83b;
   --color-gold-soft: #f0dfb4;

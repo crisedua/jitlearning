@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 28" role="img" aria-label="ModoJIT">
+  <!--
+    Favicon. Not the header mark scaled down: at 16px that offset and rotation
+    read as blur rather than as two cards, so the strokes are heavier and the
+    angle shallower. The greens are lifted a step from the brand tokens so the
+    mark survives a dark browser chrome as well as a light one.
+  -->
+  <rect x="10" y="3" width="19" height="14" rx="2.2" fill="none" stroke="#7FA893" stroke-width="2.6"
+        transform="rotate(-6 19.5 10)"/>
+  <path d="M3 17.5H26" stroke="#D9A83B" stroke-width="2.8" stroke-linecap="round"/>
+  <rect x="3" y="11" width="19" height="14" rx="2.2" fill="none" stroke="#2F6B52" stroke-width="2.6"/>
+</svg>

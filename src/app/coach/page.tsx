@@ -5,7 +5,7 @@ import { agentId } from '@/lib/config';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Coach de aprendizaje · Aprendizaje JIT',
+  title: 'Coach de aprendizaje · ModoJIT',
 };
 
 export default function CoachPage() {

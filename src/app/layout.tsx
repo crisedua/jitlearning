@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Instrument_Sans, Instrument_Serif, JetBrains_Mono } from 'next/font/google';
 import Link from 'next/link';
-import { BrandMark } from '@/components/BrandMark';
+import { BrandMark, Wordmark } from '@/components/BrandMark';
 import { PROFILE, hasContact } from '@/lib/site';
 import './globals.css';
 
@@ -34,7 +34,8 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Aprendizaje JIT',
+  title: 'ModoJIT',
+  icons: { icon: '/icono.svg' },
   description: 'Coach de aprendizaje justo a tiempo con agentes de voz de ElevenLabs y RAG',
 };
 
@@ -70,10 +71,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               href="/"
               className="flex shrink-0 items-center gap-2.5 rounded-sm text-[17px] font-semibold tracking-[-0.01em]"
             >
-              <BrandMark />
+              <BrandMark size={26} />
               {/* The mark alone carries the brand on a phone; the wordmark plus
                   the call to action do not fit side by side at 320px. */}
-              <span className="hidden xs:inline">Aprendizaje JIT</span>
+              <Wordmark className="hidden xs:inline-flex" />
             </Link>
 
             <ul className="hidden items-center gap-6 md:flex">
@@ -125,9 +126,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <footer className="border-t border-line py-9">
           <div className="mx-auto flex max-w-[75rem] flex-wrap items-center gap-x-6 gap-y-3 px-6 text-sm text-soft">
-            <span className="flex items-center gap-2.5 font-semibold text-ink">
-              <BrandMark size={28} />
-              Aprendizaje JIT
+            <span className="flex items-center gap-2.5 text-[15px] font-semibold text-ink">
+              <BrandMark size={24} />
+              <Wordmark />
             </span>
             <span className="flex-1" />
             {NAV.map((item) => (

@@ -4,7 +4,7 @@ import { TOPICS } from '@/lib/topics';
 import { CAPABILITIES, PROFILE, STEPS, hasContact } from '@/lib/site';
 
 export const metadata = {
-  title: 'Aprendizaje JIT · Un coach que responde a lo que te bloquea ahora',
+  title: 'ModoJIT · Un coach que responde a lo que te bloquea ahora',
   description:
     'Coach de voz de aprendizaje justo a tiempo: responde la pregunta que te tiene atascado, apoyado en material real, y te lo enseña paso a paso en pantalla.',
 };
