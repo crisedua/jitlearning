@@ -237,9 +237,11 @@ Note that ElevenLabs' knowledge base **rejects images entirely** — the accepte
 types are `pdf`, `txt`, `md`, `html`, `docx`, `epub`. Visuals can only ever live
 in this app, never in the retrieval corpus.
 
-### Two failures worth keeping fixed
+### Failures worth keeping fixed
 
-Both were caught by simulation, and both were silent:
+Every one of these was silent — fluent output, no error, nothing to tell the
+learner which answer they got. Most were caught by `simulate-conversation`; the
+denial below was caught by a user.
 
 - **Spelling commands out loud.** Asked how to install Claude Code, the agent
   read `curl -fsSL https://…` as *"curl guion efe ese ese ele…"*. Commands and
@@ -250,6 +252,29 @@ Both were caught by simulation, and both were silent:
   prompt now requires an explicit one-line notice first — and forbids
   approximate UI names dressed up as verified ones ("a button that says X *or
   similar*").
+- **Denying a real feature because the corpus lacked it.** Asked to teach Claude
+  Skills, the coach answered *"Claude no tiene una función llamada skills como
+  tal"*. This is the grounding instructions taken to their logical end: told to
+  answer from the material and add nothing, the model reads absence-in-corpus as
+  absence-in-reality. It is the worst variant of the fallback bug, because the
+  learner believes it and stops looking. The prompt now separates the two
+  explicitly — the knowledge base is a selection of material, not an inventory
+  of the world — and flags that fast-moving products are exactly where a missing
+  memory proves nothing. Verified in both directions: it no longer denies a real
+  feature that is off-corpus, and it still refuses an invented one outright.
+- **Inventing identifiers while disclosing.** The fix above surfaced a subtler
+  one: the agent would announce it was answering from general knowledge and then
+  fabricate `pre-edit.sh` / `post-edit.sh` under `.claude/hooks/`. The notice is
+  forgotten, the path gets typed. Off-corpus it may now name no file, path,
+  command or exact setting — it stays at concept level and points at the docs.
+- **Showing a tutorial for the wrong thing.** A question about Claude Code
+  *hooks* opened the Claude Code *install* tutorial, because the product
+  matched. The prompt now says to match the tutorial's task, not its product: a
+  panel showing the wrong steps silently contradicts what is being said.
+
+`npm run ingest` is idempotent by name — a re-ingest replaces rather than
+duplicates. It used to double the folder, and nothing errored: retrieval just
+began pulling duplicate chunks, crowding other material out of the budget.
 
 ## Layout
 

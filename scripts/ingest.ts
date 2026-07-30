@@ -13,6 +13,7 @@ import './env';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { ingest, waitForIndexing } from '../src/lib/knowledge';
+import { deleteDocument, listDocuments } from '../src/lib/elevenlabs';
 import { syncAgentKnowledge } from '../src/lib/agent';
 
 /**
@@ -61,12 +62,27 @@ async function main() {
     process.exit(1);
   }
 
+  /*
+   * Replace by name rather than blindly adding.
+   *
+   * ElevenLabs happily stores two documents with the same name, so re-running
+   * this on a folder used to double it. Nothing errors — retrieval just starts
+   * pulling duplicate chunks, which crowds out other material and burns the
+   * chunk budget on text the agent already has. Regenerating tutorials and
+   * re-ingesting is a routine loop, so this has to be idempotent.
+   */
+  const existing = new Map<string, string>();
+  for (const doc of (await listDocuments({ pageSize: 100 })).documents) {
+    existing.set(doc.name, doc.id);
+  }
+
   console.log(`Ingesting ${files.length} file(s)…\n`);
   const ids: string[] = [];
 
   for (const file of files) {
     const name = path.basename(file);
     try {
+      const stale = existing.get(name);
       const buffer = await readFile(file);
       const type = MIME_TYPES[path.extname(file).toLowerCase()] ?? 'text/plain';
       const doc = await ingest(
@@ -74,7 +90,18 @@ async function main() {
         { name },
       );
       ids.push(doc.id);
-      console.log(`  + ${name}`);
+
+      /*
+       * Delete the old copy only once the new one is stored, so a failed upload
+       * leaves the corpus as it was rather than emptied. `force` detaches it from
+       * the agent, which the sync at the end then puts right.
+       */
+      if (stale) {
+        await deleteDocument(stale, true);
+        console.log(`  ~ ${name} (reemplazado)`);
+      } else {
+        console.log(`  + ${name}`);
+      }
     } catch (err) {
       console.error(`  ! ${name}: ${err instanceof Error ? err.message : err}`);
     }

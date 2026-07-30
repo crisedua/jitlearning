@@ -98,6 +98,60 @@ export const TUTORIALS: readonly Tutorial[] = [
   },
 
   {
+    id: 'claude-skills',
+    product: 'Claude Chat y Cowork',
+    title: 'Activar y usar Skills en Claude',
+    goal: 'Enseñarle a Claude tu forma de trabajar una vez, en un paquete reutilizable que se activa solo cuando hace falta, sin repetir las instrucciones en cada conversación.',
+    requires:
+      'Disponible en los planes Free, Pro, Max, Team y Enterprise. Requiere tener activada la ejecución de código y creación de archivos. En Team y Enterprise, el propietario tiene que habilitar Skills en la configuración de la organización antes de que el resto pueda usarlas.',
+    keyPoint:
+      'Una Skill no es lo mismo que el conocimiento de un Proyecto ni que las instrucciones personalizadas. El conocimiento del Proyecto es material de fondo, siempre presente y solo dentro de ese proyecto. Las instrucciones personalizadas aplican a todas tus conversaciones por igual. Una Skill vive en todas tus conversaciones pero se carga sola únicamente cuando la tarea la necesita: enseña un procedimiento, no aporta datos.',
+    steps: [
+      {
+        title: 'Activa la ejecución de código',
+        detail:
+          'Las Skills no funcionan sin esto, así que es el primer paso y el que más se olvida. En planes Free, Pro y Max lo encuentras en la configuración, en el apartado de capacidades. En Team y Enterprise lo habilita el propietario desde la configuración de la organización.',
+        note: 'Free / Pro / Max: Configuración › Capacidades › "Ejecución de código y creación de archivos".\nTeam / Enterprise: Configuración de la organización › Skills.',
+      },
+      {
+        title: 'Abre el listado de Skills',
+        detail:
+          'Entra en Personalizar y luego en Skills. Ahí aparecen las que tienes disponibles, cada una con su interruptor para encenderla o apagarla.',
+        note: 'Personalizar › Skills. En inglés: "Customize" › "Skills".',
+        figure: 'claude-skills-panel.svg',
+      },
+      {
+        title: 'Explora el directorio',
+        detail:
+          'Pulsa el botón de más para abrir el directorio y entra en la pestaña de Skills. Ahí están las de ejemplo que publica Anthropic, que sirven para ver cómo está armada una antes de escribir la tuya. En Cowork, Personalizar está en la barra lateral izquierda.',
+      },
+      {
+        title: 'Enciende las que vas a usar',
+        detail:
+          'Activa solo las que necesitas. Cuando le pides algo, Claude revisa las disponibles, decide cuáles hacen falta y carga únicamente esas. Tener muchas encendidas que no usas no le ayuda a elegir.',
+      },
+      {
+        title: 'Úsala describiendo la tarea',
+        detail:
+          'No hace falta invocar nada. Describe lo que quieres con normalidad y Claude reconoce por su cuenta si alguna Skill aplica. En los complementos de Microsoft 365 sí puedes llamarlas escribiendo una barra para ver la lista.',
+      },
+      {
+        title: 'Sube la tuya',
+        detail:
+          'Cuando quieras empaquetar tu propia forma de trabajar, comprime la carpeta de la Skill en un archivo zip. En el listado de Skills pulsa el botón de más, elige crear una Skill, y luego la opción de subirla. Las que subes tú son privadas de tu cuenta.',
+        note: 'Personalizar › Skills › "+" › "+ Crear skill" › "Subir una skill". El paquete se sube como .zip.',
+      },
+      {
+        title: 'Compártela con tu equipo, si aplica',
+        detail:
+          'En Team y Enterprise las Skills se ordenan en tres grupos: las personales que creaste tú, las que te compartió un colega, que aparecen apagadas hasta que las enciendas, y las de la organización. Si el propietario sube una desde la configuración de la organización, le aparece a todo el mundo y nadie más tiene que subirla por su cuenta.',
+      },
+    ],
+    source: 'https://support.claude.com/en/articles/12512180-use-skills-in-claude',
+    checkedOn: '2026-07-29',
+  },
+
+  {
     id: 'claude-cowork',
     product: 'Claude Cowork',
     title: 'Poner a Claude a trabajar sobre tus archivos con Cowork',
