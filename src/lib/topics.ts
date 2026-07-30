@@ -63,6 +63,17 @@ export const TOPICS: readonly Topic[] = [
     ],
   },
   {
+    title: 'Implementar IA en un colegio',
+    blurb:
+      'Cómo un establecimiento pasa de "algunos profesores la usan" a un uso institucional: política de uso, formación docente, gestión y aula. Con la guía de UNESCO, la del Mineduc y la evidencia que se contradice.',
+    examples: [
+      '¿Por dónde parte un colegio con IA?',
+      '¿Qué tiene que decir nuestra política de uso?',
+      '¿Dejamos que los estudiantes la usen o la prohibimos?',
+      '¿Cómo pruebo esto sin comprometer al colegio entero?',
+    ],
+  },
+  {
     title: 'Productividad y energía para sostenerlo',
     blurb:
       'Qué hacer cuando no arrancas, cómo fijar objetivos que dependan de ti, y cómo recomprar tu tiempo.',

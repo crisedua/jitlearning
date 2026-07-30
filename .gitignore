@@ -32,3 +32,8 @@ knowledge/*
 # checked. Tracked because it is the corrective for a specific failure — the
 # coach denying that a real feature exists — and that has to survive a reclone.
 !knowledge/herramientas/
+
+# Same again for `escuela-ia/`: original prose on how a school implements AI,
+# built on public guidance (UNESCO, Mineduc, TeachAI) and two named studies that
+# contradict each other. Nothing is reproduced from a paywalled source.
+!knowledge/escuela-ia/

@@ -145,6 +145,16 @@ is safe in a provisioning or CI step and avoids the serverless timeout:
 npm run ingest -- ./docs
 ```
 
+Re-running it on a folder replaces documents rather than duplicating them, so
+editing a file and re-ingesting is the normal loop.
+
+**Document names are file names, with no folder.** Two files called
+`08-errores-y-desacuerdos.md` in different folders are one document to
+ElevenLabs, and ingesting one silently overwrites the other — no error, no
+duplicate, just a document that is now about something else. The script refuses
+to run when it finds a collision anywhere in the corpus; keep base names unique
+across every folder.
+
 ## Auth model
 
 Every knowledge and agent route requires `INGEST_SECRET`, compared in constant

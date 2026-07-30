@@ -33,13 +33,24 @@ const MIME_TYPES: Record<string, string> = {
 
 const SUPPORTED = new Set(Object.keys(MIME_TYPES));
 
+/**
+ * Never worth descending into, and `node_modules` in particular turns the
+ * duplicate-name check below into a walk of tens of thousands of files when the
+ * corpus root is the repo root.
+ */
+const SKIP_DIRS = new Set(['node_modules', '.git', '.next', 'dist', 'build', 'out']);
+
 async function collect(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
   const out: string[] = [];
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...(await collect(full)));
-    else if (SUPPORTED.has(path.extname(entry.name).toLowerCase())) out.push(full);
+    if (entry.isDirectory()) {
+      if (SKIP_DIRS.has(entry.name) || entry.name.startsWith('.')) continue;
+      out.push(...(await collect(full)));
+    } else if (SUPPORTED.has(path.extname(entry.name).toLowerCase())) {
+      out.push(full);
+    }
   }
   return out;
 }
@@ -59,6 +70,37 @@ async function main() {
   const files = await collect(dir);
   if (files.length === 0) {
     console.error(`No supported files under ${dir}. Supported: ${[...SUPPORTED].join(', ')}`);
+    process.exit(1);
+  }
+
+  /*
+   * A document is identified by its file name alone, with no folder, so two
+   * files called `08-errores-y-desacuerdos.md` in different folders are the
+   * same document to ElevenLabs. Ingesting one silently overwrites the other:
+   * no error, no duplicate, just a document whose content is now about
+   * something else, discovered whenever somebody asks about the topic that
+   * disappeared.
+   *
+   * Checked against the whole corpus rather than the folder being ingested,
+   * because the collision that matters is with a folder you are *not* touching.
+   */
+  const siblingRoot = path.dirname(path.resolve(dir));
+  const collisions = new Map<string, string[]>();
+  for (const file of await collect(siblingRoot).catch(() => [] as string[])) {
+    const name = path.basename(file);
+    collisions.set(name, [...(collisions.get(name) ?? []), file]);
+  }
+  const clashing = files
+    .map((f) => path.basename(f))
+    .filter((name) => (collisions.get(name)?.length ?? 0) > 1);
+
+  if (clashing.length > 0) {
+    console.error('Duplicate document names across the corpus — ingesting would overwrite:\n');
+    for (const name of new Set(clashing)) {
+      console.error(`  ${name}`);
+      for (const file of collisions.get(name)!) console.error(`    ${file}`);
+    }
+    console.error('\nRename one of each pair. Names must be unique across every folder.');
     process.exit(1);
   }
 
