@@ -44,6 +44,22 @@ export default async function CoachPage() {
           Habla con el coach sobre lo que te está bloqueando ahora mismo. Responde apoyándose
           en su base de conocimiento, no en generalidades, y te avisa cuando no tiene material.
         </p>
+
+        {/*
+          What changed, said once and in terms of what it lets somebody ask.
+          A corpus grows silently: nothing on this page would otherwise tell a
+          returning learner that a whole subject arrived since their last visit.
+        */}
+        <p className="mt-4 inline-flex max-w-2xl flex-wrap items-baseline gap-x-2 rounded-md border border-gold/30 bg-gold-soft/30 px-3.5 py-2.5 text-[14px] leading-relaxed text-ink/85">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-warning">
+            Nuevo
+          </span>
+          <span>
+            Cómo un colegio implementa IA: política de uso, formación docente, gestión y
+            aula — con la guía del Mineduc, la de UNESCO y los dos estudios que se
+            contradicen.
+          </span>
+        </p>
       </header>
 
       {configured ? (

@@ -12,6 +12,11 @@ import { OUT_OF_SCOPE_NOTE, TOPICS } from '@/lib/topics';
  * The examples are tappable because reading them is not the same as knowing
  * what to say out loud. Before the session starts a tap fills the objective
  * field; once connected it sends the question straight into the conversation.
+ *
+ * Deliberately *not* the same action as the explorer above, which starts the
+ * session on the question tapped. This is the browsing surface and stays
+ * consequence-free: a tap here should never open a microphone or spend a
+ * billable minute by surprise, so the hint text says which of the two it is.
  */
 export function KnownTopics({
   onPick,
@@ -27,7 +32,7 @@ export function KnownTopics({
         <p className="mt-1 text-xs leading-relaxed text-muted">
           {connected
             ? 'Toca un ejemplo para enviarlo a la conversación.'
-            : 'Toca un ejemplo para empezar por ahí.'}
+            : 'Toca un ejemplo para dejarlo como objetivo, sin empezar todavía.'}
         </p>
       </div>
 

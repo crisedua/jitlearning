@@ -14,13 +14,34 @@
  * knowledge. Update this file whenever documents are ingested or deleted.
  */
 
+/**
+ * Who arrives with this problem. Drives the filter on the coach page: a school
+ * director and someone starting a business share almost nothing, and showing
+ * each of them the other's questions makes the coach look unfocused.
+ */
+export type Audience = 'colegio' | 'ia' | 'negocio';
+
 export interface Topic {
   title: string;
   /** One line on what the material covers. Written for a learner, not an index. */
   blurb: string;
   /** Real questions the corpus can answer. They double as tappable prompts. */
   examples: string[];
+  audience: Audience;
+  /**
+   * Recently added material. Marked so a returning learner can see what changed
+   * without reading the whole list again — remove the flag once it stops being
+   * news, which is a judgement call, not a date.
+   */
+  isNew?: boolean;
 }
+
+/** Filter labels, in the order they are offered. */
+export const AUDIENCES: readonly { id: Audience; label: string }[] = [
+  { id: 'colegio', label: 'Un colegio' },
+  { id: 'ia', label: 'Herramientas de IA' },
+  { id: 'negocio', label: 'Mi propio negocio' },
+];
 
 export const TOPICS: readonly Topic[] = [
   {
@@ -32,6 +53,7 @@ export const TOPICS: readonly Topic[] = [
       '¿En qué se diferencian Claude y ChatGPT?',
       'Pago por uno solo. ¿Cuál elijo?',
     ],
+    audience: 'ia',
   },
   {
     title: 'Sacarle partido a un modelo',
@@ -42,6 +64,7 @@ export const TOPICS: readonly Topic[] = [
       '¿Qué son las Skills y cuándo me conviene una?',
       '¿Subo el documento al proyecto o lo pego en el chat?',
     ],
+    audience: 'ia',
   },
   {
     title: 'Liderar con IA',
@@ -50,6 +73,7 @@ export const TOPICS: readonly Topic[] = [
       '¿Por dónde empiezo a meter IA en mi equipo?',
       '¿Qué tareas conviene delegar a la IA y cuáles no?',
     ],
+    audience: 'ia',
   },
   {
     title: 'Montar tu propio negocio',
@@ -61,17 +85,33 @@ export const TOPICS: readonly Topic[] = [
       '¿Qué construyo primero y qué dejo fuera?',
       '¿Cómo consigo mis tres primeros clientes?',
     ],
+    audience: 'negocio',
   },
   {
     title: 'Implementar IA en un colegio',
     blurb:
-      'Cómo un establecimiento pasa de "algunos profesores la usan" a un uso institucional: política de uso, formación docente, gestión y aula. Con la guía de UNESCO, la del Mineduc y la evidencia que se contradice.',
+      'Cómo un establecimiento pasa de «algunos profesores la usan» a un uso institucional: por dónde partir, política de uso, formación docente y en qué ahorra tiempo de verdad. Con la guía del Mineduc, la de UNESCO y el toolkit de TeachAI.',
     examples: [
       '¿Por dónde parte un colegio con IA?',
       '¿Qué tiene que decir nuestra política de uso?',
-      '¿Dejamos que los estudiantes la usen o la prohibimos?',
-      '¿Cómo pruebo esto sin comprometer al colegio entero?',
+      '¿Cuánto tiempo ahorran los profesores realmente?',
+      '¿Cómo lo pruebo sin comprometer al colegio entero?',
     ],
+    audience: 'colegio',
+    isNew: true,
+  },
+  {
+    title: 'IA con estudiantes: enseñar y evaluar',
+    blurb:
+      'La evidencia va en dos direcciones: un tutor bien diseñado duplicó el aprendizaje en Harvard, y el acceso libre lo empeoró un 17% en un experimento con mil escolares. Qué distingue a uno del otro, y qué hacer con las evaluaciones.',
+    examples: [
+      '¿Dejamos que los estudiantes la usen o la prohibimos?',
+      '¿Desde qué edad es razonable?',
+      'Las tareas para la casa ya no miden nada. ¿Qué hago?',
+      '¿Qué datos de estudiantes no pueden salir del colegio?',
+    ],
+    audience: 'colegio',
+    isNew: true,
   },
   {
     title: 'Productividad y energía para sostenerlo',
@@ -81,6 +121,7 @@ export const TOPICS: readonly Topic[] = [
       'Sé lo que tengo que hacer y no arranco',
       '¿Qué tareas debería dejar de hacer yo?',
     ],
+    audience: 'negocio',
   },
 ];
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConversation } from '@elevenlabs/react';
 import { KnownTopics } from './KnownTopics';
+import { CoachExplorer } from './CoachExplorer';
 
 interface Turn {
   role: 'user' | 'agent';
@@ -128,7 +129,16 @@ export function VoiceTutor() {
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight });
   }, [turns]);
 
-  const start = useCallback(async () => {
+  /**
+   * `seed` is the question tapped in the explorer.
+   *
+   * Passed as an argument rather than read from state: a tap sets the objective
+   * and starts the session in the same handler, and the state update from that
+   * tap has not been applied yet by the time this runs. Reading `objective`
+   * here would send the *previous* objective as context, or none at all.
+   */
+  const start = useCallback(
+    async (seed?: string) => {
     setStarting(true);
     setError(null);
     try {
@@ -179,9 +189,10 @@ export function VoiceTutor() {
       // which is the vagueness the commitment exists to remove. Sent from the
       // browser, so it is the learner's own calendar day rather than the
       // server's timezone.
+      const goal = (seed ?? objective).trim();
       const context = [
         `Hoy es ${todayInSpanish()}. Úsalo para fijar plazos concretos.`,
-        objective.trim() && `Objetivo declarado para esta sesión: ${objective.trim()}`,
+        goal && `Objetivo declarado para esta sesión: ${goal}`,
       ]
         .filter(Boolean)
         .join('\n');
@@ -192,7 +203,25 @@ export function VoiceTutor() {
     } finally {
       setStarting(false);
     }
-  }, [startSession, conversation, objective]);
+    },
+    [startSession, conversation, objective],
+  );
+
+  /**
+   * One tap from a question to a conversation about it.
+   *
+   * Before connecting, the tapped question becomes the objective *and* starts
+   * the session. Mid-session there is nothing to seed, so it goes in as the
+   * learner's own turn instead.
+   */
+  const askAndStart = useCallback(
+    (question: string) => {
+      setObjective(question);
+      if (connected) sendUserMessage(question);
+      else void start(question);
+    },
+    [connected, sendUserMessage, start],
+  );
 
   /**
    * A tapped example means something different either side of the connection.
@@ -211,6 +240,15 @@ export function VoiceTutor() {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_24rem] xl:gap-8">
       <div className="space-y-6">
+        {/*
+          Before the session only. Once the transcript is live this would
+          compete with it for the same attention, and the sidebar covers the
+          same ground for anyone who needs a prompt mid-conversation.
+        */}
+        {!connected && (
+          <CoachExplorer onAsk={askAndStart} busy={starting || status === 'connecting'} />
+        )}
+
         {/* Session controls */}
         <section className="rounded-lg border border-line bg-surface p-5 shadow-sm sm:p-6">
           <label className="block">
