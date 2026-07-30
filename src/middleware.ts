@@ -11,10 +11,35 @@
  * or route handler that does the thing, where it can be read next to the code
  * it protects.
  */
-import { type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
 export async function middleware(request: NextRequest) {
+  /*
+   * Rescue an auth code that landed on the home page.
+   *
+   * When the `redirect_to` we send is not on Supabase's own allowlist, Supabase
+   * silently ignores it and delivers the code to the project's Site URL
+   * instead — the bare origin, with no path. The code is then sitting on a page
+   * that does nothing with it, the learner never gets a session, and clicking
+   * "Hablar con el coach" sends them back through Google forever. The loop is
+   * indistinguishable from a broken login.
+   *
+   * Forward it to the route that knows what to do with it. This only fires on
+   * `/` so it cannot swallow a `code` parameter meant for anything else, and it
+   * only works when the flow began on this same origin — the PKCE verifier
+   * cookie is what makes the exchange possible, and that is domain-bound.
+   *
+   * Fixing the allowlist is still the right fix; this stops a misconfiguration
+   * from looking like a bug in sign-in.
+   */
+  const code = request.nextUrl.searchParams.get('code');
+  if (code && request.nextUrl.pathname === '/') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/auth/callback';
+    return NextResponse.redirect(url);
+  }
+
   return updateSession(request);
 }
 

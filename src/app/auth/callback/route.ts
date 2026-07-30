@@ -9,13 +9,18 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { safeReturnPath } from '@/lib/paths';
+import { siteOrigin } from '@/lib/origin';
 import { syncProfile } from '@/lib/account';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  // The forwarded host, not `request.url`'s origin: behind a proxy those can
+  // differ, and redirecting to the wrong one lands the learner on a domain that
+  // does not hold the session cookie this request just set.
+  const origin = await siteOrigin();
   const code = searchParams.get('code');
   const next = safeReturnPath(searchParams.get('next'));
 
