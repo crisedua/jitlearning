@@ -55,9 +55,9 @@ export default async function CoachPage() {
             Nuevo
           </span>
           <span>
-            Cómo un colegio implementa IA: política de uso, formación docente, gestión y
-            aula — con la guía del Mineduc, la de UNESCO y los dos estudios que se
-            contradicen.
+            Implementación de IA en empresas y colegios: por qué fracasa el 95% de los
+            pilotos, la Ley 21.719 que rige desde diciembre de 2026, las guías del Mineduc
+            y UNESCO, y la evidencia que se contradice.
           </span>
         </p>
       </header>

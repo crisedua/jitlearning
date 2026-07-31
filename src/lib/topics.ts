@@ -19,7 +19,7 @@
  * director and someone starting a business share almost nothing, and showing
  * each of them the other's questions makes the coach look unfocused.
  */
-export type Audience = 'colegio' | 'ia' | 'negocio';
+export type Audience = 'empresa' | 'colegio' | 'ia' | 'negocio';
 
 export interface Topic {
   title: string;
@@ -38,6 +38,7 @@ export interface Topic {
 
 /** Filter labels, in the order they are offered. */
 export const AUDIENCES: readonly { id: Audience; label: string }[] = [
+  { id: 'empresa', label: 'Una empresa' },
   { id: 'colegio', label: 'Un colegio' },
   { id: 'ia', label: 'Herramientas de IA' },
   { id: 'negocio', label: 'Mi propio negocio' },
@@ -86,6 +87,31 @@ export const TOPICS: readonly Topic[] = [
       '¿Cómo consigo mis tres primeros clientes?',
     ],
     audience: 'negocio',
+  },
+  {
+    title: 'Implementar IA en una empresa',
+    blurb:
+      'Por qué el 95% de los pilotos no muestra retorno (MIT, 2025) y qué hace distinto el 5%: caso de uso, gobernanza con NIST e ISO 42001, y medición con línea base.',
+    examples: [
+      '¿Por dónde parte una empresa con IA?',
+      '¿Por qué fracasan casi todos los pilotos?',
+      '¿Cómo mido si esto está dando retorno de verdad?',
+      '¿Qué decisiones no debería automatizar nunca?',
+    ],
+    audience: 'empresa',
+    isNew: true,
+  },
+  {
+    title: 'Datos personales y Ley 21.719',
+    blurb:
+      'La ley chilena de protección de datos rige desde el 1 de diciembre de 2026 y aplica a cualquier organización que meta datos en una herramienta de IA. Qué obliga a tener y qué hacer este mes.',
+    examples: [
+      '¿Qué me obliga a hacer la Ley 21.719?',
+      '¿Puedo subir datos de clientes a una herramienta de IA?',
+      '¿Qué le tengo que preguntar al proveedor antes de firmar?',
+    ],
+    audience: 'empresa',
+    isNew: true,
   },
   {
     title: 'Implementar IA en un colegio',

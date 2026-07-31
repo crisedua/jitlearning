@@ -37,3 +37,7 @@ knowledge/*
 # built on public guidance (UNESCO, Mineduc, TeachAI) and two named studies that
 # contradict each other. Nothing is reproduced from a paywalled source.
 !knowledge/escuela-ia/
+
+# And `empresa-ia/`: how a company implements AI — public frameworks (NIST,
+# ISO 42001), Chilean law and policy, and named studies, all cited with dates.
+!knowledge/empresa-ia/

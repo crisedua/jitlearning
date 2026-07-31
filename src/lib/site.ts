@@ -41,18 +41,18 @@ export const hasContact = Boolean(PROFILE.email || PROFILE.bookingUrl);
  */
 export const CAPABILITIES = [
   {
-    title: 'Responde a lo que te bloquea ahora',
-    body: 'No es un curso ni un temario. Le cuentas en qué estás atascado y te da exactamente la parte que te desbloquea, sin empezar por los fundamentos que no pediste.',
+    title: 'Para la decisión que tienes encima',
+    body: 'Implementar IA donde trabaja gente: por dónde partir, qué dice la política de uso, qué datos no pueden salir, cómo pruebas sin comprometer a la organización entera. En empresas y en colegios.',
     icon: 'bolt',
   },
   {
-    title: 'Responde con fuentes, no de oídas',
-    body: 'Se apoya en su base de conocimiento y te nombra la fuente mientras responde: de quién es la idea y de qué obra. Cuando no tiene material sobre algo, lo dice antes de responder en vez de improvisar con la misma seguridad.',
+    title: 'Con la fuente, la fecha y dónde verificarla',
+    body: 'Te nombra el documento y de cuándo es mientras responde: la guía del Mineduc de marzo de 2025, la Ley 21.719 que rige desde diciembre de 2026. Si no tiene la referencia exacta, te dice dónde se comprueba en vez de inventar un enlace.',
     icon: 'book',
   },
   {
-    title: 'Te discute la decisión, no solo la duda',
-    body: 'Va a lo que hay debajo de la pregunta: para qué es, qué depende de ello, qué pasa si sale mal. Cuando hay que elegir te dice cuál elegiría y qué tendría que cambiar para preferir la otra.',
+    title: 'Cierra con una cosa y una fecha',
+    body: 'Va a la decisión debajo de la pregunta y termina con el paso más barato que resuelve tu duda más grande, con plazo y con qué señal contaría como que salió bien. No un menú de opciones.',
     icon: 'screen',
   },
 ] as const;
@@ -76,32 +76,62 @@ export const CAPABILITIES = [
  */
 export const DIFFERENCES = [
   {
-    title: 'Te dice de dónde sale',
+    title: 'Sabe de cuándo es lo que sabe',
     generic:
-      'Te da la idea sin procedencia. Puede ser algo que leyó en un libro concreto o algo que reconstruyó de memoria, y desde fuera suena exactamente igual.',
+      'No tiene fecha. Responde con la misma seguridad sobre una norma vigente y sobre una que cambió el año pasado, y no puede decirte cuándo aprendió lo que te está diciendo.',
     coach:
-      'Nombra la fuente en la misma frase: «esto es de Kagan, en Million Dollar Weekend». Puedes ir a comprobarlo, y puedes decidir cuánto te pesa esa voz.',
+      'La fecha va con el dato: «la guía del Mineduc, de marzo de 2025». Su base está fechada y revisada, así que cuando algo envejece se nota al leerlo.',
   },
   {
-    title: 'No promedia a los autores',
+    title: 'Está en el marco chileno',
     generic:
-      'Resume varias fuentes hasta que suenan a consenso. El consejo templado que sale de ahí no es de nadie y no compromete a nada.',
+      'Por defecto te contesta con el marco estadounidense o europeo, que es de donde viene casi todo lo que leyó. Suena razonable y no es lo que te van a fiscalizar.',
     coach:
-      'Kagan valida en 48 horas; Abdaal tardó años sin dejar su empleo. Te dice que se contradicen, de quién es cada postura, y cuál encaja con tu situación.',
+      'La Ley 21.719 rige desde el 1 de diciembre de 2026: registro de tratamiento, delegado de datos, brechas en 72 horas. Más la política nacional de IA y las guías del Mineduc.',
   },
   {
-    title: 'Cierra con un compromiso',
+    title: 'No promedia la evidencia',
     generic:
-      'Termina con una lista de opciones y un «espero que te sirva». La decisión, que era lo difícil, vuelve entera a tus manos.',
+      'Resume los estudios hasta que suenan a consenso. El consejo templado que sale de ahí no es de nadie y no te dice qué hacer el lunes.',
     coach:
-      'Una sola cosa, con fecha, y qué señal contaría como que salió bien. La más barata que resuelva tu duda más grande, no la más completa.',
+      'Harvard midió que un tutor de IA duplicó el aprendizaje; PNAS midió un 17% peor con acceso libre. Te dice que se contradicen, y qué diferencia de diseño lo explica.',
   },
   {
     title: 'Te avisa cuando no sabe',
     generic:
-      'Responde con la misma seguridad esté fundamentado o improvisando. Nada en la respuesta te dice cuál de las dos acabas de recibir.',
+      'Si le pides el enlace o el artículo exacto, te lo da igual. A veces existe. La forma de averiguarlo es abrirlo, normalmente delante de otras personas.',
     coach:
-      'Si no tiene material tuyo sobre algo, lo dice antes de responder. Y responde igual: avisar no es negarse a ayudar.',
+      'Si no tiene la referencia, lo dice y te señala dónde se verifica. No construye una dirección web que parezca plausible.',
+  },
+] as const;
+
+/**
+ * The comparison, offered as something to run rather than something to believe.
+ *
+ * Every claim above is only as good as a visitor's willingness to take our word
+ * for it, which for a page selling an AI product is not much. These are three
+ * questions where the difference is visible in one exchange, with what to look
+ * for in each answer — including where a general assistant is *right*, because
+ * a rigged test is worth nothing and gets noticed.
+ *
+ * Each `expect` must be something the corpus actually contains. If a document
+ * is removed, the row goes with it.
+ */
+export const PROOF = [
+  {
+    question: '¿Desde cuándo rige la Ley 21.719 y qué me obliga a hacer?',
+    generic: 'Suele acertar el nombre y aproximar la fecha, o contestar con el marco europeo.',
+    expect: '1 de diciembre de 2026, registro de actividades de tratamiento, delegado de datos, notificación de brechas en 72 horas.',
+  },
+  {
+    question: '¿Qué guía publicó el Mineduc sobre IA en el aula y de qué fecha es?',
+    generic: 'Material nacional de 2025 que la mayoría de los modelos apenas ha visto.',
+    expect: '«PotencIA el Aprendizaje», 12 de marzo de 2025, con Fundación Chile y CENIA.',
+  },
+  {
+    question: '¿Cuánto peor rindieron los estudiantes con acceso libre a GPT-4?',
+    generic: 'Recuerda que el estudio existe y suele redondear o cambiar la cifra.',
+    expect: '17% por debajo del grupo de control, en la prueba sin la herramienta. Bastani y otros, PNAS 2025.',
   },
 ] as const;
 

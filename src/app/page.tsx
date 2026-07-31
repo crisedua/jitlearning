@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import { SessionPreview } from '@/components/SessionPreview';
 import { TOPICS } from '@/lib/topics';
-import { CAPABILITIES, DIFFERENCES, PROFILE, STEPS, hasContact } from '@/lib/site';
+import { CAPABILITIES, DIFFERENCES, PROFILE, PROOF, STEPS, hasContact } from '@/lib/site';
 
 export const metadata = {
-  title: 'ModoJIT · Un coach que responde a lo que te bloquea ahora',
+  title: 'ModoJIT · Asesor de voz para implementar IA en tu empresa o colegio',
   description:
-    'Coach de voz de aprendizaje justo a tiempo: responde la pregunta que te tiene atascado, te dice de qué fuente sale la respuesta, y cierra con un paso concreto y una fecha.',
+    'Asesor de voz sobre implementación de IA en organizaciones: normativa chilena con fechas (Ley 21.719), guías del Mineduc y UNESCO, y evidencia con sus cifras. Responde a lo que te tiene atascado y cierra con un paso concreto.',
 };
 
 /** Two passes of the same list, so the marquee wraps without a visible seam. */
@@ -48,8 +48,9 @@ export default function HomePage() {
           </h1>
 
           <p className="animate-rise mt-7 max-w-[48ch] text-[19px] leading-[1.58] text-body [animation-delay:400ms]">
-            Un tutor experto por voz. Le cuentas en qué estás atascado y te desbloquea: sin
-            temario, sin buscar en diez pestañas, y sin inventarse lo que no sabe.
+            Un asesor experto por voz para implementar IA en tu empresa o en tu colegio. Le
+            cuentas dónde estás atascado y te responde con la norma, la guía o el estudio que
+            aplica —con su fecha— y con un paso concreto para esta semana.
           </p>
 
           <div className="animate-rise mt-9 flex flex-wrap items-center gap-3.5 [animation-delay:520ms]">
@@ -88,7 +89,7 @@ export default function HomePage() {
           Qué hace
         </p>
         <h2 className="reveal mt-4 max-w-[22ch] font-serif text-[clamp(2rem,4.5vw,3.25rem)] font-normal leading-[1.08] tracking-[-0.02em]">
-          Un tutor experto, no una respuesta genérica
+          Un asesor experto, no una respuesta genérica
         </h2>
 
         <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -122,7 +123,8 @@ export default function HomePage() {
           </h2>
           <p className="reveal mt-5 max-w-[58ch] text-[17px] leading-relaxed text-muted">
             Es la pregunta correcta, así que va contestada. Cuatro diferencias, todas
-            comprobables en una sola conversación.
+            comprobables en una sola conversación —y abajo tienes tres preguntas para
+            hacérselas a los dos y comparar.
           </p>
 
           <ul className="mt-12 grid gap-4 lg:grid-cols-2">
@@ -161,6 +163,52 @@ export default function HomePage() {
             resolver algo fuera de sus temas, usa el que ya pagas. Esto es para cuando estás
             atascado en algo de lo que sí tiene material.
           </p>
+
+          {/*
+            The comparison, offered as something to run rather than to believe.
+            A page selling an AI product has no credibility left to spend on
+            adjectives, so it hands over the test instead — including the row
+            where a general assistant does fine.
+          */}
+          <div className="reveal mt-14 rounded-lg border border-line bg-surface p-6 sm:p-8">
+            <h3 className="font-serif text-[26px] font-normal leading-tight tracking-[-0.01em]">
+              No nos creas: pregúntale a los dos
+            </h3>
+            <p className="mt-2 max-w-[62ch] text-[15px] leading-relaxed text-muted">
+              Tres preguntas donde la diferencia se ve en un solo intercambio. Hazlas en tu
+              asistente de siempre y aquí, y compara con lo que debería salir.
+            </p>
+
+            <ul className="mt-7 space-y-3">
+              {PROOF.map((p) => (
+                <li
+                  key={p.question}
+                  className="grid gap-3 rounded-md border border-line bg-surface-alt/40 p-4 sm:grid-cols-[1.1fr_0.9fr] sm:p-5"
+                >
+                  <div>
+                    <p className="text-[15px] font-medium leading-snug text-ink">
+                      «{p.question}»
+                    </p>
+                    <p className="mt-2 text-[13px] leading-relaxed text-soft">
+                      <span className="font-semibold">Un asistente general:</span> {p.generic}
+                    </p>
+                  </div>
+                  <div className="border-line pt-3 sm:border-l sm:pl-5 sm:pt-0">
+                    <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-accent">
+                      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-gold" />
+                      Qué debería decirte
+                    </p>
+                    <p className="mt-2 text-[13px] leading-relaxed text-ink/85">{p.expect}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <p className="mt-6 text-[13px] leading-relaxed text-soft">
+              Si alguna vez responde algo distinto de esto, el fallo es nuestro y queremos
+              saberlo. Por eso las preguntas están publicadas y no escondidas.
+            </p>
+          </div>
         </div>
       </section>
 

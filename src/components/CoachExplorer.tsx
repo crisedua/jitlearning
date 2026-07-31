@@ -106,7 +106,7 @@ export function CoachExplorer({
               aria-hidden
               className="h-1.5 w-1.5 rounded-full bg-gold [animation:ring_2.2s_ease-out_infinite]"
             />
-            Nuevo: colegios
+            Nuevo: empresas y colegios
           </span>
         )}
       </header>
