@@ -127,7 +127,7 @@ If you'd rather work locally, put the same values in `.env.local` and run
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Public key; safe in the browser |
 | `SUPABASE_SERVICE_ROLE_KEY` | yes | **Secret.** Server-only; bypasses RLS |
 | `NEXT_PUBLIC_SITE_URL` | no | Only when the host header isn't the public URL |
-| `ELEVENLABS_VOICE_ID` | no | Defaults to a stock voice |
+| `ELEVENLABS_VOICE_ID` | no | Defaults to a neutral Latin-American Spanish voice |
 | `ELEVENLABS_AGENT_LLM` | no | Blank = workspace default |
 | `ELEVENLABS_EMBEDDING_MODEL` | no | Set before indexing anything |
 

@@ -256,11 +256,18 @@ export async function provisionAgent(): Promise<string> {
         },
       },
       tts: {
-        // `eleven_flash_v2` is English-only: with a non-English agent it either
-        // mangles the audio or reads Spanish with English phonetics. The _v2_5
-        // variant is the multilingual one at the same latency.
-        model_id: 'eleven_flash_v2_5',
-        ...(voiceId ? { voice_id: voiceId } : {}),
+        // Turbo, not flash: flash is the lowest-latency tier but audibly the
+        // weakest at pronunciation, and this agent code-switches constantly —
+        // Spanish prose carrying English titles and acronyms ("Million Dollar
+        // Weekend", "PNAS"). Turbo handles that mix noticeably better for a few
+        // hundred ms of latency, which the LLM turn dominates anyway. (The _v2
+        // variants without the _5 are English-only; never use them here.)
+        model_id: 'eleven_turbo_v2_5',
+        // Cristobal: native neutral-Latin-American conversational voice. The
+        // stock default is an English voice, which reads Spanish with an
+        // English accent. Any replacement must be a voice already added to the
+        // workspace's My Voices, or the agent silently keeps the old one.
+        voice_id: voiceId || 'fGsa1FdHw3hvbsbbYWK1',
       },
     },
   };
