@@ -76,6 +76,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {/* The mark alone carries the brand on a phone; the wordmark plus
                   the call to action do not fit side by side at 320px. */}
               <Wordmark className="hidden xs:inline-flex" />
+              {/* Always visible, even where the wordmark is not: the label is a
+                  promise about the product's maturity, not part of the brand. */}
+              <span className="rounded-full border border-gold/45 bg-gold-soft/40 px-2 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.1em] text-accent">
+                Beta
+              </span>
             </Link>
 
             <ul className="hidden items-center gap-6 md:flex">
