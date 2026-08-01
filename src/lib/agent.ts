@@ -268,6 +268,12 @@ export async function provisionAgent(): Promise<string> {
         // English accent. Any replacement must be a voice already added to the
         // workspace's My Voices, or the agent silently keeps the old one.
         voice_id: voiceId || 'fGsa1FdHw3hvbsbbYWK1',
+        // Below ElevenLabs' 0.5 default on purpose: stability is the
+        // expressiveness lever, and at 0.5 this voice delivers an advisor's
+        // pushback in a newsreader's flat cadence. 0.35 varies the prosody
+        // without tipping into the erratic emphasis that appears near 0.25.
+        stability: 0.35,
+        similarity_boost: 0.8,
       },
     },
   };

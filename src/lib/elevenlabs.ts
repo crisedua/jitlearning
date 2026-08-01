@@ -201,7 +201,13 @@ export interface AgentConfig {
       language?: string;
       prompt: AgentPromptConfig;
     };
-    tts?: { voice_id?: string; model_id?: string };
+    tts?: {
+      voice_id?: string;
+      model_id?: string;
+      /** 0–1. Lower is more expressive, higher is more even; 0.5 is the platform default. */
+      stability?: number;
+      similarity_boost?: number;
+    };
   };
 }
 
