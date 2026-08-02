@@ -157,6 +157,8 @@ export function VoiceTutor() {
       const data = (await res.json()) as {
         signedUrl?: string;
         sessionId?: string | null;
+        /** Memory of previous sessions, composed server-side. Null on a first visit. */
+        context?: string | null;
         error?: string;
       };
       if (!res.ok || !data.signedUrl) {
@@ -189,13 +191,18 @@ export function VoiceTutor() {
       // which is the vagueness the commitment exists to remove. Sent from the
       // browser, so it is the learner's own calendar day rather than the
       // server's timezone.
+      //
+      // `data.context` is the server-composed memory of previous sessions —
+      // what lets someone log out, come back, and be asked how their committed
+      // action went instead of starting from zero.
       const goal = (seed ?? objective).trim();
       const context = [
         `Hoy es ${todayInSpanish()}. Úsalo para fijar plazos concretos.`,
         goal && `Objetivo declarado para esta sesión: ${goal}`,
+        data.context,
       ]
         .filter(Boolean)
-        .join('\n');
+        .join('\n\n');
 
       conversation.sendContextualUpdate(context);
     } catch (err) {

@@ -12,6 +12,7 @@ import { getSignedUrl } from '@/lib/elevenlabs';
 import { agentId } from '@/lib/config';
 import { currentUser } from '@/lib/supabase/server';
 import { startCoachSession } from '@/lib/account';
+import { learnerContext } from '@/lib/memory';
 
 export const runtime = 'nodejs';
 // The URL is short-lived; caching it would hand stale credentials to new sessions.
@@ -42,10 +43,17 @@ export async function GET() {
      * not leave a phantom session in the ledger. `sessionId` comes back null
      * when Supabase is not configured — the coach still works, it just goes
      * unrecorded, which is the right failure for a learner mid-question.
+     *
+     * The memory lookup rides the same await: it is what turns a returning
+     * learner's session into a continuation, and it degrades to null (a cold
+     * start) rather than ever failing the mint.
      */
-    const sessionId = await startCoachSession(user.id, id);
+    const [sessionId, context] = await Promise.all([
+      startCoachSession(user.id, id),
+      learnerContext(user.id),
+    ]);
 
-    return NextResponse.json({ signedUrl, agentId: id, sessionId });
+    return NextResponse.json({ signedUrl, agentId: id, sessionId, context });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Could not get signed URL' },

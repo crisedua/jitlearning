@@ -319,6 +319,23 @@ export async function listConversations(
   });
 }
 
-export async function getConversation(conversationId: string): Promise<unknown> {
-  return request<unknown>(`/convai/conversation/${conversationId}`, { method: 'GET' });
+export interface ConversationDetail {
+  conversation_id: string;
+  /** 'done' once the call has ended and been processed; only then is analysis present. */
+  status: string;
+  metadata?: { start_time_unix_secs?: number };
+  /**
+   * ElevenLabs writes this automatically after every finished call. The
+   * summary prose is typically English regardless of the call's language.
+   */
+  analysis?: {
+    transcript_summary?: string | null;
+    call_summary_title?: string | null;
+  } | null;
+}
+
+export async function getConversation(conversationId: string): Promise<ConversationDetail> {
+  return request<ConversationDetail>(`/convai/conversations/${conversationId}`, {
+    method: 'GET',
+  });
 }

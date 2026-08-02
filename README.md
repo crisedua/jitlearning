@@ -206,7 +206,7 @@ The schema is in [`supabase/migrations/`](supabase/migrations/):
 |---|---|
 | `profiles` | One row per `auth.users` id — email, name, avatar, `plan_id`. Created by a trigger on sign-up, refreshed from Google on every sign-in. |
 | `plans` | `free` by default. `monthly_minutes` / `monthly_sessions`, both nullable, where null means unlimited. |
-| `coach_sessions` | One row per signed URL minted: who, which agent, conversation id, duration, message count, credits. |
+| `coach_sessions` | One row per signed URL minted: who, which agent, conversation id, duration, message count, credits — plus the conversation's summary, which is what session memory replays. |
 
 RLS is on for all three, and every policy is scoped to `auth.uid()` — a learner
 can read their own profile and their own sessions, and nothing else. There are
@@ -234,6 +234,30 @@ npm run sync:usage
 overwrites those numbers with ElevenLabs' own and stamps `usage_synced_at`. A
 row with that stamp is a receipt; a row without one is an estimate. Do not bill
 anyone off an unsynced row.
+
+### Session memory
+
+A learner can log out, come back days later, and the coach picks up the thread
+— including asking whether they did the thing they committed to, which is the
+difference between coaching and advice.
+
+No LLM of ours writes anything: ElevenLabs already summarises every finished
+conversation. When `/api/signed-url` mints a new session,
+[`learnerContext()`](src/lib/memory.ts) reads the learner's recent
+`coach_sessions` rows, fetches any summaries not yet cached (bounded, so a
+start never waits on more than two), stores them on the rows, and returns the
+last three as a context block. The browser sends that block through
+`sendContextualUpdate` alongside the date and the session objective, and the
+persona's *Continuidad entre sesiones* section says how to use it: follow up
+on the commitment early, never recite the summary, and follow the person if
+they bring a different topic today.
+
+Run [`supabase/migrations/20260802000000_session_memory.sql`](supabase/migrations/20260802000000_session_memory.sql)
+to add the summary columns. Until it has run, memory still works — summaries
+are fetched from ElevenLabs live on every start instead of cached — so the
+migration is a cost optimisation, not a feature flag. Deleting a conversation
+at ElevenLabs before its summary is cached forgets that session; after, the
+cached copy survives.
 
 ## Tuning retrieval
 
@@ -397,14 +421,12 @@ scripts/                setup-agent, sync-agent, bulk ingest, doctor
 - **No interface material in the corpus.** Deliberate — the coach advises rather
   than instructs — but it means any procedural question is answered by pointing
   at the vendor docs, not from knowledge.
-- **The coach does not remember you between sessions.** Every conversation
-  starts cold. This is the sharpest remaining gap against a general assistant,
-  which now carries memory across chats — and it bites hardest on the one thing
-  the coach is otherwise best at, since a commitment nobody ever asks you about
-  again is just advice. Closing it means persisting a per-learner summary and
-  replaying it through `sendContextualUpdate`. The two things that used to be
-  missing — an identity for the learner and somewhere to put the summary — now
-  exist: `auth.users` and Supabase. Nothing writes such a summary yet.
+- **Memory is per-deployment-with-Supabase, and only as good as the
+  summaries.** Session memory (see [Session memory](#session-memory)) needs the
+  service role to read the ledger — a deployment without Supabase starts every
+  conversation cold, as before. The summaries themselves are ElevenLabs'
+  automatic ones: a paragraph per call, usually in English, with no control
+  over what they keep. The commitment usually survives; nuance does not.
 - **The persona is long** (~14.7k characters, roughly 3.7k tokens) and rides on
   every turn. It is a system prompt, so it caches, but a materially larger one
   will start to be felt as latency in voice, where it is much more noticeable
