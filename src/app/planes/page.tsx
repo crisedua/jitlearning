@@ -161,13 +161,14 @@ function PlanAction({ plan }: { plan: Plan }) {
 
 function PlanCard({ plan }: { plan: Plan }) {
   const recommended = plan.id === RECOMMENDED_PLAN_ID;
+  const organisation = plan.id === EMPRESA_ID;
   const features = PLAN_FEATURES[plan.id] ?? [];
   const sessions = approximateSessions(plan.monthlyMinutes);
 
   return (
     <li
       className={`reveal relative flex flex-col rounded-lg border bg-surface p-7 transition duration-300 ease-out hover:-translate-y-1.5 hover:shadow-md ${
-        recommended
+        recommended || organisation
           ? 'border-accent/45 shadow-sm ring-1 ring-accent/15'
           : 'border-line hover:border-accent/35'
       }`}
@@ -175,6 +176,11 @@ function PlanCard({ plan }: { plan: Plan }) {
       {recommended && (
         <span className="absolute -top-3 left-7 rounded-full border border-gold/45 bg-gold-soft px-3 py-1 text-[10px] font-semibold uppercase leading-none tracking-[0.1em] text-accent">
           El más elegido
+        </span>
+      )}
+      {organisation && (
+        <span className="absolute -top-3 left-7 rounded-full border border-gold/45 bg-gold-soft px-3 py-1 text-[10px] font-semibold uppercase leading-none tracking-[0.1em] text-accent">
+          Para tu organización
         </span>
       )}
 
@@ -190,14 +196,26 @@ function PlanCard({ plan }: { plan: Plan }) {
           {plan.priceMinor === 0 ? '' : plan.seatMinimum ? '/persona al mes' : '/mes'}
         </span>
       </p>
+      {plan.setupMinor !== null && (
+        <p className="mt-2 text-[13px] leading-relaxed text-muted">
+          + {formatMoney(plan.setupMinor, plan.currency)} de implementación, por una vez
+        </p>
+      )}
 
       {plan.blurb && <p className="mt-3 text-[15px] leading-relaxed text-muted">{plan.blurb}</p>}
 
       <p className="mt-6 border-t border-line pt-5 text-[17px] font-medium text-ink">
-        {formatMinutes(plan.monthlyMinutes)} de conversación al mes
+        {plan.seatMinimum
+          ? `${formatMinutes(plan.monthlyMinutes)} por persona al mes`
+          : `${formatMinutes(plan.monthlyMinutes)} de conversación al mes`}
       </p>
       {sessions !== null && sessions > 0 && (
-        <p className="mt-1 text-[14px] text-soft">unas {sessions} consultas</p>
+        <p className="mt-1 text-[14px] text-soft">
+          unas {sessions} consultas{plan.seatMinimum ? ' cada una' : ''}
+        </p>
+      )}
+      {plan.seatMinimum && (
+        <p className="mt-1 text-[14px] text-soft">desde {plan.seatMinimum} personas</p>
       )}
 
       {features.length > 0 && (
@@ -219,96 +237,6 @@ function PlanCard({ plan }: { plan: Plan }) {
 
       <PlanAction plan={plan} />
     </li>
-  );
-}
-
-/**
- * Empresa, featured: the one plan on this page with a salesperson behind it,
- * so it gets the full width and both of its prices — the one-time
- * implementation and the per-person month — labelled side by side.
- */
-function EmpresaFeature({ plan }: { plan: Plan }) {
-  const features = PLAN_FEATURES[plan.id] ?? [];
-  const subject = encodeURIComponent(`Plan ${plan.name}`);
-
-  return (
-    <section className="mx-auto max-w-[96rem] px-6 pb-20">
-      <p className="reveal text-xs font-semibold uppercase tracking-[0.14em] text-accent">
-        Para empresas y colegios
-      </p>
-      <h2 className="reveal mt-4 max-w-[26ch] font-serif text-[clamp(2rem,4.5vw,3rem)] font-normal leading-[1.08] tracking-[-0.02em]">
-        Su propio coach, con su material, en su dominio
-      </h2>
-
-      <div className="reveal mt-10 rounded-xl border border-accent/30 bg-surface-alt p-8 shadow-sm ring-1 ring-accent/10 sm:p-12 lg:p-14">
-        <div className="grid gap-x-16 gap-y-10 lg:grid-cols-[1.15fr_0.85fr]">
-          <div>
-            <p className="max-w-[58ch] text-[16px] leading-relaxed text-muted">
-              Nosotros lo montamos, lo entrenamos con sus documentos — políticas, procesos,
-              protocolos — y lo mantenemos; ustedes deciden qué sabe y quién le pregunta.
-            </p>
-            <ul className="mt-7 flex flex-col gap-3.5 text-[16px] leading-relaxed text-muted">
-              {features.map((feature) => (
-                <li key={feature} className="flex gap-3">
-                  <Check />
-                  <span>{feature}</span>
-                </li>
-              ))}
-            </ul>
-
-            <p className="mt-8 max-w-[58ch] border-t border-line pt-6 text-[15px] leading-relaxed text-soft">
-              La implementación cubre el trabajo que pasa antes del primer minuto hablado:
-              reunir y depurar el material, entrenar y probar el coach con preguntas reales de
-              su gente, ajustar su forma de responder, y dejarlo publicado en su dominio con
-              acceso solo para su organización.
-            </p>
-          </div>
-
-          <div className="lg:border-l lg:border-line lg:pl-16">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-soft">
-              Implementación
-            </p>
-            <p className="mt-2 flex items-baseline gap-1.5">
-              <span className="font-mono text-[34px] font-medium leading-none tracking-[-0.02em] text-ink">
-                {plan.setupMinor !== null ? formatMoney(plan.setupMinor, plan.currency) : '—'}
-              </span>
-              <span className="text-[15px] text-soft">por una vez</span>
-            </p>
-
-            <p className="mt-8 text-xs font-semibold uppercase tracking-[0.14em] text-soft">
-              Mensualidad
-            </p>
-            <p className="mt-2 flex items-baseline gap-1.5">
-              <span className="font-mono text-[34px] font-medium leading-none tracking-[-0.02em] text-ink">
-                {formatMoney(plan.priceMinor, plan.currency)}
-              </span>
-              <span className="text-[15px] text-soft">/persona al mes</span>
-            </p>
-            {plan.seatMinimum && (
-              <p className="mt-1.5 text-[14px] text-soft">desde {plan.seatMinimum} personas</p>
-            )}
-
-            <p className="mt-6 text-[16px] font-medium text-ink">
-              {formatMinutes(plan.monthlyMinutes)} de conversación por persona
-            </p>
-            <p className="mt-1 text-[13px] leading-relaxed text-soft">{formatOverage(plan)}</p>
-
-            {PROFILE.email ? (
-              <a
-                href={`mailto:${PROFILE.email}?subject=${subject}`}
-                className="mt-9 inline-flex w-full items-center justify-center rounded-full bg-accent px-6 py-3 text-[16px] font-medium text-bg transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover"
-              >
-                Conversemos
-              </a>
-            ) : (
-              <p className="mt-9 rounded-full border border-dashed border-line-strong px-5 py-2.5 text-center text-[15px] text-soft">
-                Disponible pronto
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -341,8 +269,9 @@ export default async function PlanesPage() {
       </section>
 
       <section className="mx-auto max-w-[96rem] px-6 pb-20">
-        <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {selfServe.map((plan) => (
+        {/* Five across only where five fit; below that the cards pair up. */}
+        <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {[...selfServe, empresa].map((plan) => (
             <PlanCard key={plan.id} plan={plan} />
           ))}
         </ul>
@@ -352,8 +281,6 @@ export default async function PlanesPage() {
           plan o cancelar cuando quieras.
         </p>
       </section>
-
-      <EmpresaFeature plan={empresa} />
 
       {/*
         The question every metered product gets asked, answered before anyone
