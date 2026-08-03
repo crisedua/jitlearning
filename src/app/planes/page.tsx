@@ -1,15 +1,18 @@
 /**
- * The pricing page.
+ * The pricing page: one plan, Empresa, presented full-width.
  *
- * Prices are read from the `plans` table at request time rather than compiled
- * in, so changing one is a row update instead of a deploy — and so the number a
- * visitor is quoted is the same number the usage limits are enforced against.
- * `src/lib/plans.ts` holds the card copy and a fallback copy of the figures for
- * when the database cannot be reached.
+ * The individual tiers still exist in the `plans` table and keep their prices —
+ * they are what the app will enforce limits against — but they are no longer
+ * offered on this page. What is for sale here is one thing: an organisation's
+ * own coach, on its own domain, trained on its own material.
  *
- * There is no checkout here, because there is no payment integration yet. The
- * paid tiers link to a real person or say nothing; what they must not do is
- * offer a button that pretends to take money.
+ * The price is still read from Postgres at request time rather than compiled
+ * in, so changing it is a row update instead of a deploy. `src/lib/plans.ts`
+ * holds the card copy and a fallback copy of the figures for when the database
+ * cannot be reached.
+ *
+ * There is no checkout, because there is no payment integration: the plan is
+ * sold, not bought, and the button writes to a person.
  */
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -18,11 +21,8 @@ import { anonKey, authConfigured, supabaseUrl } from '@/lib/supabase/env';
 import { PROFILE } from '@/lib/site';
 import {
   FALLBACK_PLANS,
-  ORG_PLAN_COPY,
   PLAN_COLUMNS,
   PLAN_FEATURES,
-  RECOMMENDED_PLAN_ID,
-  approximateSessions,
   formatMinutes,
   formatMoney,
   formatOverage,
@@ -31,32 +31,33 @@ import {
 } from '@/lib/plans';
 
 export const metadata: Metadata = {
-  title: 'Planes · ModoJIT',
+  title: 'Plan Empresa · ModoJIT',
   description:
-    'Planes de ModoJIT por minutos de conversación: gratis para probar, y tres tamaños según cuánto lo uses.',
+    'Su propio coach de IA: entrenado con el material de su empresa o colegio, en su propio dominio. US$1.500 de implementación y un precio mensual por persona.',
 };
 
 /** Prices change without a deploy, so the page must not be cached forever. */
 export const revalidate = 300;
 
+const EMPRESA_ID = 'empresa';
+
 /**
- * The plans, from Postgres when it is available.
+ * The Empresa plan, from Postgres when it is available.
  *
  * Deliberately *not* the cookie-bound client from `src/lib/supabase/server.ts`.
  * That one exists to act as the signed-in learner, and touching cookies would
- * opt this page out of static rendering — so a public price list would hit
- * Postgres on every request for rows that are identical for everyone. A plain
- * anon client keeps the page on the revalidation schedule above.
+ * opt this page out of static rendering — so a public price would hit Postgres
+ * on every request for a row that is identical for everyone. A plain anon
+ * client keeps the page on the revalidation schedule above.
  *
  * Falls back to the compiled copy on any failure — unconfigured environment,
- * network error, or an empty result. An empty result is worth calling out: it
- * is what row-level security returns to an anonymous visitor when the public
- * read policy is missing, and it arrives with no error attached. That is why the
- * fallback logs: silently serving stale prices is exactly the failure this page
- * cannot afford.
+ * network error, a missing row, or the pre-migration state where the columns
+ * this query names do not exist yet. The fallback logs: silently serving a
+ * stale price is exactly the failure a pricing page cannot afford.
  */
-async function loadPlans(): Promise<readonly Plan[]> {
-  if (!authConfigured()) return FALLBACK_PLANS;
+async function loadEmpresa(): Promise<Plan> {
+  const fallback = FALLBACK_PLANS.find((p) => p.id === EMPRESA_ID)!;
+  if (!authConfigured()) return fallback;
 
   try {
     const supabase = createClient(supabaseUrl(), anonKey(), {
@@ -66,22 +67,20 @@ async function loadPlans(): Promise<readonly Plan[]> {
     const { data, error } = await supabase
       .from('plans')
       .select(PLAN_COLUMNS)
-      .order('sort_order', { ascending: true });
+      .eq('id', EMPRESA_ID)
+      .maybeSingle();
 
-    if (error) {
-      console.error('[planes] could not read plans, showing compiled prices:', error.message);
-      return FALLBACK_PLANS;
-    }
-    if (!data || data.length === 0) {
+    if (error || !data) {
       console.error(
-        '[planes] plans table returned no rows — is the anon read policy missing? Showing compiled prices.',
+        '[planes] could not read the empresa plan, showing the compiled price:',
+        error?.message ?? 'row not found',
       );
-      return FALLBACK_PLANS;
+      return fallback;
     }
-    return data.map(rowToPlan);
+    return rowToPlan(data);
   } catch (err) {
-    console.error('[planes] plans lookup failed, showing compiled prices:', err);
-    return FALLBACK_PLANS;
+    console.error('[planes] plan lookup failed, showing the compiled price:', err);
+    return fallback;
   }
 }
 
@@ -90,8 +89,8 @@ function Check() {
   return (
     <svg
       viewBox="0 0 16 16"
-      width="16"
-      height="16"
+      width="18"
+      height="18"
       aria-hidden
       focusable="false"
       fill="none"
@@ -108,211 +107,109 @@ function Check() {
   );
 }
 
-/**
- * What the card's button does.
- *
- * The free plan starts a conversation, because that is a thing this deployment
- * can actually do. A paid plan cannot be bought yet, so it writes to whoever
- * runs this — and when no address has been filled in at `src/lib/site.ts`, it
- * says so plainly rather than rendering a button that goes nowhere.
- */
-function PlanAction({ plan }: { plan: Plan }) {
-  if (plan.priceMinor === 0) {
-    return (
-      <Link
-        href="/coach"
-        className="mt-7 inline-flex w-full items-center justify-center rounded-full border border-line-strong px-5 py-2.5 text-[15px] font-medium text-ink transition duration-200 ease-out hover:-translate-y-0.5 hover:border-accent hover:text-accent"
-      >
-        Empezar gratis
-      </Link>
-    );
-  }
-
-  if (!PROFILE.email) {
-    return (
-      <p className="mt-7 rounded-full border border-dashed border-line-strong px-5 py-2.5 text-center text-[15px] text-soft">
-        Disponible pronto
-      </p>
-    );
-  }
-
-  const subject = encodeURIComponent(`Plan ${plan.name}`);
-  const recommended = plan.id === RECOMMENDED_PLAN_ID;
-
-  return (
-    <a
-      href={`mailto:${PROFILE.email}?subject=${subject}`}
-      className={
-        recommended
-          ? 'mt-7 inline-flex w-full items-center justify-center rounded-full bg-accent px-5 py-2.5 text-[15px] font-medium text-bg transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover'
-          : 'mt-7 inline-flex w-full items-center justify-center rounded-full border border-line-strong px-5 py-2.5 text-[15px] font-medium text-ink transition duration-200 ease-out hover:-translate-y-0.5 hover:border-accent hover:text-accent'
-      }
-    >
-      Quiero este plan
-    </a>
-  );
-}
-
-function PlanCard({ plan }: { plan: Plan }) {
-  const recommended = plan.id === RECOMMENDED_PLAN_ID;
-  const features = PLAN_FEATURES[plan.id] ?? [];
-  const sessions = approximateSessions(plan.monthlyMinutes);
-
-  return (
-    <li
-      className={`reveal relative flex flex-col rounded-lg border bg-surface p-7 transition duration-300 ease-out hover:-translate-y-1.5 hover:shadow-md ${
-        recommended
-          ? 'border-accent/45 shadow-sm ring-1 ring-accent/15'
-          : 'border-line hover:border-accent/35'
-      }`}
-    >
-      {recommended && (
-        <span className="absolute -top-3 left-7 rounded-full border border-gold/45 bg-gold-soft px-3 py-1 text-[10px] font-semibold uppercase leading-none tracking-[0.1em] text-accent">
-          El más elegido
-        </span>
-      )}
-
-      <h2 className="font-serif text-[26px] font-normal leading-none tracking-[-0.01em]">
-        {plan.name}
-      </h2>
-
-      <p className="mt-4 flex items-baseline gap-1.5">
-        <span className="font-mono text-[34px] font-medium leading-none tracking-[-0.02em] text-ink">
-          {formatMoney(plan.priceMinor, plan.currency)}
-        </span>
-        <span className="text-[15px] text-soft">
-          {plan.priceMinor === 0 ? '' : plan.seatMinimum ? '/persona al mes' : '/mes'}
-        </span>
-      </p>
-
-      {plan.blurb && <p className="mt-3 text-[15px] leading-relaxed text-muted">{plan.blurb}</p>}
-
-      <p className="mt-6 border-t border-line pt-5 text-[17px] font-medium text-ink">
-        {formatMinutes(plan.monthlyMinutes)} de conversación al mes
-      </p>
-      {sessions !== null && sessions > 0 && (
-        <p className="mt-1 text-[14px] text-soft">unas {sessions} consultas</p>
-      )}
-
-      {features.length > 0 && (
-        <ul className="mt-5 flex flex-col gap-2.5 text-[15px] leading-relaxed text-muted">
-          {features.map((feature) => (
-            <li key={feature} className="flex gap-2.5">
-              <Check />
-              <span>{feature}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {/* Pushes the price of going over, and the button, to the bottom of every
-          card regardless of how many bullets each one has. */}
-      <span className="flex-1" />
-
-      <p className="mt-6 text-[13px] leading-relaxed text-soft">{formatOverage(plan)}</p>
-
-      <PlanAction plan={plan} />
-    </li>
-  );
-}
-
 export default async function PlanesPage() {
-  const plans = await loadPlans();
-  const selfServe = plans.filter((p) => p.isPublic);
-  const teamPlans = plans.filter((p) => !p.isPublic);
-  const currency = plans[0]?.currency ?? 'USD';
+  const plan = await loadEmpresa();
+  const features = PLAN_FEATURES[plan.id] ?? [];
+  const subject = encodeURIComponent(`Plan ${plan.name}`);
 
   return (
     <>
-      <section className="mx-auto max-w-[75rem] px-6 pb-16 pt-20 lg:pt-24">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Planes</p>
-        <h1 className="mt-4 max-w-[20ch] font-serif text-[clamp(2.25rem,5vw,3.75rem)] font-normal leading-[1.04] tracking-[-0.02em]">
-          Se paga por{' '}
+      {/* ---------------------------------------------------------------- Hero */}
+      <section className="mx-auto max-w-[75rem] px-6 pb-14 pt-20 lg:pt-24">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
+          Plan Empresa
+        </p>
+        <h1 className="mt-4 max-w-[24ch] font-serif text-[clamp(2.25rem,5vw,3.75rem)] font-normal leading-[1.04] tracking-[-0.02em]">
+          Su propio coach, con{' '}
           <span className="relative inline-block">
-            minuto
+            su material
             <span
               aria-hidden
               className="absolute inset-x-0 bottom-[0.1em] -z-10 h-[0.32em] bg-gold-soft"
             />
-          </span>{' '}
-          hablado
+          </span>
+          , en su dominio
         </h1>
-        <p className="mt-6 max-w-[58ch] text-[17px] leading-relaxed text-muted">
-          No por pregunta ni por asiento. Una consulta de dos minutos cuesta dos minutos, y un plan
-          que te queda grande se nota en la factura del mes siguiente en vez de al año.
+        <p className="mt-6 max-w-[62ch] text-[17px] leading-relaxed text-muted">
+          Para una empresa o un colegio. Nosotros lo montamos, lo entrenamos con sus documentos
+          — políticas, procesos, protocolos — y lo mantenemos; ustedes deciden qué sabe y quién
+          le pregunta.
         </p>
       </section>
 
+      {/* ------------------------------------------------------------ The plan */}
       <section className="mx-auto max-w-[75rem] px-6 pb-20">
-        <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {selfServe.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} />
-          ))}
-        </ul>
+        <div className="reveal rounded-xl border border-line bg-surface-alt p-8 sm:p-12 lg:p-14">
+          <div className="grid gap-x-16 gap-y-10 lg:grid-cols-[1.15fr_0.85fr]">
+            <div>
+              <h2 className="font-serif text-[clamp(1.75rem,3vw,2.25rem)] font-normal leading-[1.1] tracking-[-0.02em]">
+                Qué incluye
+              </h2>
+              <ul className="mt-7 flex flex-col gap-3.5 text-[16px] leading-relaxed text-muted">
+                {features.map((feature) => (
+                  <li key={feature} className="flex gap-3">
+                    <Check />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
 
-        <p className="mt-6 text-[13px] text-soft">
-          Precios en {currency === 'CLP' ? 'pesos chilenos' : 'dólares'}, sin IVA. Puedes cambiar de
-          plan o cancelar cuando quieras.
-        </p>
-      </section>
-
-      {teamPlans.map((plan) => {
-        const copy = ORG_PLAN_COPY[plan.id] ?? {
-          eyebrow: 'Para organizaciones',
-          description:
-            'Para un colegio o un equipo que quiere que todos tengan a quién preguntar cuando se traban con IA, sin abrir una cuenta a la vez.',
-        };
-        return (
-          <section key={plan.id} className="mx-auto max-w-[75rem] px-6 pb-20">
-            <div className="reveal rounded-lg border border-line bg-surface-alt p-8 sm:p-10">
-              <div className="flex flex-wrap items-start gap-x-12 gap-y-6">
-                <div className="min-w-[16rem] flex-1">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
-                    {copy.eyebrow}
-                  </p>
-                  <h2 className="mt-3 font-serif text-[clamp(1.75rem,3vw,2.25rem)] font-normal leading-[1.1] tracking-[-0.02em]">
-                    {plan.name}
-                  </h2>
-                  <p className="mt-4 max-w-[52ch] text-[16px] leading-relaxed text-muted">
-                    {copy.description}
-                    {plan.seatMinimum && ` Desde ${plan.seatMinimum} personas.`}
-                  </p>
-                  <ul className="mt-6 flex flex-col gap-2.5 text-[15px] leading-relaxed text-muted">
-                    {(PLAN_FEATURES[plan.id] ?? []).map((feature) => (
-                      <li key={feature} className="flex gap-2.5">
-                        <Check />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="min-w-[14rem]">
-                  <p className="flex items-baseline gap-1.5">
-                    <span className="font-mono text-[34px] font-medium leading-none tracking-[-0.02em] text-ink">
-                      {formatMoney(plan.priceMinor, plan.currency)}
-                    </span>
-                    <span className="text-[15px] text-soft">/persona al mes</span>
-                  </p>
-                  {plan.setupMinor !== null && (
-                    <p className="mt-2 text-[14px] leading-relaxed text-muted">
-                      + {formatMoney(plan.setupMinor, plan.currency)} de implementación, por una
-                      vez
-                    </p>
-                  )}
-                  <p className="mt-4 text-[16px] font-medium text-ink">
-                    {formatMinutes(plan.monthlyMinutes)} por persona
-                  </p>
-                  <p className="mt-1 text-[13px] leading-relaxed text-soft">
-                    {formatOverage(plan)}
-                  </p>
-                  <PlanAction plan={plan} />
-                </div>
-              </div>
+              <p className="mt-8 max-w-[58ch] border-t border-line pt-6 text-[15px] leading-relaxed text-soft">
+                La implementación cubre el trabajo que pasa antes del primer minuto hablado:
+                reunir y depurar el material, entrenar y probar el coach con preguntas reales de
+                su gente, ajustar su forma de responder, y dejarlo publicado en su dominio con
+                acceso solo para su organización.
+              </p>
             </div>
-          </section>
-        );
-      })}
+
+            <div className="lg:border-l lg:border-line lg:pl-16">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-soft">
+                Implementación
+              </p>
+              <p className="mt-2 flex items-baseline gap-1.5">
+                <span className="font-mono text-[34px] font-medium leading-none tracking-[-0.02em] text-ink">
+                  {plan.setupMinor !== null ? formatMoney(plan.setupMinor, plan.currency) : '—'}
+                </span>
+                <span className="text-[15px] text-soft">por una vez</span>
+              </p>
+
+              <p className="mt-8 text-xs font-semibold uppercase tracking-[0.14em] text-soft">
+                Mensualidad
+              </p>
+              <p className="mt-2 flex items-baseline gap-1.5">
+                <span className="font-mono text-[34px] font-medium leading-none tracking-[-0.02em] text-ink">
+                  {formatMoney(plan.priceMinor, plan.currency)}
+                </span>
+                <span className="text-[15px] text-soft">/persona al mes</span>
+              </p>
+              {plan.seatMinimum && (
+                <p className="mt-1.5 text-[14px] text-soft">desde {plan.seatMinimum} personas</p>
+              )}
+
+              <p className="mt-6 text-[16px] font-medium text-ink">
+                {formatMinutes(plan.monthlyMinutes)} de conversación por persona
+              </p>
+              <p className="mt-1 text-[13px] leading-relaxed text-soft">{formatOverage(plan)}</p>
+
+              {PROFILE.email ? (
+                <a
+                  href={`mailto:${PROFILE.email}?subject=${subject}`}
+                  className="mt-9 inline-flex w-full items-center justify-center rounded-full bg-accent px-6 py-3 text-[16px] font-medium text-bg transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover"
+                >
+                  Conversemos
+                </a>
+              ) : (
+                <p className="mt-9 rounded-full border border-dashed border-line-strong px-5 py-2.5 text-center text-[15px] text-soft">
+                  Disponible pronto
+                </p>
+              )}
+              <p className="mt-3 text-center text-[13px] text-soft">
+                Precios en dólares, sin IVA.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/*
         The question every metered product gets asked, answered before anyone
@@ -352,7 +249,8 @@ export default async function PlanesPage() {
                 El contador vuelve a cero el día 1
               </dt>
               <dd className="mt-2 max-w-[52ch] text-[15px] leading-relaxed text-muted">
-                Mes calendario. Los minutos que no usaste no se acumulan para el mes siguiente.
+                Mes calendario, por persona. Los minutos que no usaste no se acumulan para el mes
+                siguiente.
               </dd>
             </div>
 
@@ -369,14 +267,15 @@ export default async function PlanesPage() {
         </div>
       </section>
 
+      {/* ------------------------------------------------------------- Try it */}
       <section className="mx-auto max-w-[75rem] px-6 py-20 lg:py-24">
         <div className="reveal rounded-xl bg-accent-hover px-8 py-14 sm:px-14 sm:py-16">
-          <h2 className="max-w-[20ch] font-serif text-[clamp(1.875rem,4vw,2.75rem)] font-normal leading-[1.06] tracking-[-0.02em] text-bg">
-            Pruébalo antes de elegir tamaño
+          <h2 className="max-w-[22ch] font-serif text-[clamp(1.875rem,4vw,2.75rem)] font-normal leading-[1.06] tracking-[-0.02em] text-bg">
+            Pruebe el coach antes de pedir el suyo
           </h2>
-          <p className="mt-5 max-w-[52ch] text-[17px] leading-relaxed text-bg/75">
-            Veinte minutos gratis, sin tarjeta. Es tiempo suficiente para saber si sabe de lo tuyo,
-            que es lo único que importa antes de pagar.
+          <p className="mt-5 max-w-[54ch] text-[17px] leading-relaxed text-bg/75">
+            El coach público responde con nuestra base de conocimiento. Hablar con él es la forma
+            más rápida de entender qué haría uno entrenado con el material de su organización.
           </p>
           <Link
             href="/coach"
