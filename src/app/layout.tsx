@@ -39,12 +39,17 @@ export const metadata: Metadata = {
   description: 'Coach de aprendizaje justo a tiempo con agentes de voz de ElevenLabs y RAG',
 };
 
-/** Anchors live on the home page, so they are prefixed to work from any route. */
+/**
+ * Anchors live on the home page, so they are prefixed to work from any route.
+ * `/planes` is a real page rather than an anchor — it is the one destination
+ * here a visitor may arrive at directly, from a link someone sent them.
+ */
 const NAV = [
   { href: '/#que-hace', label: 'Qué hace' },
   { href: '/#diferencia', label: 'La diferencia' },
   { href: '/#temas', label: 'Temas' },
   { href: '/#como', label: 'Cómo funciona' },
+  { href: '/planes', label: 'Planes' },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
