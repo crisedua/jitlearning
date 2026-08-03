@@ -25,10 +25,20 @@ export interface Profile {
 const TODO = '';
 
 export const PROFILE: Profile = {
-  email: TODO, // e.g. 'hola@tudominio.com'
+  email: 'eduardo@eduescalante.com',
   bookingUrl: TODO, // e.g. 'https://cal.com/tu-usuario/30min'
   linkedin: TODO,
   website: TODO,
+};
+
+/**
+ * WhatsApp, in the two shapes the wa.me link needs: digits only, no plus.
+ * Rendered as the floating button on every page.
+ */
+export const WHATSAPP = {
+  number: '56975387007',
+  /** Pre-filled first message, so the chat opens with context instead of blank. */
+  message: 'Hola, vengo de ModoJIT y tengo una consulta.',
 };
 
 /** True when there is at least one way to reach you. */

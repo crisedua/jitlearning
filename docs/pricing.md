@@ -126,6 +126,10 @@ money in the worst case — that is the constraint the prices were solved for.
 | Profesional | $49 | 180 | ∞ | $16.38 | 67% | $25.20 | 49% | $0.35/min |
 | Intensivo | $99 | 400 | ∞ | $36.40 | 63% | $56.00 | 43% | $0.30/min |
 | Equipo *(per seat, min 10)* | $35 | 120 | ∞ | $10.92 | 69% | $16.80 | 52% | $0.30/min |
+| Empresa *(per seat, min 20)* | $45 + $1,500 setup | 120 | ∞ | $10.92 | 76%* | $16.80 | 63%* | $0.30/min |
+
+<sub>* Before the dedicated stack Empresa runs on — see the Empresa section
+below for the margins with it included, which is the honest number.</sub>
 
 Prices are USD. They are stored in `plans.price_minor` as cents, with
 `plans.currency`; a CLP price list is a second set of rows, not a conversion in
@@ -158,6 +162,62 @@ you want, because a subscription is predictable revenue and overage is not.
 sold, not self-serve. At $35 for 120 minutes it is a ~8% discount on two
 Esenciales, which is enough to be worth asking for and not enough to make it
 worth buying one seat at a time.
+
+### Empresa: their own coach, and why it has a setup fee
+
+Everything above sells access to *this* coach. Empresa sells the organisation
+its own: its own domain, its own corpus, a persona tuned to its policies —
+which means its own stack. The corpus must be private, and in ElevenLabs the
+knowledge base is workspace-wide (every agent in a workspace shares it), so a
+private corpus means a dedicated ElevenLabs workspace with its own
+subscription. Same argument for a dedicated Supabase project: their people,
+their sessions, their data. Vercel hosts another project on the existing team
+for free.
+
+**$45 per seat per month, minimum 20 seats, 120 minutes each, overage $0.30.**
+The $10 premium over Equipo across the 20-seat floor is $200/month, and that is
+what pays for the dedicated stack plus the monthly hour of corpus upkeep the
+bullets promise. The floor is not really about servers: below ~20 seats the
+account cannot fund the ongoing attention (material updates, a named contact,
+retrieval checks) that makes a private coach different from a shared one.
+
+With the dedicated stack priced in (ElevenLabs tier chosen cheapest-wins as in
+§2, Supabase Pro $25):
+
+| | 20 seats, expected | 20 seats, worst | 50 seats, expected | 50 seats, worst |
+|---|---:|---:|---:|---:|
+| Revenue | $900 | $900 | $2,250 | $2,250 |
+| Minutes | 1,560 | 2,400 | 3,900 | 6,000 |
+| ElevenLabs | $125 | $192 | $312 | $480 |
+| LLM | $95 | $146 | $238 | $366 |
+| Supabase | $25 | $25 | $25 | $25 |
+| **Cost** | **$245** | **$363** | **$575** | **$871** |
+| **Gross margin** | **73%** | **60%** | **74%** | **61%** |
+
+Margins hold around 60% even at full utilisation, at either scale — the same
+constraint the individual tiers were solved for.
+
+**The $1,500 setup fee is for work that happens before anyone speaks a
+minute**, which is exactly the work marginal pricing can never recover:
+
+- collecting and curating the company's material into a corpus, and ingesting it
+- tuning retrieval against a test set of their real questions (the
+  `max_vector_distance` protocol in the README — including questions the model
+  could answer from training, which are the ones that catch silent fallback)
+- adapting the persona: their terminology, their policies, their genuine
+  internal disagreements (the contrast-document pattern)
+- domain, deployment, and sign-in restricted to their Google domain
+- a pilot session with real users and one adjustment round
+
+That is 15–20 hours of specialist work; $1,500 prices it at $75–100/hour and
+doubles as a seriousness filter — an organisation unwilling to pay it was
+never going to assemble its corpus either. It is stored in
+`plans.setup_minor` (migration `20260804000000_empresa_plan.sql`) so the fee
+the page quotes and the fee invoiced cannot drift apart.
+
+**Negotiable, deliberately unpublished:** volume past 50 seats, corpora
+materially larger than this one, and CLP invoicing (§6). The page shows the
+floor configuration; everything above it is a conversation.
 
 ### A revenue picture at 30 paying users
 

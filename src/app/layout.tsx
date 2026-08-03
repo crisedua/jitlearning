@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Instrument_Sans, Instrument_Serif, JetBrains_Mono } from 'next/font/google';
 import Link from 'next/link';
 import { BrandMark, Wordmark } from '@/components/BrandMark';
+import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { PROFILE, hasContact } from '@/lib/site';
 import './globals.css';
 
@@ -155,6 +156,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <span>© {year}</span>
           </div>
         </footer>
+
+        <WhatsAppButton />
       </body>
     </html>
   );

@@ -35,6 +35,8 @@ export interface Plan {
   overageMinorPerMin: number | null;
   /** Set only on per-seat plans. */
   seatMinimum: number | null;
+  /** One-time implementation fee, in the currency's smallest unit. null = none. */
+  setupMinor: number | null;
   /** False for plans that are sold rather than bought — no self-serve checkout. */
   isPublic: boolean;
   sortOrder: number;
@@ -43,7 +45,7 @@ export interface Plan {
 
 /** The columns the pricing page needs, as named in Postgres. */
 export const PLAN_COLUMNS =
-  'id, name, monthly_minutes, monthly_sessions, price_minor, currency, overage_minor_per_min, seat_minimum, is_public, sort_order, blurb';
+  'id, name, monthly_minutes, monthly_sessions, price_minor, currency, overage_minor_per_min, seat_minimum, setup_minor, is_public, sort_order, blurb';
 
 /** Shape of a `plans` row as it comes back from Supabase. */
 interface PlanRow {
@@ -55,6 +57,7 @@ interface PlanRow {
   currency: string;
   overage_minor_per_min: number | null;
   seat_minimum: number | null;
+  setup_minor: number | null;
   is_public: boolean;
   sort_order: number;
   blurb: string | null;
@@ -70,6 +73,7 @@ export function rowToPlan(row: PlanRow): Plan {
     currency: row.currency,
     overageMinorPerMin: row.overage_minor_per_min,
     seatMinimum: row.seat_minimum,
+    setupMinor: row.setup_minor,
     isPublic: row.is_public,
     sortOrder: row.sort_order,
     blurb: row.blurb,
@@ -90,6 +94,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     currency: 'USD',
     overageMinorPerMin: null,
     seatMinimum: null,
+    setupMinor: null,
     isPublic: true,
     sortOrder: 10,
     blurb: 'Para probar si el coach sabe de lo tuyo.',
@@ -103,6 +108,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     currency: 'USD',
     overageMinorPerMin: 35,
     seatMinimum: null,
+    setupMinor: null,
     isPublic: true,
     sortOrder: 20,
     blurb: 'Una consulta por semana, con margen.',
@@ -116,6 +122,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     currency: 'USD',
     overageMinorPerMin: 35,
     seatMinimum: null,
+    setupMinor: null,
     isPublic: true,
     sortOrder: 30,
     blurb: 'Para quien vuelve varias veces por semana.',
@@ -129,6 +136,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     currency: 'USD',
     overageMinorPerMin: 30,
     seatMinimum: null,
+    setupMinor: null,
     isPublic: true,
     sortOrder: 40,
     blurb: 'Uso diario, o un proyecto con fecha.',
@@ -142,9 +150,24 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     currency: 'USD',
     overageMinorPerMin: 30,
     seatMinimum: 10,
+    setupMinor: null,
     isPublic: false,
     sortOrder: 50,
     blurb: 'Por persona, desde 10 personas.',
+  },
+  {
+    id: 'empresa',
+    name: 'Empresa',
+    monthlyMinutes: 120,
+    monthlySessions: null,
+    priceMinor: 4500,
+    currency: 'USD',
+    overageMinorPerMin: 30,
+    seatMinimum: 20,
+    setupMinor: 150_000,
+    isPublic: false,
+    sortOrder: 60,
+    blurb: 'Su propio coach, con su material, en su dominio.',
   },
 ] as const;
 
@@ -182,6 +205,34 @@ export const PLAN_FEATURES: Record<string, readonly string[]> = {
     'Cada quien conserva su propio historial',
     'Un solo interlocutor para toda la organización',
   ],
+  // No bullet for the setup fee: the card prints it from `setupMinor`, next to
+  // the monthly price where a buyer actually looks for it.
+  empresa: [
+    'Coach entrenado con el material de la organización: políticas, procesos, documentos',
+    'En su propio dominio y con su marca',
+    'Base de conocimiento privada, en infraestructura separada',
+    'Minutos por persona; cada quien con su historial y su memoria',
+    'Actualización mensual del material, incluida',
+  ],
+};
+
+/**
+ * The prose for the organisations band, per plan. Two sold-not-bought tiers
+ * share that band and answer different questions — Equipo is "stop opening
+ * accounts one by one", Empresa is "make the coach ours" — so a single
+ * paragraph would blur exactly the distinction a buyer needs.
+ */
+export const ORG_PLAN_COPY: Record<string, { eyebrow: string; description: string }> = {
+  equipo: {
+    eyebrow: 'Para organizaciones',
+    description:
+      'Para un colegio o un equipo que quiere que todos tengan a quién preguntar cuando se traban con IA, sin abrir una cuenta a la vez.',
+  },
+  empresa: {
+    eyebrow: 'Su propio coach',
+    description:
+      'Un coach propio, entrenado con el material de la empresa o del colegio — políticas, procesos, protocolos — y publicado en su propio dominio. Nosotros lo montamos, lo entrenamos y lo mantenemos; ustedes deciden qué sabe.',
+  },
 };
 
 /** The plan given prominence on the page. */
