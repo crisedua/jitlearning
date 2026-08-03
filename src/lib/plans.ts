@@ -216,25 +216,6 @@ export const PLAN_FEATURES: Record<string, readonly string[]> = {
   ],
 };
 
-/**
- * The prose for the organisations band, per plan. Two sold-not-bought tiers
- * share that band and answer different questions — Equipo is "stop opening
- * accounts one by one", Empresa is "make the coach ours" — so a single
- * paragraph would blur exactly the distinction a buyer needs.
- */
-export const ORG_PLAN_COPY: Record<string, { eyebrow: string; description: string }> = {
-  equipo: {
-    eyebrow: 'Para organizaciones',
-    description:
-      'Para un colegio o un equipo que quiere que todos tengan a quién preguntar cuando se traban con IA, sin abrir una cuenta a la vez.',
-  },
-  empresa: {
-    eyebrow: 'Su propio coach',
-    description:
-      'Un coach propio, entrenado con el material de la empresa o del colegio — políticas, procesos, protocolos — y publicado en su propio dominio. Nosotros lo montamos, lo entrenamos y lo mantenemos; ustedes deciden qué sabe.',
-  },
-};
-
 /** The plan given prominence on the page. */
 export const RECOMMENDED_PLAN_ID = 'profesional';
 

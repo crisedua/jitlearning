@@ -23,7 +23,6 @@ import { anonKey, authConfigured, supabaseUrl } from '@/lib/supabase/env';
 import { PROFILE } from '@/lib/site';
 import {
   FALLBACK_PLANS,
-  ORG_PLAN_COPY,
   PLAN_COLUMNS,
   PLAN_FEATURES,
   RECOMMENDED_PLAN_ID,
@@ -318,7 +317,6 @@ export default async function PlanesPage() {
   const selfServe = plans.filter((p) => p.isPublic);
   const empresa =
     plans.find((p) => p.id === EMPRESA_ID) ?? FALLBACK_PLANS.find((p) => p.id === EMPRESA_ID)!;
-  const teamPlans = plans.filter((p) => !p.isPublic && p.id !== EMPRESA_ID);
   const currency = plans[0]?.currency ?? 'USD';
 
   return (
@@ -356,64 +354,6 @@ export default async function PlanesPage() {
       </section>
 
       <EmpresaFeature plan={empresa} />
-
-      {teamPlans.map((plan) => {
-        const copy = ORG_PLAN_COPY[plan.id] ?? {
-          eyebrow: 'Para organizaciones',
-          description:
-            'Para un colegio o un equipo que quiere que todos tengan a quién preguntar cuando se traban con IA, sin abrir una cuenta a la vez.',
-        };
-        return (
-          <section key={plan.id} className="mx-auto max-w-[96rem] px-6 pb-20">
-            <div className="reveal rounded-lg border border-line bg-surface-alt p-8 sm:p-10">
-              <div className="flex flex-wrap items-start gap-x-12 gap-y-6">
-                <div className="min-w-[16rem] flex-1">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
-                    {copy.eyebrow}
-                  </p>
-                  <h2 className="mt-3 font-serif text-[clamp(1.75rem,3vw,2.25rem)] font-normal leading-[1.1] tracking-[-0.02em]">
-                    {plan.name}
-                  </h2>
-                  <p className="mt-4 max-w-[52ch] text-[16px] leading-relaxed text-muted">
-                    {copy.description}
-                    {plan.seatMinimum && ` Desde ${plan.seatMinimum} personas.`}
-                  </p>
-                  <ul className="mt-6 flex flex-col gap-2.5 text-[15px] leading-relaxed text-muted">
-                    {(PLAN_FEATURES[plan.id] ?? []).map((feature) => (
-                      <li key={feature} className="flex gap-2.5">
-                        <Check />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="min-w-[14rem]">
-                  <p className="flex items-baseline gap-1.5">
-                    <span className="font-mono text-[34px] font-medium leading-none tracking-[-0.02em] text-ink">
-                      {formatMoney(plan.priceMinor, plan.currency)}
-                    </span>
-                    <span className="text-[15px] text-soft">/persona al mes</span>
-                  </p>
-                  {plan.setupMinor !== null && (
-                    <p className="mt-2 text-[14px] leading-relaxed text-muted">
-                      + {formatMoney(plan.setupMinor, plan.currency)} de implementación, por una
-                      vez
-                    </p>
-                  )}
-                  <p className="mt-4 text-[16px] font-medium text-ink">
-                    {formatMinutes(plan.monthlyMinutes)} por persona
-                  </p>
-                  <p className="mt-1 text-[13px] leading-relaxed text-soft">
-                    {formatOverage(plan)}
-                  </p>
-                  <PlanAction plan={plan} />
-                </div>
-              </div>
-            </div>
-          </section>
-        );
-      })}
 
       {/*
         The question every metered product gets asked, answered before anyone
