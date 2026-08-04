@@ -107,6 +107,59 @@ export async function getAccount(): Promise<Account | null> {
 }
 
 /**
+ * The gate on the month's allowance, read at the single choke point through
+ * which every billable conversation passes: minting a signed URL.
+ *
+ * Checked against the `plan_usage` view, which counts *all* of this month's
+ * sessions including browser-reported ones — the generous count, which makes
+ * the stricter gate. A NULL limit on the plan means unlimited.
+ *
+ * Fails open on purpose. A deployment whose migration has not run, or a
+ * Supabase hiccup, must degrade to "the coach still answers", not to a wall —
+ * the free tier's worst case is a few dollars, and a paying learner locked out
+ * by an outage is far worse than a free one let through by it. The check is
+ * also only at connection time: a session already running is never cut off,
+ * so the cap is soft by roughly one session's length (see docs/pricing.md).
+ */
+export async function checkPlanAllowance(
+  userId: string,
+): Promise<{ allowed: true } | { allowed: false; error: string }> {
+  if (!serviceConfigured()) return { allowed: true };
+
+  const { data, error } = await supabaseAdmin()
+    .from('plan_usage')
+    .select('monthly_minutes, monthly_sessions, minutes, sessions')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error || !data) {
+    if (error) console.error('[account] could not read plan usage, allowing:', error.message);
+    return { allowed: true };
+  }
+
+  const row = data as {
+    monthly_minutes: number | null;
+    monthly_sessions: number | null;
+    minutes: number;
+    sessions: number;
+  };
+
+  if (row.monthly_minutes !== null && row.minutes >= row.monthly_minutes) {
+    return {
+      allowed: false,
+      error: `Alcanzaste los ${row.monthly_minutes} minutos de tu plan este mes. El contador vuelve a cero el día 1.`,
+    };
+  }
+  if (row.monthly_sessions !== null && row.sessions >= row.monthly_sessions) {
+    return {
+      allowed: false,
+      error: `Alcanzaste las ${row.monthly_sessions} conversaciones de tu plan este mes. El contador vuelve a cero el día 1.`,
+    };
+  }
+  return { allowed: true };
+}
+
+/**
  * Open a usage row the moment a signed URL is minted.
  *
  * Written at mint time rather than at connect time on purpose: the credential

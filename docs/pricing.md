@@ -262,10 +262,12 @@ run as the definer and hand every learner everyone else's usage.
 
 ## 5. Still to build
 
-The migration prices the plans; it does not enforce them. In order:
+The migration prices the plans; enforcement is partly built. In order:
 
-1. **Read the limit before connecting.** `src/app/api/signed-url/route.ts` is the
-   single choke point — no signed URL, no session. Check `plan_usage` there.
+1. ~~**Read the limit before connecting.**~~ Done: `checkPlanAllowance()` in
+   `src/lib/account.ts` reads `plan_usage` inside `/api/signed-url` and returns
+   403 past the allowance. It fails open when the view is missing, so it starts
+   biting the moment the pricing migration has run.
 2. **Show the balance.** A learner who hits a wall they could not see coming
    reads it as a bug. Minutes remaining belongs on `/coach`, before the button.
 3. **Run `sync:usage` on a schedule.** Until it runs, every number is

@@ -215,10 +215,14 @@ billing decision, and minutes must not be writable by the browser that reports
 them. All of those writes go through the service-role client in
 [`src/lib/supabase/admin.ts`](src/lib/supabase/admin.ts).
 
-**Nothing is enforced yet.** The plan columns exist so the limits can be chosen
-from real numbers rather than guessed. When you want one, the place to add it is
+**Limits are enforced at mint time.** `checkPlanAllowance()` in
+[`src/lib/account.ts`](src/lib/account.ts) reads the `plan_usage` view inside
 [`/api/signed-url`](src/app/api/signed-url/route.ts), before `getSignedUrl` —
-that is the single chokepoint through which every billable conversation passes.
+the single chokepoint through which every billable conversation passes. A
+learner over their plan's minutes or sessions gets a 403 with a plain sentence
+instead of a credential. The check fails open (no view, no Supabase → the coach
+still answers) and never cuts off a session already running, so the cap is soft
+by about one session's length.
 
 ### Where the usage numbers come from
 

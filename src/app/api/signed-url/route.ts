@@ -11,7 +11,7 @@ import { NextResponse } from 'next/server';
 import { getSignedUrl } from '@/lib/elevenlabs';
 import { agentId } from '@/lib/config';
 import { currentUser } from '@/lib/supabase/server';
-import { startCoachSession } from '@/lib/account';
+import { checkPlanAllowance, startCoachSession } from '@/lib/account';
 import { learnerContext } from '@/lib/memory';
 
 export const runtime = 'nodejs';
@@ -34,6 +34,17 @@ export async function GET() {
         { error: 'ELEVENLABS_AGENT_ID is not configured.' },
         { status: 409 },
       );
+    }
+
+    /*
+     * The plan gate, before the credential exists. This is the enforcement the
+     * pricing page promises ("se detiene al llegar al límite") — everything
+     * billable passes through this mint, so this is the one place a limit
+     * means anything.
+     */
+    const allowance = await checkPlanAllowance(user.id);
+    if (!allowance.allowed) {
+      return NextResponse.json({ error: allowance.error }, { status: 403 });
     }
 
     const signedUrl = await getSignedUrl(id);
