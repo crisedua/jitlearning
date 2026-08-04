@@ -5,6 +5,49 @@ import { SessionBar } from '@/components/SessionBar';
 import { agentId } from '@/lib/config';
 import { currentUser } from '@/lib/supabase/server';
 import { signInPath } from '@/lib/paths';
+import { getUsageBalance, type UsageBalance } from '@/lib/account';
+
+/**
+ * The month's balance, said before the button rather than discovered at it.
+ *
+ * Renders nothing for unlimited plans and for deployments where the usage view
+ * is unavailable — a meter that cannot be read is better absent than wrong.
+ * When something has run out it switches to the warning style, and says when
+ * it comes back, because "no" without "until when" reads as broken.
+ */
+function BalanceNote({ balance }: { balance: UsageBalance }) {
+  const { minutes, sessions, monthlyMinutes, monthlySessions } = balance;
+  if (monthlyMinutes === null && monthlySessions === null) return null;
+
+  const minutesLeft =
+    monthlyMinutes === null ? null : Math.max(0, Math.floor(monthlyMinutes - minutes));
+  const sessionsLeft =
+    monthlySessions === null ? null : Math.max(0, monthlySessions - sessions);
+  const exhausted = minutesLeft === 0 || sessionsLeft === 0;
+
+  const parts = [
+    minutesLeft !== null && `${minutesLeft} de ${monthlyMinutes} minutos`,
+    sessionsLeft !== null && `${sessionsLeft} de ${monthlySessions} conversaciones`,
+  ].filter(Boolean);
+
+  return (
+    <p
+      className={`mt-4 inline-flex items-baseline gap-2 rounded-full border px-3.5 py-1.5 text-[13px] ${
+        exhausted
+          ? 'border-warning/35 bg-warning-soft/50 text-ink/80'
+          : 'border-line bg-surface text-muted'
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`h-1.5 w-1.5 self-center rounded-full ${exhausted ? 'bg-warning' : 'bg-gold'}`}
+      />
+      {exhausted
+        ? 'Agotaste tu plan de este mes. El contador vuelve a cero el día 1.'
+        : `Este mes te quedan ${parts.join(' y ')}.`}
+    </p>
+  );
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -21,11 +64,13 @@ export default async function CoachPage() {
    * the credential. Gating only the page would stop nobody: the endpoint is a
    * plain GET that anyone can call directly.
    */
-  if (!(await currentUser())) redirect(signInPath('/coach'));
+  const user = await currentUser();
+  if (!user) redirect(signInPath('/coach'));
 
   // Only the agent id is read here — the document list is behind the ingest
   // secret, so this page must not try to fetch it.
   const configured = Boolean(agentId());
+  const balance = await getUsageBalance(user.id);
 
   return (
     <div className="mx-auto max-w-[96rem] space-y-8 px-6 py-10">
@@ -60,6 +105,12 @@ export default async function CoachPage() {
             y UNESCO, y la evidencia que se contradice.
           </span>
         </p>
+
+        {balance && (
+          <div>
+            <BalanceNote balance={balance} />
+          </div>
+        )}
       </header>
 
       {configured ? (

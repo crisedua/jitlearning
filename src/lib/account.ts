@@ -106,6 +106,50 @@ export async function getAccount(): Promise<Account | null> {
   };
 }
 
+export interface UsageBalance {
+  /** Minutes and sessions spent this calendar month, including unreconciled rows. */
+  minutes: number;
+  sessions: number;
+  /** The plan's limits; null = unlimited. */
+  monthlyMinutes: number | null;
+  monthlySessions: number | null;
+}
+
+/**
+ * The signed-in learner's month so far, for showing *before* they hit the
+ * wall — a limit that is only discovered by hitting it reads as a bug.
+ *
+ * Read through the user-scoped client on purpose: the `plan_usage` view runs
+ * as its caller, so row-level security already scopes it to their own row, and
+ * this stays displayable data rather than a second enforcement path. Returns
+ * null wherever the view (or Supabase) is unavailable — the caller shows
+ * nothing rather than a broken meter.
+ */
+export async function getUsageBalance(userId: string): Promise<UsageBalance | null> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('plan_usage')
+      .select('monthly_minutes, monthly_sessions, minutes, sessions')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error || !data) {
+      if (error) console.error('[account] could not read usage balance:', error.message);
+      return null;
+    }
+    return {
+      minutes: Number(data.minutes) || 0,
+      sessions: Number(data.sessions) || 0,
+      monthlyMinutes: data.monthly_minutes,
+      monthlySessions: data.monthly_sessions,
+    };
+  } catch (err) {
+    console.error('[account] usage balance lookup failed:', err);
+    return null;
+  }
+}
+
 /**
  * The gate on the month's allowance, read at the single choke point through
  * which every billable conversation passes: minting a signed URL.
