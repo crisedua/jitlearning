@@ -118,9 +118,11 @@ function Check() {
  * What the card's button does.
  *
  * The free plan starts a conversation, because that is a thing this deployment
- * can actually do. A paid plan cannot be bought yet, so it writes to whoever
- * runs this — and when no address has been filled in at `src/lib/site.ts`, it
- * says so plainly rather than rendering a button that goes nowhere.
+ * can actually do. The individual paid plans cannot be bought yet — there is no
+ * payment integration — so they say "pronto" plainly rather than rendering a
+ * button that pretends to take money. Empresa is the exception: it is sold
+ * through a conversation, not a checkout, so its button writes to a person —
+ * unless no address has been filled in at `src/lib/site.ts`.
  */
 function PlanAction({ plan }: { plan: Plan }) {
   if (plan.priceMinor === 0) {
@@ -134,7 +136,7 @@ function PlanAction({ plan }: { plan: Plan }) {
     );
   }
 
-  if (!PROFILE.email) {
+  if (plan.id !== EMPRESA_ID || !PROFILE.email) {
     return (
       <p className="mt-7 rounded-full border border-dashed border-line-strong px-5 py-2.5 text-center text-[15px] text-soft">
         Disponible pronto
@@ -143,18 +145,13 @@ function PlanAction({ plan }: { plan: Plan }) {
   }
 
   const subject = encodeURIComponent(`Plan ${plan.name}`);
-  const recommended = plan.id === RECOMMENDED_PLAN_ID;
 
   return (
     <a
       href={`mailto:${PROFILE.email}?subject=${subject}`}
-      className={
-        recommended
-          ? 'mt-7 inline-flex w-full items-center justify-center rounded-full bg-accent px-5 py-2.5 text-[15px] font-medium text-bg transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover'
-          : 'mt-7 inline-flex w-full items-center justify-center rounded-full border border-line-strong px-5 py-2.5 text-[15px] font-medium text-ink transition duration-200 ease-out hover:-translate-y-0.5 hover:border-accent hover:text-accent'
-      }
+      className="mt-7 inline-flex w-full items-center justify-center rounded-full bg-accent px-5 py-2.5 text-[15px] font-medium text-bg transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover"
     >
-      Quiero este plan
+      Conversemos
     </a>
   );
 }
@@ -277,8 +274,9 @@ export default async function PlanesPage() {
         </ul>
 
         <p className="mt-6 text-[13px] text-soft">
-          Precios en {currency === 'CLP' ? 'pesos chilenos' : 'dólares'}, sin IVA. Puedes cambiar de
-          plan o cancelar cuando quieras.
+          Precios en {currency === 'CLP' ? 'pesos chilenos' : 'dólares'}, sin IVA. Los planes de
+          pago individuales se podrán contratar pronto; mientras tanto, el plan Gratis y el plan
+          Empresa ya están disponibles.
         </p>
       </section>
 
