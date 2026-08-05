@@ -225,8 +225,14 @@ export function tutorSystemPrompt(): string {
   return TUTOR_PERSONA;
 }
 
+/**
+ * Says what the coach is *for* before asking anything. A bare opening question
+ * invites questions from any domain, and the scope guardrail then spends the
+ * first real turn refusing — introducing the territory up front means the
+ * first question is usually already inside it.
+ */
 export const DEFAULT_FIRST_MESSAGE =
-  '¿En qué estás trabajando y dónde te has atascado?';
+  'Soy tu asesor para implementar inteligencia artificial en tu empresa o tu colegio: por dónde partir, qué herramientas elegir, política de uso, datos y normativa. ¿En qué estás trabajando y dónde te has atascado?';
 
 /**
  * RAG tuning.
@@ -276,6 +282,16 @@ export async function provisionAgent(): Promise<string> {
           knowledge_base: [],
           rag: ragConfig(),
         },
+      },
+      // The latency that matters in voice is not the models — LLM first-token
+      // and TTS first-byte measure well under two seconds combined — it is the
+      // dead air while the turn-taking model decides the user has finished.
+      // Measured at "normal" eagerness: 2–4s of silence before initiation,
+      // 4–6.5s to first audio. Eager endpointing plus speculative generation
+      // attacks exactly that gap.
+      turn: {
+        turn_eagerness: 'eager',
+        speculative_turn: true,
       },
       tts: {
         // Turbo, not flash: flash is the lowest-latency tier but audibly the

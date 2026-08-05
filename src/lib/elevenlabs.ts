@@ -208,6 +208,12 @@ export interface AgentConfig {
       stability?: number;
       similarity_boost?: number;
     };
+    turn?: {
+      /** How fast the turn-taking model decides the user has finished speaking. */
+      turn_eagerness?: 'patient' | 'normal' | 'eager';
+      /** Start generating while endpointing is still deciding; discarded if the user goes on. */
+      speculative_turn?: boolean;
+    };
   };
 }
 
