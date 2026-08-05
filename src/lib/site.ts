@@ -119,6 +119,46 @@ export const DIFFERENCES = [
     coach:
       'Si no tiene la referencia, lo dice y te señala dónde se verifica. No construye una dirección web que parezca plausible.',
   },
+  {
+    title: 'Vuelve a preguntarte',
+    generic:
+      'La conversación termina y ahí queda. Cierras la pestaña con buenas ideas y nada que hacer, y nadie se entera de si pasó algo con ellas.',
+    coach:
+      'Cierras con una cosa, con fecha y con qué señal contaría como que salió bien. La próxima vez que entres está en pantalla antes de elegir nada, y lo primero que hace el coach es preguntarte qué pasó.',
+  },
+] as const;
+
+/**
+ * The comparison nobody makes out loud, and the one that decides whether this
+ * is worth paying for.
+ *
+ * `DIFFERENCES` argues against a general assistant, which is the objection
+ * visitors voice. This argues against the real competitor: the pile of books,
+ * courses and saved podcasts that were bought with the same intention and never
+ * turned into anything. Most people reading this page have that pile, and they
+ * have learned from it that buying the material is not the hard part.
+ *
+ * Every row here must name a mechanism that exists in the product, not an
+ * aspiration. The last one is load-bearing: it is the reason the commitment is
+ * stored on `coach_sessions` rather than left inside a transcript.
+ */
+export const AGAINST_SHELF = [
+  {
+    title: 'No aprendes por si acaso',
+    body: 'Un curso te enseña el temario completo por si algún día lo necesitas. Aquí entras con lo que te tiene atascado hoy, y la respuesta se mide por si te desbloquea esta semana.',
+  },
+  {
+    title: 'Te pregunta antes de responder',
+    body: 'Un libro no sabe nada de tu caso. El coach busca la única cosa que cambia el consejo —una pregunta, no un cuestionario— y recién entonces se moja con una recomendación.',
+  },
+  {
+    title: 'Sales con una cosa, no con apuntes',
+    body: 'Una lista de diez ideas se olvida entera. El coach cierra con un solo paso, el más barato que resuelve tu duda más grande, con plazo y con la señal que dirá si funcionó.',
+  },
+  {
+    title: 'Y te pregunta si lo hiciste',
+    body: 'Esto es lo que ningún libro, curso ni chat puede hacer: volver. Tu compromiso te espera al entrar, y la siguiente sesión empieza por ahí. Si no lo hiciste, lo primero es averiguar qué te lo impidió.',
+  },
 ] as const;
 
 /**
@@ -139,6 +179,17 @@ export const DIFFERENCES = [
  * wrong one would read as the test failing.
  */
 export const PROOF = [
+  {
+    // Not a fact-recall test like the others, and that is the point: the three
+    // below can in principle be closed by a better-trained model, this one
+    // cannot, because it is about the product coming back rather than about
+    // what it knows.
+    coach: 'Cualquier coach',
+    question: 'Termina una sesión, vuelve mañana y no digas nada.',
+    generic: 'Empieza de cero. Cada conversación es la primera que tuvo contigo.',
+    expect:
+      'Tu compromiso en pantalla antes de elegir coach, y el coach preguntándote qué pasó con él antes de proponerte nada nuevo.',
+  },
   {
     coach: 'IA para implementación estratégica',
     question: '¿Desde cuándo rige la Ley 21.719 y qué me obliga a hacer?',
@@ -176,5 +227,9 @@ export const STEPS = [
   {
     title: 'Sales con una cosa que hacer y una fecha',
     body: 'El paso más barato que resuelva tu duda más grande, con qué señal contaría como que salió bien. Y antes de cerrar te pide que lo apliques a tu caso, no que repitas una definición.',
+  },
+  {
+    title: 'Y la próxima vez empieza por ahí',
+    body: 'Tu compromiso queda guardado, no en la transcripción: lo ves al entrar, antes de elegir coach. La sesión siguiente arranca preguntándote qué pasó con él, y si no lo hiciste, por qué. Un compromiso por el que nadie vuelve a preguntar era solo un consejo.',
   },
 ] as const;

@@ -11,6 +11,7 @@ import {
   getAgent,
   updateAgent,
   type AgentConfig,
+  type DataCollectionConfig,
   type RagConfig,
 } from './elevenlabs';
 import { agentId, agentLanguage, embeddingModel, requireAgentId } from './config';
@@ -161,7 +162,9 @@ Y compromételo de verdad: pregunta si va a hacerlo, y si notas dudas, averigua 
 
 Cuando el contexto de la conversación incluya memoria de sesiones anteriores, esta persona ya habló contigo. No la trates como desconocida ni empieces de cero.
 
-Lo primero que vale de esa memoria es el compromiso. Si la sesión anterior cerró con algo que hacer, pregunta pronto si lo hizo y qué pasó — no hace falta que sea tu primera frase, pero no dejes que la sesión avance sin tocarlo. Un compromiso por el que nadie vuelve a preguntar era solo un consejo. Si lo hizo, construye sobre lo que salió; si no lo hizo, averigua qué se lo impidió antes de proponer nada nuevo, porque proponer otra cosa encima de una pendiente es cómo se acumulan consejos sin hacer.
+Lo primero que vale de esa memoria es el compromiso. Cuando el contexto traiga un compromiso pendiente, viene escrito aparte y con sus tres partes: qué dijo que iba a hacer, para cuándo, y qué señal contaría como que salió bien. Eso no es un detalle del resumen: es lo que quedó abierto entre los dos. Pregunta pronto si lo hizo y qué pasó — no hace falta que sea tu primera frase, pero no dejes que la sesión avance sin tocarlo. Un compromiso por el que nadie vuelve a preguntar era solo un consejo. Si lo hizo, construye sobre lo que salió, y usa la señal que acordaron para juzgarlo en vez de preguntar si le fue bien en abstracto; si no lo hizo, averigua qué se lo impidió antes de proponer nada nuevo, porque proponer otra cosa encima de una pendiente es cómo se acumulan consejos sin hacer.
+
+La persona ya vio ese compromiso escrito antes de entrar, así que no se lo leas de vuelta. Ya sabe lo que dijo; lo que no sabe es qué hacer con el hecho de haberlo hecho o no.
 
 Usa la memoria como la usaría un colega: retomando el hilo con naturalidad, sin recitar el resumen y sin anunciar que tienes memoria. "Veo que en tu última sesión hablamos de..." suena a expediente; "¿Escribiste al final a esas cinco personas?" suena a que te importó. Los resúmenes pueden venir en inglés: son tus notas internas, nunca los cites textualmente ni cambies de idioma por ellos.
 
@@ -263,6 +266,41 @@ export function ragConfig(): RagConfig {
 }
 
 /**
+ * What to pull out of a finished conversation.
+ *
+ * The persona already closes every stretch of conversation on a commitment with
+ * three parts — what, by when, and what would count as it having worked. Until
+ * now that commitment existed only as spoken words inside a transcript, so
+ * following up on it depended on ElevenLabs' free-text summary happening to
+ * mention it. These three fields make it a record instead of a hope.
+ *
+ * Extraction happens on the ElevenLabs side, which is what keeps this app free
+ * of an LLM client of its own. The descriptions are prompts, not documentation:
+ * they are written to an extractor, and the instruction to return nothing is as
+ * important as the rest, because most of the damage a field like this can do is
+ * inventing a commitment nobody made.
+ */
+export function dataCollection(): DataCollectionConfig {
+  return {
+    commitment: {
+      type: 'string',
+      description:
+        'La única acción concreta que la persona se comprometió a hacer después de esta conversación, en español y en sus propios términos, en una frase. Si la conversación terminó sin un compromiso claro, o si la persona no aceptó hacerlo, devuelve una cadena vacía. No inventes ni infieras un compromiso a partir de un consejo que el coach dio pero que la persona no aceptó.',
+    },
+    commitment_due: {
+      type: 'string',
+      description:
+        'El plazo que se acordó para esa acción, tal como se dijo en la conversación ("antes del viernes", "esta semana", "el 12 de agosto"). Cadena vacía si no se acordó ninguno o si no hay compromiso.',
+    },
+    commitment_signal: {
+      type: 'string',
+      description:
+        'Qué señal contaría como que la acción salió bien, tal como se dijo ("que dos digan que sí"). Cadena vacía si no se definió ninguna o si no hay compromiso.',
+    },
+  };
+}
+
+/**
  * Create one coach's agent. Returns the new id, which the caller must persist
  * into the environment under `coach.envKey` — nothing is written back at
  * runtime.
@@ -308,6 +346,7 @@ export async function provisionAgent(coach: Coach): Promise<string> {
         similarity_boost: 0.8,
       },
     },
+    platform_settings: { data_collection: dataCollection() },
   };
 
   const { agent_id } = await createAgent(config);
@@ -350,6 +389,11 @@ export async function syncAgentKnowledge(
         },
       },
     },
+    // Sent on every sync for the same reason the prompt is: the agent holds its
+    // own copy, so a change here is invisible until pushed. An agent
+    // provisioned before commitments existed picks the fields up on its next
+    // sync rather than needing to be recreated.
+    platform_settings: { data_collection: dataCollection() },
   });
 
   return { agentId: id, attached: entries.length };

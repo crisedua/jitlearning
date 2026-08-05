@@ -274,6 +274,35 @@ migration is a cost optimisation, not a feature flag. Deleting a conversation
 at ElevenLabs before its summary is cached forgets that session; after, the
 cached copy survives.
 
+### Commitments
+
+The follow-up above used to be a coin flip. The commitment lived only in the
+free-text summary, so the coach asked about it when ElevenLabs happened to keep
+it and silently didn't when it didn't — for the one behaviour the product sells
+hardest.
+
+It is now extracted as a field.
+[`dataCollection()`](src/lib/agent.ts) declares three of them on every agent —
+the action, the deadline as it was said, and the signal that would count as it
+having worked, which are exactly the three parts the persona demands. ElevenLabs
+fills them in when it analyses the call, so there is still no LLM of ours;
+[`commitments.ts`](src/lib/commitments.ts) stores them on the same lazy
+backfill as the summary and returns the most recent one, which is what the
+picker at `/coach` shows before you choose anything and what
+[`learnerContext()`](src/lib/memory.ts) puts at the top of the next session's
+context.
+
+There is deliberately **no completion column**. Nothing could set it honestly:
+the learner reports back out loud, mid-conversation, and a checkbox would invite
+marking something done without doing it — the exact failure this is aimed at. A
+commitment stops being shown when a newer session produces one.
+
+Run [`supabase/migrations/20260805000000_commitments.sql`](supabase/migrations/20260805000000_commitments.sql)
+for the columns, and `npm run sync:agent -- --push` so the agents carry the
+extraction fields. Both degrade quietly: without the migration the reads and
+writes are skipped and nothing else changes, and an agent provisioned before
+this existed picks the fields up on its next sync.
+
 ## Tuning retrieval
 
 The knobs live in `ragConfig()` in [`src/lib/agent.ts`](src/lib/agent.ts):
@@ -444,7 +473,8 @@ scripts/                setup-agent, sync-agent, bulk ingest, doctor
   service role to read the ledger — a deployment without Supabase starts every
   conversation cold, as before. The summaries themselves are ElevenLabs'
   automatic ones: a paragraph per call, usually in English, with no control
-  over what they keep. The commitment usually survives; nuance does not.
+  over what they keep. Nuance does not survive; the commitment no longer relies
+  on it, since it is extracted as its own field (see [Commitments](#commitments)).
 - **The persona is long** (~14.7k characters, roughly 3.7k tokens) and rides on
   every turn. It is a system prompt, so it caches, but a materially larger one
   will start to be felt as latency in voice, where it is much more noticeable

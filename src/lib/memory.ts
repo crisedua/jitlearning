@@ -20,6 +20,7 @@
  */
 import { ElevenLabsError, getConversation } from './elevenlabs';
 import { mapWithConcurrency } from './config';
+import { commitmentContext, openCommitment, storeCommitment } from './commitments';
 import { serviceConfigured, supabaseAdmin } from './supabase/admin';
 
 /** Rows considered per start. Only the newest of them are ever replayed. */
@@ -69,6 +70,10 @@ async function backfillRow(row: SessionRow, persist: boolean): Promise<string | 
     if (conversation.status !== 'done') return null;
     summary = conversation.analysis?.transcript_summary?.trim() || null;
     title = conversation.analysis?.call_summary_title?.trim() || null;
+
+    // Same fetch, same pass. Written on its own so a deployment without the
+    // commitments migration still gets its summary cached.
+    if (persist) await storeCommitment(row.id, conversation);
   } catch (err) {
     // Gone from ElevenLabs (retention, manual deletion): stamp it so the
     // backfill stops asking. Anything else — network, auth — retries later.
@@ -166,13 +171,38 @@ export async function learnerContext(userId: string): Promise<string | null> {
     // Newest-first in the query; chronological reads better as a story.
     .reverse();
 
-  if (remembered.length === 0) return null;
+  /*
+   * The commitment, stated separately and first.
+   *
+   * It is in the summaries too, in principle — but only if the automatic
+   * summary happened to mention it, which is exactly the coin flip this
+   * replaces. Given its own line, the follow-up the persona promises stops
+   * depending on what a summariser chose to keep.
+   *
+   * Read after the backfill above, so a commitment captured moments ago on this
+   * very pass is already visible.
+   */
+  const commitment = await openCommitment(userId);
 
-  const lines = remembered.map(
-    (r) => `- Sesión del ${r.date}: ${r.summary.slice(0, SUMMARY_CHARS)}`,
-  );
-  return [
-    'Memoria de sesiones anteriores con esta misma persona (resúmenes automáticos; pueden venir en inglés):',
-    ...lines,
-  ].join('\n');
+  if (remembered.length === 0 && !commitment) return null;
+
+  const blocks: string[] = [];
+  if (commitment) {
+    blocks.push(
+      [
+        'Compromiso pendiente de la última sesión. Pregunta pronto si lo hizo y qué pasó:',
+        commitmentContext(commitment),
+      ].join('\n'),
+    );
+  }
+  if (remembered.length > 0) {
+    blocks.push(
+      [
+        'Memoria de sesiones anteriores con esta misma persona (resúmenes automáticos; pueden venir en inglés):',
+        ...remembered.map((r) => `- Sesión del ${r.date}: ${r.summary.slice(0, SUMMARY_CHARS)}`),
+      ].join('\n'),
+    );
+  }
+
+  return blocks.join('\n\n');
 }

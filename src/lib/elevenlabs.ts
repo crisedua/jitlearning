@@ -193,6 +193,17 @@ export interface AgentPromptConfig {
   tool_ids?: string[];
 }
 
+/**
+ * Fields ElevenLabs extracts from the transcript once a call is analysed.
+ *
+ * Keyed by field name; the description is a prompt, so it is written as an
+ * instruction to an extractor rather than as documentation.
+ */
+export type DataCollectionConfig = Record<
+  string,
+  { type: 'string' | 'number' | 'boolean' | 'integer'; description: string }
+>;
+
 export interface AgentConfig {
   name?: string;
   conversation_config: {
@@ -208,6 +219,9 @@ export interface AgentConfig {
       stability?: number;
       similarity_boost?: number;
     };
+  };
+  platform_settings?: {
+    data_collection?: DataCollectionConfig;
   };
 }
 
@@ -331,6 +345,16 @@ export interface ConversationDetail {
   analysis?: {
     transcript_summary?: string | null;
     call_summary_title?: string | null;
+    /**
+     * One entry per field declared in `platform_settings.data_collection`.
+     * `value` is null when the call gave the extractor nothing to work with,
+     * which for a commitment is the common and correct case — plenty of
+     * conversations end without one.
+     */
+    data_collection_results?: Record<
+      string,
+      { value?: string | number | boolean | null; rationale?: string | null } | null
+    > | null;
   } | null;
 }
 

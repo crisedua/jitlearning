@@ -2,11 +2,13 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { SessionBar } from '@/components/SessionBar';
 import { BalanceNote } from '@/components/BalanceNote';
+import { OpenCommitment } from '@/components/OpenCommitment';
 import { COACHES, type Coach } from '@/lib/coaches';
 import { topicsFor } from '@/lib/topics';
 import { currentUser } from '@/lib/supabase/server';
 import { signInPath } from '@/lib/paths';
 import { getUsageBalance } from '@/lib/account';
+import { openCommitment } from '@/lib/commitments';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,7 +41,10 @@ export default async function CoachPickerPage() {
   const user = await currentUser();
   if (!user) redirect(signInPath('/coach'));
 
-  const balance = await getUsageBalance(user.id);
+  const [balance, commitment] = await Promise.all([
+    getUsageBalance(user.id),
+    openCommitment(user.id),
+  ]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-10 px-6 py-10">
@@ -66,6 +71,14 @@ export default async function CoachPickerPage() {
           </div>
         )}
       </header>
+
+      {/*
+        Above the coaches, not below them. Someone arriving with an unfinished
+        commitment should meet it before they start choosing something new —
+        stacking a fresh topic on top of an untouched one is how advice piles up
+        without anything getting done.
+      */}
+      {commitment && <OpenCommitment commitment={commitment} />}
 
       <ul className="grid gap-4 sm:grid-cols-2">
         {COACHES.map((coach) => (

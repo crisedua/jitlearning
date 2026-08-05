@@ -2,12 +2,20 @@ import Link from 'next/link';
 import { SessionPreview } from '@/components/SessionPreview';
 import { TOPICS, topicsFor } from '@/lib/topics';
 import { COACHES, availableCoaches } from '@/lib/coaches';
-import { CAPABILITIES, DIFFERENCES, PROFILE, PROOF, STEPS, hasContact } from '@/lib/site';
+import {
+  AGAINST_SHELF,
+  CAPABILITIES,
+  DIFFERENCES,
+  PROFILE,
+  PROOF,
+  STEPS,
+  hasContact,
+} from '@/lib/site';
 
 export const metadata = {
-  title: 'ModoJIT · Coaches de voz para implementar IA, con fuente y fecha',
+  title: 'ModoJIT · Coaches de voz que te preguntan si lo hiciste',
   description:
-    'Tres coaches de voz, cada uno con su propia base de conocimiento: implementación de IA en empresas, en colegios, y para montar tu propio negocio. Normativa chilena con fechas, guías oficiales y evidencia con sus cifras.',
+    'Tres coaches de voz, cada uno con su propia base de conocimiento: implementación de IA en empresas, en colegios, y para montar tu propio negocio. Te hacen la pregunta que cambia el consejo, cierran con una cosa que hacer y con fecha, y la próxima vez te preguntan qué pasó.',
 };
 
 /** Two passes of the same list, so the marquee wraps without a visible seam. */
@@ -50,9 +58,12 @@ export default function HomePage() {
 
           <p className="animate-rise mt-7 max-w-[48ch] text-[19px] leading-[1.58] text-body [animation-delay:400ms]">
             Coaches expertos por voz, cada uno con su propia base de conocimiento: implementar
-            IA en tu empresa, en tu colegio, o montar tu propio negocio. Le cuentas dónde estás
-            atascado y te responde con la norma, la guía o el estudio que aplica —con su fecha—
-            y con un paso concreto para esta semana.
+            IA en tu empresa, en tu colegio, o montar tu propio negocio.
+          </p>
+          <p className="animate-rise mt-4 max-w-[48ch] text-[19px] leading-[1.58] text-body [animation-delay:460ms]">
+            Le cuentas dónde estás atascado y, antes de responder, te hace la única pregunta
+            que cambia el consejo. Sales con una cosa que hacer, con fecha. Y la próxima vez
+            te pregunta si la hiciste.
           </p>
 
           <div className="animate-rise mt-9 flex flex-wrap items-center gap-3.5 [animation-delay:520ms]">
@@ -124,8 +135,8 @@ export default function HomePage() {
             ¿Y esto en qué se diferencia de preguntarle a ChatGPT?
           </h2>
           <p className="reveal mt-5 max-w-[58ch] text-[17px] leading-relaxed text-muted">
-            Es la pregunta correcta, así que va contestada. Cuatro diferencias, todas
-            comprobables en una sola conversación —y abajo tienes tres preguntas para
+            Es la pregunta correcta, así que va contestada. Cinco diferencias, todas
+            comprobables en una sola conversación —y abajo tienes cuatro pruebas para
             hacérselas a los dos y comparar.
           </p>
 
@@ -177,8 +188,9 @@ export default function HomePage() {
               No nos creas: pregúntale a los dos
             </h3>
             <p className="mt-2 max-w-[62ch] text-[15px] leading-relaxed text-muted">
-              Tres preguntas donde la diferencia se ve en un solo intercambio. Hazlas en tu
-              asistente de siempre y aquí, y compara con lo que debería salir.
+              Cuatro pruebas donde la diferencia se ve directamente. Las tres últimas se ven
+              en un solo intercambio; la primera necesita que vuelvas al día siguiente, que es
+              justamente la que ningún modelo puede aprobar por saber más.
             </p>
 
             <ul className="mt-7 space-y-3">
@@ -216,6 +228,58 @@ export default function HomePage() {
               saberlo. Por eso las preguntas están publicadas y no escondidas.
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* --------------------------------------------------------- Anti-shelf */}
+      {/*
+        The second objection, and the one nobody says out loud. "Why not
+        ChatGPT" gets asked; "I already bought three courses I never finished"
+        does not — but it is what actually decides whether somebody pays. Placed
+        straight after the ChatGPT answer because they are the same moment of
+        doubt, aimed at two different competitors.
+      */}
+      <section id="aplicar" className="mx-auto max-w-[75rem] scroll-mt-24 px-6 py-24 lg:py-28">
+        <div className="grid gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:gap-16">
+          <div>
+            <p className="reveal text-xs font-semibold uppercase tracking-[0.14em] text-accent">
+              El otro problema
+            </p>
+            <h2 className="reveal mt-4 font-serif text-[clamp(2rem,4.5vw,3.25rem)] font-normal leading-[1.08] tracking-[-0.02em]">
+              No te falta información. Te falta haberla aplicado
+            </h2>
+            <p className="reveal mt-5 max-w-[52ch] text-[17px] leading-relaxed text-muted">
+              Tienes libros a medio leer, cursos sin abrir y episodios guardados. No es falta
+              de disciplina: es que consumir se siente igual de productivo que hacer, y nada
+              de eso vuelve después a preguntarte si lo aplicaste.
+            </p>
+            <p className="reveal mt-4 max-w-[52ch] text-[17px] leading-relaxed text-muted">
+              Esto está construido al revés. Empieza por lo que te tiene atascado hoy y
+              termina en algo hecho.
+            </p>
+          </div>
+
+          <ol className="flex flex-col">
+            {AGAINST_SHELF.map((item, i) => (
+              <li
+                key={item.title}
+                style={{ animationRange: `entry 0% entry ${60 + i * 8}%` }}
+                className={`reveal grid grid-cols-[2.5rem_1fr] gap-4 border-t border-line-strong py-5 ${
+                  i === AGAINST_SHELF.length - 1 ? 'border-b' : ''
+                }`}
+              >
+                <span aria-hidden className="pt-1 font-mono text-[13px] text-soft">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <div>
+                  <h3 className="text-lg font-semibold tracking-[-0.01em]">{item.title}</h3>
+                  <p className="mt-1.5 max-w-[52ch] text-[15px] leading-relaxed text-muted">
+                    {item.body}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
 
