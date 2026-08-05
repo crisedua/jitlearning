@@ -222,9 +222,10 @@ export default function HomePage() {
             Los temas que domina
           </h2>
           <p className="mt-4 max-w-[56ch] text-[17px] leading-relaxed text-muted">
-            Si preguntas algo fuera de estas áreas, te lo dirá antes de contestar y responderá
-            de conocimiento general. Es deliberado: lo que no puedes saber por ti mismo es si
-            una respuesta viene de una fuente o de la nada.
+            Si preguntas algo fuera de estas áreas, te lo dirá y no lo responderá: es un asesor
+            de implementación de IA, no un asistente general. Y dentro de ellas, te avisa cuando
+            responde sin material — lo que no puedes saber por ti mismo es si una respuesta
+            viene de una fuente o de la nada.
           </p>
         </div>
 

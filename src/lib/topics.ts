@@ -152,9 +152,9 @@ export const TOPICS: readonly Topic[] = [
 ];
 
 /**
- * Shown under the list. The coach announces out loud when it is answering
- * without material, but that notice arrives after the question — saying it here
- * sets the expectation before someone spends a turn on it.
+ * Shown under the list. The coach declines out loud when a question falls
+ * outside its scope, but that notice arrives after the question — saying it
+ * here sets the expectation before someone spends a turn on it.
  */
 export const OUT_OF_SCOPE_NOTE =
-  'Fuera de estos temas el coach te avisará de que no tiene material tuyo y responderá de conocimiento general.';
+  'Fuera de estos temas el coach te lo dirá y no responderá: para eso es mejor un asistente general. Dentro de ellos, si no tiene material sobre algo, te avisará antes de responder.';
