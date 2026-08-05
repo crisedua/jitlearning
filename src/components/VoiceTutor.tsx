@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useConversation } from '@elevenlabs/react';
+import { ConversationProvider, useConversation } from '@elevenlabs/react';
 import { KnownTopics } from './KnownTopics';
 import { CoachExplorer } from './CoachExplorer';
 
@@ -35,7 +35,7 @@ const STATUS_ES: Record<string, string> = {
   disconnected: 'Sin conectar',
   connecting: 'Conectando…',
   connected: 'Conectado',
-  disconnecting: 'Desconectando…',
+  error: 'Error de conexión',
 };
 
 /**
@@ -43,8 +43,19 @@ const STATUS_ES: Record<string, string> = {
  *
  * The browser never sees the ElevenLabs API key: it asks `/api/signed-url` for
  * a short-lived signed WebSocket URL and connects with that.
+ *
+ * The SDK's `useConversation` must live under a `ConversationProvider`, so the
+ * exported component is just that wrapper around the real one.
  */
 export function VoiceTutor() {
+  return (
+    <ConversationProvider>
+      <VoiceTutorInner />
+    </ConversationProvider>
+  );
+}
+
+function VoiceTutorInner() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [objective, setObjective] = useState('');
@@ -62,6 +73,22 @@ export function VoiceTutor() {
     startedAt: number;
     messages: number;
   }>({ sessionId: null, conversationId: null, startedAt: 0, messages: 0 });
+
+  /*
+   * Two refs that keep the visible chat honest with the audio:
+   *
+   * `pendingContextRef` holds the contextual update (date, objective, memory)
+   * composed at start time — the new SDK's `startSession` no longer resolves
+   * when the socket opens, so the send has to wait for the `connected` status.
+   *
+   * `lastTypedRef` is the last message sent as text. Typed messages are not
+   * echoed back by the server the way spoken ones are transcribed, so they are
+   * appended to the transcript locally at send time — and if a server echo for
+   * the same text ever does arrive, this ref is how it gets deduplicated
+   * instead of showing twice.
+   */
+  const pendingContextRef = useRef<string | null>(null);
+  const lastTypedRef = useRef<string | null>(null);
 
   /**
    * Tell the server the conversation is over, so its usage row can be closed.
@@ -98,14 +125,46 @@ export function VoiceTutor() {
   }, []);
 
   const conversation = useConversation({
-    onConnect: () => setError(null),
+    onConnect: ({ conversationId }: { conversationId: string }) => {
+      // The id ElevenLabs bills under. Without it a usage row cannot be
+      // reconciled against their side later.
+      usageRef.current.conversationId = conversationId;
+      setError(null);
+    },
     onDisconnect: () => reportUsage(),
     onMessage: ({ message, source }: { message: string; source: string }) => {
+      // A typed message already went into the transcript at send time; if the
+      // server echoes it back, showing it again would double it.
+      if (source === 'user' && message === lastTypedRef.current) {
+        lastTypedRef.current = null;
+        return;
+      }
       usageRef.current.messages += 1;
       setTurns((prev) => [
         ...prev,
         { role: source === 'user' ? 'user' : 'agent', text: message },
       ]);
+    },
+    /*
+     * The transcript shows the full response the moment the coach starts
+     * speaking; when the learner interrupts, the voice stops mid-sentence but
+     * the full text would stay on screen — the reader and the listener walk
+     * away with different conversations. The correction event carries what was
+     * actually said out loud; the last agent bubble is rewritten to match it.
+     */
+    onAgentResponseCorrection: (event: { corrected_agent_response: string }) => {
+      const corrected = event.corrected_agent_response;
+      if (!corrected) return;
+      setTurns((prev) => {
+        for (let i = prev.length - 1; i >= 0; i--) {
+          if (prev[i]!.role === 'agent') {
+            const next = [...prev];
+            next[i] = { role: 'agent', text: corrected };
+            return next;
+          }
+        }
+        return prev;
+      });
     },
     onError: (message: string) => setError(message),
   });
@@ -122,12 +181,34 @@ export function VoiceTutor() {
     };
   }, [reportUsage]);
 
-  const { status, isSpeaking, startSession, endSession, sendUserMessage } = conversation;
+  const { status, isSpeaking, startSession, endSession, sendUserMessage, sendContextualUpdate } =
+    conversation;
   const connected = status === 'connected';
 
   useEffect(() => {
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight });
   }, [turns]);
+
+  /*
+   * Seed the agent without spending a spoken turn, as soon as the socket is
+   * actually open. `startSession` returns before connecting, so this cannot
+   * happen inline in `start` anymore — the context waits in the ref and goes
+   * out exactly once per session.
+   */
+  useEffect(() => {
+    if (status !== 'connected') return;
+    const context = pendingContextRef.current;
+    if (context) {
+      pendingContextRef.current = null;
+      sendContextualUpdate(context);
+    }
+  }, [status, sendContextualUpdate]);
+
+  // `starting` covers the gap between the click and the SDK taking over;
+  // any settled status — open, failed, or closed — means that gap is over.
+  useEffect(() => {
+    if (status !== 'connecting') setStarting(false);
+  }, [status]);
 
   /**
    * `seed` is the question tapped in the explorer.
@@ -166,6 +247,7 @@ export function VoiceTutor() {
       }
 
       setTurns([]);
+      lastTypedRef.current = null;
       usageRef.current = {
         // Null when this deployment records no usage. Everything downstream
         // checks for it rather than assuming a row exists.
@@ -175,15 +257,7 @@ export function VoiceTutor() {
         messages: 0,
       };
 
-      const conversationId = await startSession({
-        signedUrl: data.signedUrl,
-        connectionType: 'websocket',
-      });
-      // The id ElevenLabs bills under. Without it a usage row cannot be
-      // reconciled against their side later.
-      usageRef.current.conversationId = conversationId ?? null;
-
-      // Seed the agent without spending a spoken turn.
+      // Composed now, sent by the effect above once the socket opens.
       //
       // The date is not decoration. The persona closes each stretch of
       // conversation on a commitment with a deadline, and a model has no clock:
@@ -196,7 +270,7 @@ export function VoiceTutor() {
       // what lets someone log out, come back, and be asked how their committed
       // action went instead of starting from zero.
       const goal = (seed ?? objective).trim();
-      const context = [
+      pendingContextRef.current = [
         `Hoy es ${todayInSpanish()}. Úsalo para fijar plazos concretos.`,
         goal && `Objetivo declarado para esta sesión: ${goal}`,
         data.context,
@@ -204,14 +278,34 @@ export function VoiceTutor() {
         .filter(Boolean)
         .join('\n\n');
 
-      conversation.sendContextualUpdate(context);
+      // Fire-and-forget in the new SDK: success arrives as status 'connected',
+      // failure through onError — `starting` is cleared by the status effect.
+      startSession({ signedUrl: data.signedUrl, connectionType: 'websocket' });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo iniciar la sesión.');
-    } finally {
       setStarting(false);
     }
     },
-    [startSession, conversation, objective],
+    [startSession, objective],
+  );
+
+  /**
+   * Send a message as text — typed in the fallback box or tapped on a card.
+   *
+   * The server transcribes *spoken* turns back through `onMessage`, but a
+   * typed message gets no such echo, so without this the coach would visibly
+   * answer a question that never appeared on screen. It goes into the
+   * transcript here, at send time, and `lastTypedRef` guards against a double
+   * if the server ever starts echoing typed text too.
+   */
+  const sendTyped = useCallback(
+    (text: string) => {
+      lastTypedRef.current = text;
+      usageRef.current.messages += 1;
+      setTurns((prev) => [...prev, { role: 'user', text }]);
+      sendUserMessage(text);
+    },
+    [sendUserMessage],
   );
 
   /**
@@ -224,10 +318,10 @@ export function VoiceTutor() {
   const askAndStart = useCallback(
     (question: string) => {
       setObjective(question);
-      if (connected) sendUserMessage(question);
+      if (connected) sendTyped(question);
       else void start(question);
     },
-    [connected, sendUserMessage, start],
+    [connected, sendTyped, start],
   );
 
   /**
@@ -238,10 +332,10 @@ export function VoiceTutor() {
    */
   const pickExample = useCallback(
     (question: string) => {
-      if (connected) sendUserMessage(question);
+      if (connected) sendTyped(question);
       else setObjective(question);
     },
-    [connected, sendUserMessage],
+    [connected, sendTyped],
   );
 
   return (
@@ -326,7 +420,7 @@ export function VoiceTutor() {
 
         <Transcript turns={turns} scrollRef={transcriptRef} />
 
-        {connected && <TextFallback onSend={sendUserMessage} />}
+        {connected && <TextFallback onSend={sendTyped} />}
       </div>
 
       <KnownTopics onPick={pickExample} connected={connected} />
