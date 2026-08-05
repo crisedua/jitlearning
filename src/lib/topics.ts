@@ -13,11 +13,12 @@
  * here with no material behind it, which the coach answers from general
  * knowledge. Update this file whenever documents are ingested or deleted.
  */
+import type { CoachId } from './coaches';
 
 /**
- * Who arrives with this problem. Drives the filter on the coach page: a school
- * director and someone starting a business share almost nothing, and showing
- * each of them the other's questions makes the coach look unfocused.
+ * Who arrives with this problem. Now a grouping *within* a coach rather than a
+ * filter across all of them — picking a coach already did most of the
+ * separating a school director and a founder needed.
  */
 export type Audience = 'empresa' | 'colegio' | 'ia' | 'negocio';
 
@@ -29,6 +30,17 @@ export interface Topic {
   examples: string[];
   audience: Audience;
   /**
+   * Which coaches can actually answer this, which is a claim about their
+   * attachment lists and not a display preference. Several, when the material
+   * behind it is shared — `herramientas/` is attached to every coach, so the
+   * topics it backs are listed on every coach's page.
+   *
+   * Listing a topic under a coach whose corpus does not contain it is the drift
+   * that matters: the learner asks, the agent retrieves nothing, and answers
+   * from general knowledge in the same confident voice.
+   */
+  coaches: CoachId[];
+  /**
    * Recently added material. Marked so a returning learner can see what changed
    * without reading the whole list again — remove the flag once it stops being
    * news, which is a judgement call, not a date.
@@ -36,13 +48,13 @@ export interface Topic {
   isNew?: boolean;
 }
 
-/** Filter labels, in the order they are offered. */
-export const AUDIENCES: readonly { id: Audience; label: string }[] = [
-  { id: 'empresa', label: 'Una empresa' },
-  { id: 'colegio', label: 'Un colegio' },
-  { id: 'ia', label: 'Herramientas de IA' },
-  { id: 'negocio', label: 'Mi propio negocio' },
-];
+/** Group headings, in the order they are offered. */
+export const AUDIENCE_LABELS: Record<Audience, string> = {
+  empresa: 'Implementar en la empresa',
+  colegio: 'Implementar en el colegio',
+  ia: 'Herramientas de IA',
+  negocio: 'Montar el negocio',
+};
 
 export const TOPICS: readonly Topic[] = [
   {
@@ -55,6 +67,9 @@ export const TOPICS: readonly Topic[] = [
       'Pago por uno solo. ¿Cuál elijo?',
     ],
     audience: 'ia',
+    // `herramientas/` is attached to every coach, so its topics appear on every
+    // coach's page.
+    coaches: ['estrategia', 'colegios', 'emprendedores'],
   },
   {
     title: 'Sacarle partido a un modelo',
@@ -66,6 +81,7 @@ export const TOPICS: readonly Topic[] = [
       '¿Subo el documento al proyecto o lo pego en el chat?',
     ],
     audience: 'ia',
+    coaches: ['estrategia', 'colegios', 'emprendedores'],
   },
   {
     title: 'Liderar con IA',
@@ -75,6 +91,7 @@ export const TOPICS: readonly Topic[] = [
       '¿Qué tareas conviene delegar a la IA y cuáles no?',
     ],
     audience: 'ia',
+    coaches: ['estrategia'],
   },
   {
     title: 'Montar tu propio negocio',
@@ -87,6 +104,7 @@ export const TOPICS: readonly Topic[] = [
       '¿Cómo consigo mis tres primeros clientes?',
     ],
     audience: 'negocio',
+    coaches: ['emprendedores'],
   },
   {
     title: 'Implementar IA en una empresa',
@@ -99,6 +117,7 @@ export const TOPICS: readonly Topic[] = [
       '¿Qué decisiones no debería automatizar nunca?',
     ],
     audience: 'empresa',
+    coaches: ['estrategia'],
     isNew: true,
   },
   {
@@ -111,6 +130,10 @@ export const TOPICS: readonly Topic[] = [
       '¿Qué le tengo que preguntar al proveedor antes de firmar?',
     ],
     audience: 'empresa',
+    // Only estrategia: the Ley 21.719 material lives in `empresa-ia/` and is
+    // written for a company. A school's data questions are covered by its own
+    // riesgos-privacidad document instead.
+    coaches: ['estrategia'],
     isNew: true,
   },
   {
@@ -124,6 +147,7 @@ export const TOPICS: readonly Topic[] = [
       '¿Cómo lo pruebo sin comprometer al colegio entero?',
     ],
     audience: 'colegio',
+    coaches: ['colegios'],
     isNew: true,
   },
   {
@@ -137,6 +161,7 @@ export const TOPICS: readonly Topic[] = [
       '¿Qué datos de estudiantes no pueden salir del colegio?',
     ],
     audience: 'colegio',
+    coaches: ['colegios'],
     isNew: true,
   },
   {
@@ -148,13 +173,17 @@ export const TOPICS: readonly Topic[] = [
       '¿Qué tareas debería dejar de hacer yo?',
     ],
     audience: 'negocio',
+    coaches: ['emprendedores'],
   },
 ];
 
-/**
- * Shown under the list. The coach declines out loud when a question falls
- * outside its scope, but that notice arrives after the question — saying it
- * here sets the expectation before someone spends a turn on it.
+/** This coach's topics, in catalog order. */
+export function topicsFor(coach: CoachId): Topic[] {
+  return TOPICS.filter((t) => t.coaches.includes(coach));
+}
+
+/*
+ * The out-of-scope note moved to `Coach.outOfScopeNote` in `coaches.ts`: each
+ * coach declines differently, and the useful version of that sentence names
+ * which sibling coach to go to instead.
  */
-export const OUT_OF_SCOPE_NOTE =
-  'Fuera de estos temas el coach te lo dirá y no responderá: para eso es mejor un asistente general. Dentro de ellos, si no tiene material sobre algo, te avisará antes de responder.';

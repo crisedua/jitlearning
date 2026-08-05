@@ -67,10 +67,10 @@ curl -X POST https://<app>.vercel.app/api/agent \
 | `/api/knowledge/[id]` | GET | secret | Index status (poll target) |
 | `/api/knowledge/[id]` | POST | secret | Retry a failed index |
 | `/api/knowledge/[id]` | DELETE | secret | Delete and detach |
-| `/api/agent` | GET | secret | Agent status, attached count |
-| `/api/agent` | POST | secret | Re-attach all ready documents |
-| `/api/agent/provision` | POST | secret | Create the agent (hosted `setup:agent`) |
-| `/api/health` | GET | secret | Config diagnostics: key, scope, agent, sign-in |
+| `/api/agent` | GET | secret | Per-coach status and attached document names (`?coach=` to narrow) |
+| `/api/agent` | POST | secret | Re-attach ready documents to every coach (`?coach=` to narrow) |
+| `/api/agent/provision` | POST | secret | Create one coach's agent — `?coach=` required |
+| `/api/health` | GET | secret | Config diagnostics: key, scope, every agent, sign-in |
 | `/api/signed-url` | GET | learner session | Short-lived WebSocket URL, opens a usage row |
 | `/api/sessions/[id]` | POST | learner session | Closes their own usage row when a call ends |
 | `/auth/login` | GET | open | Starts the Google handshake (sets the PKCE cookie) |
@@ -93,23 +93,26 @@ Set these in **Project Settings → Environment Variables**, then redeploy:
 - `SUPABASE_SERVICE_ROLE_KEY` — profiles and usage; see
   [Learners: Supabase Auth with Google](#learners-supabase-auth-with-google)
 
-Create the agent by calling the deployed app:
+Create one agent per coach by calling the deployed app:
 
 ```bash
-curl -X POST https://<app>.vercel.app/api/agent/provision \
-  -H "x-ingest-secret: $INGEST_SECRET"
-# -> {"agentId":"agent_...","created":true}
+for c in estrategia colegios emprendedores; do
+  curl -X POST "https://<app>.vercel.app/api/agent/provision?coach=$c" \
+    -H "x-ingest-secret: $INGEST_SECRET"
+done
+# -> {"coach":"estrategia","agentId":"agent_...","created":true}
 ```
 
-Set the returned id as `ELEVENLABS_AGENT_ID`, redeploy once more, then confirm
-the whole deployment is wired correctly:
+Set each returned id as that coach's `ELEVENLABS_AGENT_ID_*`, redeploy once
+more, then confirm the whole deployment is wired correctly:
 
 ```bash
 curl https://<app>.vercel.app/api/health -H "x-ingest-secret: $INGEST_SECRET"
 ```
 
-`{"ready": true}` means the key authenticates, carries the right scope, and the
-agent exists. Anything false tells you which of the three is wrong.
+`{"ready": true}` means the key authenticates, carries the right scope, and
+every coach's agent exists carrying only its own documents. Anything false
+names which check failed and for which coach.
 
 ### Local development (optional)
 
@@ -121,7 +124,10 @@ If you'd rather work locally, put the same values in `.env.local` and run
 | Variable | Required | Notes |
 |---|---|---|
 | `ELEVENLABS_API_KEY` | yes | Needs Agents + Knowledge Base read/write |
-| `ELEVENLABS_AGENT_ID` | yes | From `npm run setup:agent` |
+| `ELEVENLABS_AGENT_ID_ESTRATEGIA` | yes | From `npm run setup:agent` |
+| `ELEVENLABS_AGENT_ID_COLEGIOS` | yes | One agent per coach — the attachment list is what scopes the corpus |
+| `ELEVENLABS_AGENT_ID_EMPRENDEDORES` | yes | |
+| `ELEVENLABS_AGENT_ID` | no | Legacy single-coach id; read as the fallback for `_ESTRATEGIA` |
 | `INGEST_SECRET` | yes | `openssl rand -hex 32` |
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Public key; safe in the browser |
@@ -148,12 +154,17 @@ npm run ingest -- ./docs
 Re-running it on a folder replaces documents rather than duplicating them, so
 editing a file and re-ingesting is the normal loop.
 
-**Document names are file names, with no folder.** Two files called
-`08-errores-y-desacuerdos.md` in different folders are one document to
-ElevenLabs, and ingesting one silently overwrites the other — no error, no
-duplicate, just a document that is now about something else. The script refuses
-to run when it finds a collision anywhere in the corpus; keep base names unique
-across every folder.
+**Documents are stored as `<carpeta>/<archivo>`, and that prefix is the corpus
+boundary.** ElevenLabs keeps no folder of its own — a document is its name and
+nothing else — so the prefix is the only thing telling `attachableEntries()`
+which coach may retrieve a document. `npm run ingest` writes it for you, from
+either `./knowledge` or a single folder inside it.
+
+A document whose name carries no prefix matching some coach's `sources` is
+attached to nobody. It uploads and indexes without complaint, and the only
+symptom is a coach saying it has no material on its own subject. The ingest
+script warns about such orphans by name, and `/api/health` fails the check for
+any agent carrying a document outside its corpus.
 
 ## Auth model
 
@@ -262,6 +273,35 @@ are fetched from ElevenLabs live on every start instead of cached — so the
 migration is a cost optimisation, not a feature flag. Deleting a conversation
 at ElevenLabs before its summary is cached forgets that session; after, the
 cached copy survives.
+
+### Commitments
+
+The follow-up above used to be a coin flip. The commitment lived only in the
+free-text summary, so the coach asked about it when ElevenLabs happened to keep
+it and silently didn't when it didn't — for the one behaviour the product sells
+hardest.
+
+It is now extracted as a field.
+[`dataCollection()`](src/lib/agent.ts) declares three of them on every agent —
+the action, the deadline as it was said, and the signal that would count as it
+having worked, which are exactly the three parts the persona demands. ElevenLabs
+fills them in when it analyses the call, so there is still no LLM of ours;
+[`commitments.ts`](src/lib/commitments.ts) stores them on the same lazy
+backfill as the summary and returns the most recent one, which is what the
+picker at `/coach` shows before you choose anything and what
+[`learnerContext()`](src/lib/memory.ts) puts at the top of the next session's
+context.
+
+There is deliberately **no completion column**. Nothing could set it honestly:
+the learner reports back out loud, mid-conversation, and a checkbox would invite
+marking something done without doing it — the exact failure this is aimed at. A
+commitment stops being shown when a newer session produces one.
+
+Run [`supabase/migrations/20260805000000_commitments.sql`](supabase/migrations/20260805000000_commitments.sql)
+for the columns, and `npm run sync:agent -- --push` so the agents carry the
+extraction fields. Both degrade quietly: without the migration the reads and
+writes are skipped and nothing else changes, and an agent provisioned before
+this existed picks the fields up on its next sync.
 
 ## Tuning retrieval
 
@@ -418,8 +458,11 @@ scripts/                setup-agent, sync-agent, bulk ingest, doctor
   practice. If you want them back, Vercel KV is the smallest addition.
 - **The catalog fans out one status request per document**, capped at 8
   concurrent. Past a few hundred documents, paginate the list route.
-- **The agent attaches every ready document in the workspace.** If you run other
-  ElevenLabs agents off the same knowledge base, they'll share a corpus.
+- **Corpus isolation is per-agent, not per-workspace.** Each coach attaches only
+  the documents matching its `sources` prefixes, so one coach cannot retrieve
+  another's material. The documents themselves are still workspace-wide, so any
+  agent you create by hand *could* be pointed at them — fine for coaches we own,
+  not sufficient for a client's private corpus, which needs its own workspace.
 - **Voice needs HTTPS.** Fine on Vercel and on `localhost`; a plain-HTTP host
   will silently fail to get mic access.
 - **No interface material in the corpus.** Deliberate — the coach advises rather
@@ -430,7 +473,8 @@ scripts/                setup-agent, sync-agent, bulk ingest, doctor
   service role to read the ledger — a deployment without Supabase starts every
   conversation cold, as before. The summaries themselves are ElevenLabs'
   automatic ones: a paragraph per call, usually in English, with no control
-  over what they keep. The commitment usually survives; nuance does not.
+  over what they keep. Nuance does not survive; the commitment no longer relies
+  on it, since it is extracted as its own field (see [Commitments](#commitments)).
 - **The persona is long** (~14.7k characters, roughly 3.7k tokens) and rides on
   every turn. It is a system prompt, so it caches, but a materially larger one
   will start to be felt as latency in voice, where it is much more noticeable

@@ -14,7 +14,8 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { ingest, waitForIndexing } from '../src/lib/knowledge';
 import { deleteDocument, listDocuments } from '../src/lib/elevenlabs';
-import { syncAgentKnowledge } from '../src/lib/agent';
+import { syncAllCoaches } from '../src/lib/agent';
+import { availableCoaches, coachOwnsDocument } from '../src/lib/coaches';
 
 /**
  * ElevenLabs validates the upload's MIME type and rejects
@@ -39,6 +40,31 @@ const SUPPORTED = new Set(Object.keys(MIME_TYPES));
  * corpus root is the repo root.
  */
 const SKIP_DIRS = new Set(['node_modules', '.git', '.next', 'dist', 'build', 'out']);
+
+/**
+ * The name a document is stored under: `<carpeta>/<archivo>`.
+ *
+ * ElevenLabs keeps no folder of its own — a document is its name and nothing
+ * else. That prefix is therefore the only thing telling `attachableEntries()`
+ * which coach a document belongs to, which makes it the corpus boundary rather
+ * than a cosmetic detail.
+ *
+ * Both ways of invoking this script have to land on the same name, or a
+ * re-ingest of one folder creates a second copy under a different name instead
+ * of replacing the first:
+ *
+ *   npm run ingest -- ./knowledge           -> relative path already has it
+ *   npm run ingest -- ./knowledge/negocio   -> take it from the directory
+ *
+ * Always forward slashes, including on Windows, where `path.relative` returns
+ * backslashes and would produce a name no prefix in `coaches.ts` can match.
+ */
+function documentName(dir: string, file: string): string {
+  const relative = path.relative(path.resolve(dir), path.resolve(file)).split(path.sep);
+  return relative.length > 1
+    ? relative.join('/')
+    : `${path.basename(path.resolve(dir))}/${relative[0]}`;
+}
 
 async function collect(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -74,37 +100,6 @@ async function main() {
   }
 
   /*
-   * A document is identified by its file name alone, with no folder, so two
-   * files called `08-errores-y-desacuerdos.md` in different folders are the
-   * same document to ElevenLabs. Ingesting one silently overwrites the other:
-   * no error, no duplicate, just a document whose content is now about
-   * something else, discovered whenever somebody asks about the topic that
-   * disappeared.
-   *
-   * Checked against the whole corpus rather than the folder being ingested,
-   * because the collision that matters is with a folder you are *not* touching.
-   */
-  const siblingRoot = path.dirname(path.resolve(dir));
-  const collisions = new Map<string, string[]>();
-  for (const file of await collect(siblingRoot).catch(() => [] as string[])) {
-    const name = path.basename(file);
-    collisions.set(name, [...(collisions.get(name) ?? []), file]);
-  }
-  const clashing = files
-    .map((f) => path.basename(f))
-    .filter((name) => (collisions.get(name)?.length ?? 0) > 1);
-
-  if (clashing.length > 0) {
-    console.error('Duplicate document names across the corpus — ingesting would overwrite:\n');
-    for (const name of new Set(clashing)) {
-      console.error(`  ${name}`);
-      for (const file of collisions.get(name)!) console.error(`    ${file}`);
-    }
-    console.error('\nRename one of each pair. Names must be unique across every folder.');
-    process.exit(1);
-  }
-
-  /*
    * Replace by name rather than blindly adding.
    *
    * ElevenLabs happily stores two documents with the same name, so re-running
@@ -120,9 +115,10 @@ async function main() {
 
   console.log(`Ingesting ${files.length} file(s)…\n`);
   const ids: string[] = [];
+  const names: string[] = [];
 
   for (const file of files) {
-    const name = path.basename(file);
+    const name = documentName(dir, file);
     try {
       const stale = existing.get(name);
       const buffer = await readFile(file);
@@ -132,6 +128,7 @@ async function main() {
         { name },
       );
       ids.push(doc.id);
+      names.push(name);
 
       /*
        * Delete the old copy only once the new one is stored, so a failed upload
@@ -163,8 +160,58 @@ async function main() {
     if (status !== 'succeeded') console.warn(`  ! ${id}: ${status}`);
   }
 
-  const { agentId: id, attached } = await syncAgentKnowledge();
-  console.log(`\n✓ Agent ${id} now has ${attached} document(s) attached.`);
+  /*
+   * A document nobody claims is invisible.
+   *
+   * It uploads and indexes without complaint, then matches no prefix in
+   * `coaches.ts` and is attached to no agent — so the only symptom is a coach
+   * saying it has no material on its own subject, discovered by a learner. Say
+   * it here, where the name that caused it is still on screen.
+   */
+  const orphans = names.filter(
+    (name) => !availableCoaches().some((coach) => coachOwnsDocument(coach, name)),
+  );
+  if (orphans.length > 0) {
+    console.warn('\n! No coach claims these documents, so none will be attached:\n');
+    for (const name of orphans) console.warn(`    ${name}`);
+    console.warn('\n  Add the prefix to a coach\'s `sources` in src/lib/coaches.ts.');
+  }
+
+  /*
+   * Leftovers from before names carried their folder.
+   *
+   * Replacement is keyed on the full name, so re-ingesting `negocio/01-x.md`
+   * does not touch an older document called plain `01-x.md`. The old copy is
+   * detached from every agent by the sync below — it matches no coach prefix —
+   * so it is inert, but it still occupies workspace RAG storage and shows up in
+   * the knowledge admin list looking current. Named here rather than deleted:
+   * removing documents nobody asked us to remove is not this script's call.
+   */
+  const superseded = names
+    .map((name) => name.split('/').slice(1).join('/'))
+    .filter((bare) => existing.has(bare));
+  if (superseded.length > 0) {
+    console.warn(
+      `\n! ${superseded.length} document(s) still exist under their old, unprefixed name:\n`,
+    );
+    for (const bare of superseded) console.warn(`    ${bare}`);
+    console.warn(
+      '\n  They are attached to no coach and are safe to leave, but they take up\n' +
+        '  RAG storage. Delete them from /knowledge once the new copies read correctly.',
+    );
+  }
+
+  /*
+   * Sync every coach, not just the one whose folder was ingested: a document
+   * may belong to several (`herramientas/` belongs to all of them), and each
+   * agent holds its own copy of the attachment list.
+   */
+  console.log('');
+  const { perCoach } = await syncAllCoaches();
+  for (const { coach, attached, error } of perCoach) {
+    if (error) console.error(`! ${error}`);
+    else console.log(`✓ ${coach.label}: ${attached} document(s) attached.`);
+  }
 }
 
 main().catch((err) => {

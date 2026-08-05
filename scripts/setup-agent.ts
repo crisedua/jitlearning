@@ -1,15 +1,21 @@
 /**
- * One-time provisioning: creates the tutor agent and prints its id.
+ * One-time provisioning: creates a coach's agent and prints its id.
  *
- *   npm run setup:agent
+ *   npm run setup:agent                 # every coach that has no id yet
+ *   npm run setup:agent -- colegios     # just this one
+ *   npm run setup:agent -- colegios --force
  *
- * The id is not written anywhere — copy it into ELEVENLABS_AGENT_ID locally and
- * in your Vercel project settings. Keeping it env-only is what lets every
- * serverless instance stay stateless.
+ * One agent per coach, because the attachment list is per-agent and that list
+ * is what keeps each coach inside its own corpus.
+ *
+ * Ids are not written anywhere — copy them into `.env.local` and into your
+ * Vercel project settings. Keeping them env-only is what lets every serverless
+ * instance stay stateless.
  */
 import './env';
 import { provisionAgent } from '../src/lib/agent';
 import { agentId } from '../src/lib/config';
+import { availableCoaches, findCoach, type Coach } from '../src/lib/coaches';
 
 async function main() {
   if (!process.env.ELEVENLABS_API_KEY) {
@@ -17,18 +23,49 @@ async function main() {
     process.exit(1);
   }
 
-  const existing = agentId();
-  if (existing && !process.argv.includes('--force')) {
-    console.log(`ELEVENLABS_AGENT_ID is already set: ${existing}`);
-    console.log('Pass --force to create an additional agent.');
+  const force = process.argv.includes('--force');
+  const slug = process.argv.slice(2).find((a) => !a.startsWith('--'));
+
+  let targets: readonly Coach[];
+  if (slug) {
+    const coach = findCoach(slug);
+    if (!coach || !coach.available) {
+      console.error(
+        `Unknown coach "${slug}". Available: ${availableCoaches()
+          .map((c) => c.id)
+          .join(', ')}`,
+      );
+      process.exit(1);
+    }
+    targets = [coach];
+  } else {
+    targets = availableCoaches();
+  }
+
+  const created: Array<{ coach: Coach; id: string }> = [];
+
+  for (const coach of targets) {
+    const existing = agentId(coach);
+    if (existing && !force) {
+      console.log(`· ${coach.label}: ${coach.envKey} already set (${existing})`);
+      continue;
+    }
+
+    const id = await provisionAgent(coach);
+    created.push({ coach, id });
+    console.log(`✓ ${coach.label}: agent created`);
+  }
+
+  if (created.length === 0) {
+    console.log('\nNothing to do. Pass --force to create additional agents.');
     return;
   }
 
-  const id = await provisionAgent();
-  console.log(`\n✓ Agent created: ${id}\n`);
-  console.log('Set this in .env.local and in your Vercel environment variables:\n');
-  console.log(`  ELEVENLABS_AGENT_ID=${id}\n`);
-  console.log('Then upload knowledge — the agent starts with an empty knowledge base.');
+  console.log('\nSet these in .env.local and in your Vercel environment variables:\n');
+  for (const { coach, id } of created) console.log(`  ${coach.envKey}=${id}`);
+  console.log(
+    '\nThen run `npm run ingest -- ./knowledge` — the agents start with an empty knowledge base.',
+  );
 }
 
 main().catch((err) => {

@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { AUDIENCES, TOPICS, type Audience } from '@/lib/topics';
+import { useMemo } from 'react';
+import { topicsFor } from '@/lib/topics';
+import type { Coach } from '@/lib/coaches';
 
 /**
  * What the coach can do, as something you use rather than something you read.
@@ -19,6 +20,10 @@ import { AUDIENCES, TOPICS, type Audience } from '@/lib/topics';
  * Shown only before connecting. Once the conversation is live it would compete
  * with the transcript for the same attention, and the sidebar covers the same
  * ground for anyone who needs it mid-session.
+ *
+ * The audience filter that used to sit at the top is gone: picking a coach on
+ * the previous screen already did that separating, and one coach's questions
+ * fit on the page without needing to be sampled down to one per topic.
  */
 
 /**
@@ -29,10 +34,13 @@ import { AUDIENCES, TOPICS, type Audience } from '@/lib/topics';
  * removed from the persona it has to come out of here too, or the page starts
  * promising something the coach does not do.
  */
-const HOW_IT_ANSWERS = [
+const howItAnswers = (coach: Coach) => [
   {
     label: 'Te nombra la fuente',
-    detail: '«Esto es de Kagan, en Million Dollar Weekend» — mientras responde, no al final.',
+    // Drawn from the coach so the example names something its corpus actually
+    // contains. A promise illustrated with a source this coach cannot cite is
+    // the one kind of drift this list exists to prevent.
+    detail: `«${coach.citationExample.split(' o ')[0]?.replace(/^"|"$/g, '')}» — mientras responde, no al final.`,
   },
   {
     label: 'No promedia a los autores',
@@ -49,41 +57,30 @@ const HOW_IT_ANSWERS = [
 ] as const;
 
 export function CoachExplorer({
+  coach,
   onAsk,
   busy,
 }: {
+  coach: Coach;
   /** Starts the session on this question. */
   onAsk: (question: string) => void;
   busy: boolean;
 }) {
-  // Null means "todo": the default, because a first-time visitor does not yet
-  // know which bucket they are in.
-  const [audience, setAudience] = useState<Audience | null>(null);
+  const topics = useMemo(() => topicsFor(coach.id), [coach.id]);
 
-  const topics = useMemo(
-    () => (audience ? TOPICS.filter((t) => t.audience === audience) : TOPICS),
-    [audience],
-  );
-
-  /*
-   * Unfiltered, this is a sampler: one question per topic. Every question from
-   * every topic is 22 cards, which reads as a wall and gets skimmed rather than
-   * chosen from — the opposite of the point. Picking a filter is what expands
-   * a topic to everything it can answer.
-   */
   const questions = useMemo(
     () =>
       topics.flatMap((topic) =>
-        (audience ? topic.examples : topic.examples.slice(0, 1)).map((question) => ({
+        topic.examples.map((question) => ({
           question,
           topic: topic.title,
           isNew: Boolean(topic.isNew),
         })),
       ),
-    [topics, audience],
+    [topics],
   );
 
-  const hasNew = TOPICS.some((t) => t.isNew);
+  const hasNew = topics.some((t) => t.isNew);
 
   return (
     <section className="animate-rise overflow-hidden rounded-lg border border-line bg-surface shadow-sm">
@@ -93,10 +90,8 @@ export function CoachExplorer({
             Empieza por una pregunta real
           </h2>
           <p className="mt-1 text-[13px] leading-relaxed text-muted">
-            Toca cualquiera y la sesión arranca hablando de eso.{' '}
-            {audience
-              ? 'Todas las preguntas de este tema.'
-              : 'Elige un tema para ver todas las suyas, o escribe la tuya arriba.'}
+            Toca cualquiera y la sesión arranca hablando de eso. Todas las preguntas para
+            las que este coach tiene material, o escribe la tuya arriba.
           </p>
         </div>
 
@@ -106,27 +101,10 @@ export function CoachExplorer({
               aria-hidden
               className="h-1.5 w-1.5 rounded-full bg-gold [animation:ring_2.2s_ease-out_infinite]"
             />
-            Nuevo: empresas y colegios
+            Material nuevo
           </span>
         )}
       </header>
-
-      {/* Audience filter. Three buckets that share almost no vocabulary. */}
-      <div className="flex flex-wrap gap-2 border-b border-line px-5 py-3.5 sm:px-6">
-        <FilterChip active={audience === null} onClick={() => setAudience(null)}>
-          Todo
-        </FilterChip>
-        {AUDIENCES.map((a) => (
-          <FilterChip
-            key={a.id}
-            active={audience === a.id}
-            onClick={() => setAudience(a.id)}
-            marked={TOPICS.some((t) => t.audience === a.id && t.isNew)}
-          >
-            {a.label}
-          </FilterChip>
-        ))}
-      </div>
 
       <ul className="grid gap-2.5 px-5 py-5 sm:grid-cols-2 sm:px-6">
         {questions.map(({ question, topic, isNew }, i) => (
@@ -166,7 +144,7 @@ export function CoachExplorer({
           Responda lo que responda
         </p>
         <ul className="mt-3 grid gap-x-6 gap-y-2.5 sm:grid-cols-2">
-          {HOW_IT_ANSWERS.map((item) => (
+          {howItAnswers(coach).map((item) => (
             <li key={item.label} className="flex items-start gap-2.5">
               <span
                 aria-hidden
@@ -184,34 +162,3 @@ export function CoachExplorer({
   );
 }
 
-function FilterChip({
-  active,
-  marked,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  marked?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      // `aria-pressed` rather than a radio group: these are filters that change
-      // the list below, not a value being submitted.
-      aria-pressed={active}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition duration-150 ease-out ${
-        active
-          ? 'border-accent bg-accent text-white shadow-sm'
-          : 'border-line bg-surface text-muted hover:border-line-strong hover:text-ink'
-      }`}
-    >
-      {children}
-      {marked && !active && (
-        <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-gold" />
-      )}
-    </button>
-  );
-}

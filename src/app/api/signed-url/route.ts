@@ -7,9 +7,10 @@
  * credential that starts a billable conversation, so an unauthenticated GET
  * here would make the sign-in gate on /coach purely decorative.
  */
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { getSignedUrl } from '@/lib/elevenlabs';
 import { agentId } from '@/lib/config';
+import { findCoach } from '@/lib/coaches';
 import { currentUser } from '@/lib/supabase/server';
 import { checkPlanAllowance, startCoachSession } from '@/lib/account';
 import { learnerContext } from '@/lib/memory';
@@ -18,7 +19,7 @@ export const runtime = 'nodejs';
 // The URL is short-lived; caching it would hand stale credentials to new sessions.
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const user = await currentUser();
     if (!user) {
@@ -28,10 +29,24 @@ export async function GET() {
       );
     }
 
-    const id = agentId();
+    /*
+     * Which coach, resolved against the registry rather than trusted.
+     *
+     * The slug arrives in a query string, so it is learner-supplied, and it
+     * selects the agent that a billable conversation runs against. An
+     * unavailable coach is refused here too: it has no corpus, so it has no
+     * agent, and minting against a missing env var would surface as a 500 in
+     * the middle of someone pressing the microphone button.
+     */
+    const coach = findCoach(request.nextUrl.searchParams.get('coach') ?? undefined);
+    if (!coach || !coach.available) {
+      return NextResponse.json({ error: 'Ese coach no existe.' }, { status: 404 });
+    }
+
+    const id = agentId(coach);
     if (!id) {
       return NextResponse.json(
-        { error: 'ELEVENLABS_AGENT_ID is not configured.' },
+        { error: `${coach.envKey} is not configured.` },
         { status: 409 },
       );
     }

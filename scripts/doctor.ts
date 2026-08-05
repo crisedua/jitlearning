@@ -14,6 +14,7 @@
 import './env';
 import { getAgent, listDocuments } from '../src/lib/elevenlabs';
 import { agentId, embeddingModel } from '../src/lib/config';
+import { availableCoaches, coachOwnsDocument } from '../src/lib/coaches';
 import { supabaseAdmin } from '../src/lib/supabase/admin';
 
 const ok = (m: string) => console.log(`  ok    ${m}`);
@@ -57,23 +58,51 @@ async function main() {
     }
   }
 
-  const id = agentId();
-  if (!id) {
-    bad('ELEVENLABS_AGENT_ID is not set. Run `npm run setup:agent` to create one.');
-    failures++;
-  } else if (!scopeOk) {
-    console.log(`  --    Agent ${id} configured, but unverifiable without API access`);
-  } else {
+  /*
+   * One agent per coach, each checked for existence *and* for carrying only its
+   * own material. A coach attached to another's documents fails silently — it
+   * answers in scope, confidently, citing sources it should not have — so the
+   * cross-corpus check is the one worth printing.
+   */
+  for (const coach of availableCoaches()) {
+    const id = agentId(coach);
+
+    if (!id) {
+      bad(`${coach.envKey} is not set. Run \`npm run setup:agent -- ${coach.id}\`.`);
+      failures++;
+      continue;
+    }
+    if (!scopeOk) {
+      console.log(`  --    ${coach.label}: ${id} configured, unverifiable without API access`);
+      continue;
+    }
+
     try {
       const agent = await getAgent(id);
       const prompt = agent.conversation_config?.agent?.prompt;
-      ok(
-        `Agent ${id} exists — ${prompt?.knowledge_base?.length ?? 0} document(s) attached, RAG ${
-          prompt?.rag?.enabled ? 'enabled' : 'disabled'
+      const attached = prompt?.knowledge_base ?? [];
+      const foreign = attached.filter((d) => !coachOwnsDocument(coach, d.name));
+
+      if (foreign.length > 0) {
+        bad(
+          `${coach.label}: ${foreign.length} document(s) outside its corpus — ${foreign
+            .map((d) => d.name)
+            .join(', ')}. Check they were ingested with their folder prefix.`,
+        );
+        failures++;
+      } else {
+        ok(
+          `${coach.label}: agent ${id} — ${attached.length} document(s) attached, RAG ${
+            prompt?.rag?.enabled ? 'enabled' : 'disabled'
+          }`,
+        );
+      }
+    } catch (err) {
+      bad(
+        `${coach.label}: agent ${id} could not be fetched: ${
+          err instanceof Error ? err.message : err
         }`,
       );
-    } catch (err) {
-      bad(`Agent ${id} could not be fetched: ${err instanceof Error ? err.message : err}`);
       failures++;
     }
   }

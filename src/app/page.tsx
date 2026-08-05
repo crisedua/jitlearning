@@ -1,12 +1,21 @@
 import Link from 'next/link';
 import { SessionPreview } from '@/components/SessionPreview';
-import { TOPICS } from '@/lib/topics';
-import { CAPABILITIES, DIFFERENCES, PROFILE, PROOF, STEPS, hasContact } from '@/lib/site';
+import { TOPICS, topicsFor } from '@/lib/topics';
+import { COACHES, availableCoaches } from '@/lib/coaches';
+import {
+  AGAINST_SHELF,
+  CAPABILITIES,
+  DIFFERENCES,
+  PROFILE,
+  PROOF,
+  STEPS,
+  hasContact,
+} from '@/lib/site';
 
 export const metadata = {
-  title: 'ModoJIT · Asesor de voz para implementar IA en tu empresa o colegio',
+  title: 'ModoJIT · Coaches de voz que te preguntan si lo hiciste',
   description:
-    'Asesor de voz sobre implementación de IA en organizaciones: normativa chilena con fechas (Ley 21.719), guías del Mineduc y UNESCO, y evidencia con sus cifras. Responde a lo que te tiene atascado y cierra con un paso concreto.',
+    'Tres coaches de voz, cada uno con su propia base de conocimiento: implementación de IA en empresas, en colegios, y para montar tu propio negocio. Te hacen la pregunta que cambia el consejo, cierran con una cosa que hacer y con fecha, y la próxima vez te preguntan qué pasó.',
 };
 
 /** Two passes of the same list, so the marquee wraps without a visible seam. */
@@ -48,9 +57,13 @@ export default function HomePage() {
           </h1>
 
           <p className="animate-rise mt-7 max-w-[48ch] text-[19px] leading-[1.58] text-body [animation-delay:400ms]">
-            Un asesor experto por voz para implementar IA en tu empresa o en tu colegio. Le
-            cuentas dónde estás atascado y te responde con la norma, la guía o el estudio que
-            aplica —con su fecha— y con un paso concreto para esta semana.
+            Coaches expertos por voz, cada uno con su propia base de conocimiento: implementar
+            IA en tu empresa, en tu colegio, o montar tu propio negocio.
+          </p>
+          <p className="animate-rise mt-4 max-w-[48ch] text-[19px] leading-[1.58] text-body [animation-delay:460ms]">
+            Le cuentas dónde estás atascado y, antes de responder, te hace la única pregunta
+            que cambia el consejo. Sales con una cosa que hacer, con fecha. Y la próxima vez
+            te pregunta si la hiciste.
           </p>
 
           <div className="animate-rise mt-9 flex flex-wrap items-center gap-3.5 [animation-delay:520ms]">
@@ -58,7 +71,7 @@ export default function HomePage() {
               href="/coach"
               className="inline-flex items-center gap-3 rounded-full bg-accent px-7 py-4 text-[17px] font-medium text-bg shadow-[0_10px_30px_-12px_rgba(20,38,63,0.6)] transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-[0_18px_40px_-14px_rgba(20,38,63,0.7)]"
             >
-              Hablar con el coach
+              Elige tu coach
               <span aria-hidden className="font-mono">
                 →
               </span>
@@ -122,8 +135,8 @@ export default function HomePage() {
             ¿Y esto en qué se diferencia de preguntarle a ChatGPT?
           </h2>
           <p className="reveal mt-5 max-w-[58ch] text-[17px] leading-relaxed text-muted">
-            Es la pregunta correcta, así que va contestada. Cuatro diferencias, todas
-            comprobables en una sola conversación —y abajo tienes tres preguntas para
+            Es la pregunta correcta, así que va contestada. Cinco diferencias, todas
+            comprobables en una sola conversación —y abajo tienes cuatro pruebas para
             hacérselas a los dos y comparar.
           </p>
 
@@ -175,8 +188,9 @@ export default function HomePage() {
               No nos creas: pregúntale a los dos
             </h3>
             <p className="mt-2 max-w-[62ch] text-[15px] leading-relaxed text-muted">
-              Tres preguntas donde la diferencia se ve en un solo intercambio. Hazlas en tu
-              asistente de siempre y aquí, y compara con lo que debería salir.
+              Cuatro pruebas donde la diferencia se ve directamente. Las tres últimas se ven
+              en un solo intercambio; la primera necesita que vuelvas al día siguiente, que es
+              justamente la que ningún modelo puede aprobar por saber más.
             </p>
 
             <ul className="mt-7 space-y-3">
@@ -186,7 +200,12 @@ export default function HomePage() {
                   className="grid gap-3 rounded-md border border-line bg-surface-alt/40 p-4 sm:grid-cols-[1.1fr_0.9fr] sm:p-5"
                 >
                   <div>
-                    <p className="text-[15px] font-medium leading-snug text-ink">
+                    {/* Where to ask it: the corpora are separate, so the wrong
+                        coach correctly declines and the test looks broken. */}
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-soft">
+                      {p.coach}
+                    </p>
+                    <p className="mt-1.5 text-[15px] font-medium leading-snug text-ink">
                       «{p.question}»
                     </p>
                     <p className="mt-2 text-[13px] leading-relaxed text-soft">
@@ -212,20 +231,73 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* --------------------------------------------------------- Anti-shelf */}
+      {/*
+        The second objection, and the one nobody says out loud. "Why not
+        ChatGPT" gets asked; "I already bought three courses I never finished"
+        does not — but it is what actually decides whether somebody pays. Placed
+        straight after the ChatGPT answer because they are the same moment of
+        doubt, aimed at two different competitors.
+      */}
+      <section id="aplicar" className="mx-auto max-w-[75rem] scroll-mt-24 px-6 py-24 lg:py-28">
+        <div className="grid gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:gap-16">
+          <div>
+            <p className="reveal text-xs font-semibold uppercase tracking-[0.14em] text-accent">
+              El otro problema
+            </p>
+            <h2 className="reveal mt-4 font-serif text-[clamp(2rem,4.5vw,3.25rem)] font-normal leading-[1.08] tracking-[-0.02em]">
+              No te falta información. Te falta haberla aplicado
+            </h2>
+            <p className="reveal mt-5 max-w-[52ch] text-[17px] leading-relaxed text-muted">
+              Tienes libros a medio leer, cursos sin abrir y episodios guardados. No es falta
+              de disciplina: es que consumir se siente igual de productivo que hacer, y nada
+              de eso vuelve después a preguntarte si lo aplicaste.
+            </p>
+            <p className="reveal mt-4 max-w-[52ch] text-[17px] leading-relaxed text-muted">
+              Esto está construido al revés. Empieza por lo que te tiene atascado hoy y
+              termina en algo hecho.
+            </p>
+          </div>
+
+          <ol className="flex flex-col">
+            {AGAINST_SHELF.map((item, i) => (
+              <li
+                key={item.title}
+                style={{ animationRange: `entry 0% entry ${60 + i * 8}%` }}
+                className={`reveal grid grid-cols-[2.5rem_1fr] gap-4 border-t border-line-strong py-5 ${
+                  i === AGAINST_SHELF.length - 1 ? 'border-b' : ''
+                }`}
+              >
+                <span aria-hidden className="pt-1 font-mono text-[13px] text-soft">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <div>
+                  <h3 className="text-lg font-semibold tracking-[-0.01em]">{item.title}</h3>
+                  <p className="mt-1.5 max-w-[52ch] text-[15px] leading-relaxed text-muted">
+                    {item.body}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
       {/* -------------------------------------------------------------- Topics */}
       <section id="temas" className="scroll-mt-24 overflow-hidden pb-24 lg:pb-28">
         <div className="mx-auto max-w-[75rem] px-6">
           <p className="reveal text-xs font-semibold uppercase tracking-[0.14em] text-accent">
-            Temas
+            Los coaches
           </p>
           <h2 className="reveal mt-4 max-w-[24ch] font-serif text-[clamp(2rem,4.5vw,3.25rem)] font-normal leading-[1.08] tracking-[-0.02em]">
-            Los temas que domina
+            Cada uno con su propio material
           </h2>
           <p className="mt-4 max-w-[56ch] text-[17px] leading-relaxed text-muted">
-            Si preguntas algo fuera de estas áreas, te lo dirá y no lo responderá: es un asesor
-            de implementación de IA, no un asistente general. Y dentro de ellas, te avisa cuando
-            responde sin material — lo que no puedes saber por ti mismo es si una respuesta
-            viene de una fuente o de la nada.
+            No es el mismo asesor con distintas instrucciones: cada coach tiene su propia base
+            de conocimiento y no puede consultar la de los otros. Si le preguntas algo de otro
+            tema te lo dirá y no lo responderá. Y dentro del suyo, te avisa cuando responde sin
+            material — lo que no puedes saber por ti mismo es si una respuesta viene de una
+            fuente o de la nada.
           </p>
         </div>
 
@@ -247,21 +319,74 @@ export default function HomePage() {
           </ul>
         </div>
 
-        <ul className="mx-auto mt-10 grid max-w-[75rem] gap-5 px-6 sm:grid-cols-2 lg:grid-cols-3">
-          {TOPICS.map((topic, i) => (
-            <li
-              key={topic.title}
-              style={{ animationRange: `entry 0% entry ${55 + (i % 3) * 10}%` }}
-              className="reveal flex flex-col rounded-lg border border-line bg-surface p-6 transition duration-300 ease-out hover:-translate-y-1.5 hover:border-accent/35 hover:shadow-md"
-            >
-              <h3 className="text-base font-semibold tracking-[-0.01em]">{topic.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted">{topic.blurb}</p>
-              <p className="mt-auto border-t border-line pt-3 text-[13px] leading-relaxed text-soft">
-                <span className="font-medium text-ink">Por ejemplo:</span> «{topic.examples[0]}»
-              </p>
-            </li>
+        {/*
+          Grouped by coach rather than one flat list. The grouping is the
+          product now: which coach a topic sits under is what decides whether it
+          can be asked at all, so a single ungrouped grid would misdescribe it.
+        */}
+        <div className="mx-auto mt-12 max-w-[75rem] space-y-14 px-6">
+          {availableCoaches().map((coach) => (
+            <div key={coach.id}>
+              <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b border-line-strong pb-4">
+                <div>
+                  <h3 className="font-serif text-[clamp(1.4rem,2.6vw,1.85rem)] font-normal leading-tight tracking-[-0.01em]">
+                    {coach.label}
+                  </h3>
+                  <p className="mt-1.5 max-w-[56ch] text-[15px] leading-relaxed text-muted">
+                    {coach.blurb}
+                  </p>
+                </div>
+                <Link
+                  href={`/coach/${coach.id}`}
+                  className="shrink-0 text-[15px] font-medium text-accent transition-colors duration-150 ease-out hover:text-accent-hover"
+                >
+                  Hablar con este coach <span aria-hidden>→</span>
+                </Link>
+              </div>
+
+              <ul className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {topicsFor(coach.id).map((topic, i) => (
+                  <li
+                    key={topic.title}
+                    style={{ animationRange: `entry 0% entry ${55 + (i % 3) * 10}%` }}
+                    className="reveal flex flex-col rounded-lg border border-line bg-surface p-6 transition duration-300 ease-out hover:-translate-y-1.5 hover:border-accent/35 hover:shadow-md"
+                  >
+                    <h4 className="text-base font-semibold tracking-[-0.01em]">
+                      {topic.title}
+                    </h4>
+                    <p className="mt-2 text-sm leading-relaxed text-muted">{topic.blurb}</p>
+                    <p className="mt-auto border-t border-line pt-3 text-[13px] leading-relaxed text-soft">
+                      <span className="font-medium text-ink">Por ejemplo:</span> «
+                      {topic.examples[0]}»
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+
+          {/*
+            The coach that has no material yet, said plainly rather than left
+            off. Announcing a gap costs nothing; letting somebody discover it
+            after picking would cost their session.
+          */}
+          {COACHES.filter((c) => !c.available).map((coach) => (
+            <div
+              key={coach.id}
+              className="rounded-lg border border-dashed border-line bg-surface-alt/40 p-6"
+            >
+              <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-soft">
+                {coach.tag}
+              </span>
+              <h3 className="mt-2 font-serif text-[1.4rem] font-normal leading-tight text-muted">
+                {coach.label}
+              </h3>
+              <p className="mt-2 max-w-[60ch] text-[15px] leading-relaxed text-muted">
+                {coach.blurb} {coach.outOfScopeNote}
+              </p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* --------------------------------------------------------------- Steps */}
@@ -416,7 +541,7 @@ export default function HomePage() {
               href="/coach"
               className="inline-flex items-center gap-3 rounded-full bg-bg px-7 py-4 text-[17px] font-semibold text-accent-deep transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-surface"
             >
-              Hablar con el coach
+              Elige tu coach
               <span aria-hidden className="font-mono">
                 →
               </span>

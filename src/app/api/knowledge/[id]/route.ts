@@ -1,7 +1,7 @@
 /** Per-document operations: index status, retry indexing, delete. */
 import { NextResponse } from 'next/server';
 import { indexStatus, purge, reindex } from '@/lib/knowledge';
-import { syncAgentKnowledge } from '@/lib/agent';
+import { syncAllCoaches } from '@/lib/agent';
 import { requireSecret, UnauthorizedError } from '@/lib/auth';
 
 export const runtime = 'nodejs';
@@ -47,11 +47,13 @@ export async function DELETE(req: Request, { params }: Params) {
     const { id } = await params;
     await purge(id);
 
-    // Deleting with force detaches it agent-side too, but re-syncing keeps the
-    // agent's list from drifting if anything else changed meanwhile.
+    // Deleting with force detaches it agent-side too, but re-syncing keeps each
+    // agent's list from drifting if anything else changed meanwhile. Every
+    // coach, because a deleted document may have been attached to several.
     let syncError: string | undefined;
     try {
-      await syncAgentKnowledge();
+      const { errors } = await syncAllCoaches();
+      if (errors.length > 0) syncError = errors.join('; ');
     } catch (err) {
       syncError = err instanceof Error ? err.message : 'Sync failed';
     }

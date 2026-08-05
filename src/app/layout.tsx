@@ -79,13 +79,31 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               className="flex shrink-0 items-center gap-3 rounded-sm text-[21px] font-semibold tracking-[-0.01em]"
             >
               <BrandMark size={36} />
-              {/* The mark alone carries the brand on a phone; the wordmark plus
-                  the call to action do not fit side by side at 320px. */}
-              <Wordmark className="hidden xs:inline-flex" />
-              {/* Always visible, even where the wordmark is not: the label is a
-                  promise about the product's maturity, not part of the brand. */}
-              <span className="rounded-full border border-gold/45 bg-gold-soft/40 px-2 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.1em] text-accent">
-                Beta
+
+              {/* The wordmark and its tagline stack, so the mark stays centred
+                  against both lines rather than against the wordmark alone. */}
+              <span className="flex flex-col gap-[3px]">
+                <span className="flex items-center gap-3">
+                  {/* The mark alone carries the brand on a phone; the wordmark
+                      plus the call to action do not fit side by side at 320px. */}
+                  <Wordmark className="hidden xs:inline-flex" />
+                  {/* Always visible, even where the wordmark is not: the label is
+                      a promise about the product's maturity, not part of the brand. */}
+                  <span className="rounded-full border border-gold/45 bg-gold-soft/40 px-2 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.1em] text-accent">
+                    Beta
+                  </span>
+                </span>
+
+                {/* Hidden wherever the wordmark is, since with the mark alone it
+                    would be a tagline under nothing. `aria-hidden` because the
+                    link is already named by the wordmark — a screen reader
+                    should hear "ModoJIT", not the whole slogan, on every page. */}
+                <span
+                  aria-hidden
+                  className="hidden text-[9.5px] font-semibold uppercase leading-none tracking-[0.13em] text-soft xs:block"
+                >
+                  Aprendizaje justo a tiempo
+                </span>
               </span>
             </Link>
 
