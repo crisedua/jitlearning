@@ -101,15 +101,22 @@ smaller plan usually wins.
 | | Light<br>20 min/user | Medium<br>60 min/user | Heavy<br>160 min/user |
 |---|---:|---:|---:|
 | Total minutes | 600 | 1,800 | 4,800 |
-| ElevenLabs | $70<br><sub>Creator + 325 over</sub> | $144<br><sub>Pro + 562 over</sub> | $384<br><sub>Scale + 1,062 over</sub> |
+| ElevenLabs | $48<br><sub>Creator + 325 over</sub> | $144<br><sub>Pro + 562 over</sub> | $384<br><sub>Scale + 1,062 over</sub> |
 | LLM | $37 | $110 | $293 |
 | Vercel + Supabase | $45 | $45 | $45 |
-| **Total** | **$152** | **$299** | **$722** |
-| **Per user** | **$5.05** | **$9.96** | **$24.06** |
+| **Total** | **$130** | **$299** | **$722** |
+| **Per user** | **$4.33** | **$9.96** | **$24.06** |
 
-The spread is the whole point: the same 30 accounts cost between $152 and $722
+The spread is the whole point: the same 30 accounts cost between $130 and $722
 depending only on how much they talk. That is why the plans meter minutes rather
 than charging one price for a seat.
+
+**A note on the cheapest-tier search.** Comparing every tier is the right method,
+but it needs one exclusion: at 1,800 minutes the Free tier plus overage prices
+out around a dollar below Pro, so an unconstrained search recommends running a
+commercial product on a trial plan with four concurrent conversations. The model
+in `src/lib/costs.ts` marks Free non-commercial and skips it; the figures above
+already assume that.
 
 ---
 
