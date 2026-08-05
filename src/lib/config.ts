@@ -1,4 +1,5 @@
 /** Environment-derived configuration. No filesystem, no local state. */
+import type { Coach } from './coaches';
 import type { EmbeddingModel } from './types';
 
 /**
@@ -30,19 +31,28 @@ export function agentLanguage(): string {
 }
 
 /**
- * The agent id is env-only. `npm run setup:agent` prints it once; you set it in
- * Vercel's project settings. Nothing is written back at runtime, which is what
- * lets every instance stay stateless.
+ * The agent id is env-only, one variable per coach. `npm run setup:agent`
+ * prints them; you set them in Vercel's project settings. Nothing is written
+ * back at runtime, which is what lets every instance stay stateless.
+ *
+ * `ELEVENLABS_AGENT_ID` is still read as a fallback for the estrategia coach,
+ * which is what the single-coach deployment was. Without it, shipping this
+ * change would take the live coach down until the new variables were set — and
+ * a deploy that only goes right if two systems are updated in the same second
+ * is a deploy that goes wrong.
  */
-export function agentId(): string | undefined {
-  return process.env.ELEVENLABS_AGENT_ID?.trim() || undefined;
+export function agentId(coach: Coach): string | undefined {
+  const id = process.env[coach.envKey]?.trim();
+  if (id) return id;
+  if (coach.id === 'estrategia') return process.env.ELEVENLABS_AGENT_ID?.trim() || undefined;
+  return undefined;
 }
 
-export function requireAgentId(): string {
-  const id = agentId();
+export function requireAgentId(coach: Coach): string {
+  const id = agentId(coach);
   if (!id) {
     throw new Error(
-      'ELEVENLABS_AGENT_ID is not set. Run `npm run setup:agent` and add the printed id to your environment.',
+      `${coach.envKey} is not set. Run \`npm run setup:agent -- ${coach.id}\` and add the printed id to your environment.`,
     );
   }
   return id;

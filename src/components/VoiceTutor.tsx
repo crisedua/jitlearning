@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConversationProvider, useConversation } from '@elevenlabs/react';
 import { KnownTopics } from './KnownTopics';
 import { CoachExplorer } from './CoachExplorer';
+import type { Coach } from '@/lib/coaches';
 
 interface Turn {
   role: 'user' | 'agent';
@@ -47,15 +48,15 @@ const STATUS_ES: Record<string, string> = {
  * The SDK's `useConversation` must live under a `ConversationProvider`, so the
  * exported component is just that wrapper around the real one.
  */
-export function VoiceTutor() {
+export function VoiceTutor({ coach }: { coach: Coach }) {
   return (
     <ConversationProvider>
-      <VoiceTutorInner />
+      <VoiceTutorInner coach={coach} />
     </ConversationProvider>
   );
 }
 
-function VoiceTutorInner() {
+function VoiceTutorInner({ coach }: { coach: Coach }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [objective, setObjective] = useState('');
@@ -226,12 +227,14 @@ function VoiceTutorInner() {
       // Must originate from a user gesture, or the browser rejects it.
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      const res = await fetch('/api/signed-url');
+      // The coach decides which agent is minted, so it is part of the request
+      // rather than something the session is steered into afterwards.
+      const res = await fetch(`/api/signed-url?coach=${encodeURIComponent(coach.id)}`);
       // The session expired while the page stayed open. Nothing here can
       // recover it, so send them back through Google rather than showing an
       // error about a credential they cannot renew from this screen.
       if (res.status === 401) {
-        window.location.href = '/auth/login?next=%2Fcoach';
+        window.location.href = `/auth/login?next=${encodeURIComponent(`/coach/${coach.id}`)}`;
         return;
       }
 
@@ -286,7 +289,7 @@ function VoiceTutorInner() {
       setStarting(false);
     }
     },
-    [startSession, objective],
+    [startSession, objective, coach.id],
   );
 
   /**
@@ -403,7 +406,11 @@ function VoiceTutorInner() {
           same ground for anyone who needs a prompt mid-conversation.
         */}
         {!connected && (
-          <CoachExplorer onAsk={askAndStart} busy={starting || status === 'connecting'} />
+          <CoachExplorer
+            coach={coach}
+            onAsk={askAndStart}
+            busy={starting || status === 'connecting'}
+          />
         )}
 
         {error && (
@@ -423,7 +430,7 @@ function VoiceTutorInner() {
         {connected && <TextFallback onSend={sendTyped} />}
       </div>
 
-      <KnownTopics onPick={pickExample} connected={connected} />
+      <KnownTopics coach={coach} onPick={pickExample} connected={connected} />
     </div>
   );
 }

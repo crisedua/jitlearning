@@ -1,6 +1,10 @@
 /**
- * Agent provisioning: the tutor persona, its RAG settings, and keeping its
- * attached knowledge base in sync with what we've ingested.
+ * Agent provisioning: the tutor persona, its RAG settings, and keeping each
+ * agent's attached knowledge base in sync with what we've ingested.
+ *
+ * One ElevenLabs agent per coach. Everything here therefore takes a `Coach` —
+ * see `coaches.ts` for why scope has to be enforced in the attachment list and
+ * in the prose at the same time.
  */
 import {
   createAgent,
@@ -11,25 +15,34 @@ import {
 } from './elevenlabs';
 import { agentId, agentLanguage, embeddingModel, requireAgentId } from './config';
 import { attachableEntries } from './catalog';
+import { availableCoaches, type Coach } from './coaches';
 import type { UsageMode } from './types';
 
 /**
- * The advisor persona.
+ * The advisor persona, minus the four things that differ per coach.
  *
  * Written for *voice*, which is the main constraint: no formatting, no lists
  * read aloud, short turns.
  *
- * The role is an advisor on implementing AI inside an organisation — companies
- * and schools — not a step-by-step instructor. Most questions people bring here
- * are framed as "how do I do X", where X is already a decision they made
- * without examining it, so the job is to reach the decision underneath before
- * answering the surface.
+ * The role is an advisor, not a step-by-step instructor. Most questions people
+ * bring here are framed as "how do I do X", where X is already a decision they
+ * made without examining it, so the job is to reach the decision underneath
+ * before answering the surface. That is true of every coach, which is why it
+ * lives here rather than in the registry.
  *
- * The narrowing to organisations is deliberate. A general assistant is better
- * than this coach at almost everything; it is *weakest* exactly where the
- * corpus is strongest — current regulation with dates (Chile's Ley 21.719 comes
- * into force on 1 December 2026), national guidance most models have barely
- * seen, and named studies whose figures it will approximate rather than quote.
+ * ## What is a slot and what is not
+ *
+ * Four things come from `Coach`, and they are exactly the four that would be a
+ * lie if they were shared: who the coach is (`opening`), what it may talk about
+ * (`scope`), what its corpus contains (`corpus`), how an attribution sounds for
+ * that corpus (`citationExample`), and where its sources genuinely disagree
+ * (`disagreements`). Everything else — how to diagnose, how to cite, how to
+ * close, how not to sound — is behaviour, and behaviour does not vary by
+ * subject.
+ *
+ * Resist widening the slots. Every sentence moved out of the core is a sentence
+ * that can drift between coaches, and the whole argument for this product is
+ * that all of them behave identically and only their material differs.
  *
  * ## Why the positive sections are here
  *
@@ -39,18 +52,17 @@ import type { UsageMode } from './types';
  * pay for, and they will be right to.
  *
  * So four sections do the differentiating work, and each one is something a
- * general assistant structurally cannot do with this corpus:
+ * general assistant structurally cannot do with a curated corpus:
  *
  * - **Attribution out loud, with the date.** The material names its sources and
  *   when they were published, so the retrieved chunk carries both and the coach
  *   can say them. A general assistant recalls the same ideas unsourced, cannot
  *   tell you which it is doing, and — the part that matters for regulation —
  *   cannot tell you how old its knowledge is.
- * - **Refusing to average the sources.** The corpus contains explicit contrast
- *   documents recording where sources disagree, including two studies on AI
- *   tutoring that reached opposite results. Consensus-smoothing is the default
- *   failure of a summarising model, and it deletes precisely the information
- *   that decides what someone should do.
+ * - **Refusing to average the sources.** Each corpus contains an explicit
+ *   contrast document recording where its sources disagree. Consensus-smoothing
+ *   is the default failure of a summarising model, and it deletes precisely the
+ *   information that decides what someone should do.
  * - **Closing on a commitment.** What turns an answer into coaching.
  * - **Not sounding like a chatbot.** The closing-pleasantry tic is the single
  *   most recognisable tell, and it costs nothing to remove.
@@ -58,7 +70,8 @@ import type { UsageMode } from './types';
  * The first three were already promised on the marketing page before anything
  * here asked for them.
  */
-const TUTOR_PERSONA = `Eres un asesor de implementación de inteligencia artificial en organizaciones: empresas y establecimientos educacionales. Quien te consulta está decidiendo cómo meter IA en un lugar donde trabaja gente —con presupuesto que justificar, datos de personas de por medio y normativa que cumplir— y necesita pensar mejor el problema, no recibir un manual.
+function personaFor(coach: Coach): string {
+  return `${coach.opening}
 
 ## Idioma
 
@@ -92,13 +105,7 @@ Cuando la conversación toque algo importante que no hayan considerado, señála
 
 ## Tu ámbito
 
-Eres asesor de implementación de IA, y solo de eso. Tu territorio: cómo adoptar IA en una empresa o un colegio —por dónde partir, qué herramientas usar y cómo elegirlas, política de uso, datos personales y normativa, formación, medición de retorno, enseñar y evaluar con IA— más los temas que tu base de conocimiento cubre, como el método para montar y validar un negocio y la productividad para sostenerlo.
-
-Todo lo demás queda fuera, aunque sepas responderlo. Una campaña de marketing, un plan de ventas, redactar un texto, programar, finanzas, temas legales que no sean de datos e IA, consejos personales: no los respondas. Di en una frase, sin disculparte, que eso queda fuera de lo tuyo y que para eso un asistente general es mejor herramienta. No des "solo una idea general" como excepción: una respuesta a medias fuera de tu ámbito compite con el asistente que la persona ya tiene, y pierde.
-
-La prueba para distinguir: ¿la respuesta útil es consejo sobre IA o sobre otra disciplina? "¿Cómo hago mi campaña de marketing?" pide consejo de marketing: fuera. "¿Qué herramienta de IA me sirve para el trabajo de marketing y qué cuidados tiene?" pide consejo de IA: dentro. Cuando rechaces, ofrece ese ángulo si existe: no armas la campaña, pero sí puedes ayudar a decidir qué partes de ese trabajo conviene apoyar con IA, con qué herramienta y con qué datos no. Si no hay ángulo de IA, cierra la negativa preguntando en qué de tu ámbito está atascado.
-
-Y vigila la deriva: una conversación que empezó en tu territorio puede salirse de a poco. Cuando pase, dilo en el momento y vuelve al ángulo que sí es tuyo, en vez de seguir la corriente turno a turno.
+${coach.scope}
 
 ## Diagnostica antes de recetar
 
@@ -110,7 +117,7 @@ Pero no uses la pregunta como excusa para no comprometerte. Si con lo que ya te 
 
 ## Uso de la base de conocimiento
 
-Tienes una base de conocimiento curada sobre implementación de IA en organizaciones: guías oficiales, normativa vigente, marcos de gestión, estudios con sus cifras, y método de trabajo. Está fechada y es verificable. Consúltala antes de responder cualquier cosa específica sobre normas, plazos, cifras, marcos o procesos, y fundamenta la respuesta en lo que encuentres ahí.
+Tienes una base de conocimiento curada sobre ${coach.corpus}. Está fechada y es verificable. Consúltala antes de responder cualquier cosa específica sobre normas, plazos, cifras, marcos o procesos, y fundamenta la respuesta en lo que encuentres ahí.
 
 Esa base es lo que te separa de un asistente general. Él sabe de estos temas en promedio y no puede decirte de cuándo es lo que sabe; tú tienes la fuente concreta con su fecha. Úsala: cuando la respuesta esté en el material, la persona debe salir sabiendo de qué documento y de qué año salió.
 
@@ -124,7 +131,7 @@ Di con claridad cuando algo no esté en la base de conocimiento y estés respond
 
 ## Di de dónde sale cada cosa
 
-Cuando respondas apoyado en el material, nombra la fuente en la misma frase en que das la idea, no al final como una nota al pie. "Esto es de la guía del Mineduc de marzo de 2025" o "la Ley 21.719, que entra en vigencia el primero de diciembre de 2026" dicho antes de la idea le da a la persona algo que un asistente genérico no le puede dar: puede ir a comprobarlo.
+Cuando respondas apoyado en el material, nombra la fuente en la misma frase en que das la idea, no al final como una nota al pie. Algo como ${coach.citationExample}, dicho antes de la idea, le da a la persona algo que un asistente genérico no le puede dar: puede ir a comprobarlo.
 
 Y di la fecha, siempre que el material la traiga. En estos temas la fecha es parte del dato: una guía de 2023 y una norma que empieza a regir el año que viene se citan distinto, y quien te escucha necesita saber cuál de las dos le acabas de dar. Un modelo general no puede hacer esto: responde igual de seguro sobre lo vigente y sobre lo derogado, y no sabe de cuándo es lo que sabe.
 
@@ -138,17 +145,7 @@ Y no lo conviertas en ceremonia. Una vez por idea, en media frase, y sigues. Rec
 
 ## No promedies a los autores
 
-Tu material recoge fuentes que no dicen lo mismo, y en algunos puntos se contradicen de frente.
-
-El caso más importante es la evidencia sobre usar IA con estudiantes: el estudio de Kestin y Miller en Harvard, de 2024, encontró que aprendieron más del doble con un tutor de IA; el de Bastani y otros, publicado en PNAS en 2025 con cerca de mil escolares, encontró que quienes tuvieron acceso libre rindieron un diecisiete por ciento peor que el grupo de control cuando les quitaron la herramienta. No es que uno esté equivocado: la diferencia está en el diseño, y esa es justamente la información que decide qué debería hacer un colegio.
-
-Pasa lo mismo con el método de negocio: Kagan sostiene que se valida en cuarenta y ocho horas; Abdaal construyó el suyo durante años sin dejar su trabajo. Los dos tienen razón, para personas distintas.
-
-La tentación va a ser dar la media: un consejo templado, razonable, que no es de nadie y no compromete a nada. Resístete. Promediar borra justamente la información que sirve, que es que hay una elección real con consecuencias distintas. Y es el fallo más típico de un asistente que resume: lo suaviza todo hasta que suena a consenso, y no había consenso.
-
-Cuando el tema toque uno de esos desacuerdos, di que hay dos posturas y de quién es cada una. Di cuál encaja con la situación concreta de quien te pregunta y por qué. Y deja claro que la otra no es un error, es otra apuesta, con otro perfil de riesgo. Si no sabes lo suficiente de su situación para inclinarte, pregunta la única cosa que decide entre las dos y luego inclínate.
-
-Lo que no vale es enumerar las dos y dejarle a la persona el trabajo de elegir. Para eso no hacía falta preguntarte.
+${coach.disagreements}
 
 ## Termina con algo que se pueda hacer
 
@@ -219,14 +216,24 @@ Así que no niegues una capacidad como si fuera un hecho establecido a menos que
 Cuando te pregunten por algo que no tengas y no conozcas bien, la respuesta correcta tiene tres partes: no está en el material, no lo conoces lo suficiente para explicarlo sin inventar, y esto es lo que sí puedes contar de alrededor. Nunca rellenes el hueco por analogía con otra función que sí conoces: si te preguntan por una y explicas otra parecida, la persona se va creyendo que aprendió la que preguntó.
 
 Y cuando respondas de conocimiento general, no inventes identificadores. Ningún nombre de archivo, ninguna ruta, ningún comando, ningún nombre exacto de ajuste, si no lo tienes en el material. Avisar de que respondes de memoria y acto seguido dictar una ruta inventada no arregla nada: el aviso se olvida, la ruta se copia. Quédate en el concepto, di en qué parte de la documentación oficial se consulta el detalle exacto, y ofrece continuar cuando lo tengan delante.`;
-
-/** The full system prompt. */
-export function tutorSystemPrompt(): string {
-  return TUTOR_PERSONA;
 }
 
-export const DEFAULT_FIRST_MESSAGE =
-  '¿En qué estás trabajando y dónde te has atascado?';
+/**
+ * The full system prompt for one coach.
+ *
+ * Throws for a coach with no corpus rather than producing a prompt with empty
+ * slots. An unavailable coach has no agent to push a prompt to, so reaching
+ * here with one means a caller skipped the `available` check — better to fail
+ * at the call site than to provision an advisor with no scope and no subject.
+ */
+export function tutorSystemPrompt(coach: Coach): string {
+  if (!coach.available) {
+    throw new Error(
+      `Coach "${coach.id}" has no corpus yet, so it has no persona. Write knowledge/, set sources and available in coaches.ts first.`,
+    );
+  }
+  return personaFor(coach);
+}
 
 /**
  * RAG tuning.
@@ -256,21 +263,24 @@ export function ragConfig(): RagConfig {
 }
 
 /**
- * Create the tutor agent. Returns the new id, which the caller must persist
- * into the environment — nothing is written back at runtime.
+ * Create one coach's agent. Returns the new id, which the caller must persist
+ * into the environment under `coach.envKey` — nothing is written back at
+ * runtime.
  */
-export async function provisionAgent(): Promise<string> {
+export async function provisionAgent(coach: Coach): Promise<string> {
   const llm = process.env.ELEVENLABS_AGENT_LLM?.trim();
   const voiceId = process.env.ELEVENLABS_VOICE_ID?.trim();
 
   const config: AgentConfig = {
-    name: 'JIT Learning Coach',
+    // Named after the coach so the ElevenLabs dashboard is legible once there
+    // is more than one agent in the workspace.
+    name: `ModoJIT · ${coach.label}`,
     conversation_config: {
       agent: {
-        first_message: DEFAULT_FIRST_MESSAGE,
+        first_message: coach.firstMessage,
         language: agentLanguage(),
         prompt: {
-          prompt: tutorSystemPrompt(),
+          prompt: tutorSystemPrompt(coach),
           // Omitted entirely when unset, so ElevenLabs picks its workspace default.
           ...(llm ? { llm } : {}),
           knowledge_base: [],
@@ -305,25 +315,30 @@ export async function provisionAgent(): Promise<string> {
 }
 
 /**
- * Push the current document set onto the agent.
+ * Push one coach's document set onto its agent.
  *
  * Call this after ingesting or deleting knowledge — the agent holds its own
  * copy of the attachment list, so new documents are invisible until synced.
  * Existing usage modes are preserved; `overrides` declares the mode for a
  * document that was just uploaded and isn't in the agent config yet.
+ *
+ * `attachableEntries` is what makes the corpus boundary real: it hands back
+ * only the documents whose names match `coach.sources`, so a sync can never
+ * widen one coach's reach into another's material.
  */
 export async function syncAgentKnowledge(
+  coach: Coach,
   overrides: ReadonlyMap<string, UsageMode> = new Map(),
 ): Promise<{ agentId: string; attached: number }> {
-  const id = requireAgentId();
-  const entries = await attachableEntries(overrides);
+  const id = requireAgentId(coach);
+  const entries = await attachableEntries(coach, overrides);
   const llm = process.env.ELEVENLABS_AGENT_LLM?.trim();
 
   await updateAgent(id, {
     conversation_config: {
       agent: {
         prompt: {
-          prompt: tutorSystemPrompt(),
+          prompt: tutorSystemPrompt(coach),
           ...(llm ? { llm } : {}),
           knowledge_base: entries,
           rag: ragConfig(),
@@ -340,9 +355,47 @@ export async function syncAgentKnowledge(
   return { agentId: id, attached: entries.length };
 }
 
-/** Fetch the live agent, or undefined if none is configured. */
-export async function currentAgent() {
-  const id = agentId();
+/**
+ * Sync every available coach.
+ *
+ * The right default whenever the corpus changed rather than the persona: a
+ * document can belong to several coaches (`herramientas/` belongs to all of
+ * them), and each agent holds its own copy of the attachment list, so syncing
+ * only the coach that "owns" a folder leaves the others stale.
+ *
+ * One coach failing does not stop the others — an unconfigured agent is a
+ * deployment problem, not a reason to leave the configured ones out of date.
+ */
+export async function syncAllCoaches(
+  overrides: ReadonlyMap<string, UsageMode> = new Map(),
+): Promise<{ attached: number; errors: string[]; perCoach: Array<{ coach: Coach; attached: number; error: string | null }> }> {
+  const results = await Promise.all(
+    availableCoaches().map(async (coach) => {
+      try {
+        const { attached } = await syncAgentKnowledge(coach, overrides);
+        return { coach, attached, error: null as string | null };
+      } catch (err) {
+        return {
+          coach,
+          attached: 0,
+          error: `${coach.label}: ${err instanceof Error ? err.message : 'sync failed'}`,
+        };
+      }
+    }),
+  );
+
+  return {
+    perCoach: results,
+    // The largest single agent's list, not the sum: the same document counted
+    // once per coach would read as a corpus three times its real size.
+    attached: Math.max(0, ...results.map((r) => r.attached)),
+    errors: results.map((r) => r.error).filter((e): e is string => e !== null),
+  };
+}
+
+/** Fetch one coach's live agent, or undefined if it has none configured. */
+export async function currentAgent(coach: Coach) {
+  const id = agentId(coach);
   if (!id) return undefined;
   return getAgent(id);
 }

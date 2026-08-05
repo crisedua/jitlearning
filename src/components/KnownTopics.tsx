@@ -1,6 +1,7 @@
 'use client';
 
-import { OUT_OF_SCOPE_NOTE, TOPICS } from '@/lib/topics';
+import { topicsFor } from '@/lib/topics';
+import type { Coach } from '@/lib/coaches';
 
 /**
  * Sidebar listing what the coach has material for.
@@ -19,12 +20,16 @@ import { OUT_OF_SCOPE_NOTE, TOPICS } from '@/lib/topics';
  * billable minute by surprise, so the hint text says which of the two it is.
  */
 export function KnownTopics({
+  coach,
   onPick,
   connected,
 }: {
+  coach: Coach;
   onPick: (question: string) => void;
   connected: boolean;
 }) {
+  const topics = topicsFor(coach.id);
+
   return (
     <aside className="overflow-hidden rounded-lg border border-line bg-surface shadow-sm lg:sticky lg:top-20">
       <div className="border-b border-line bg-surface-alt/60 px-5 py-4">
@@ -37,7 +42,7 @@ export function KnownTopics({
       </div>
 
       <ul className="divide-y divide-line">
-        {TOPICS.map((topic) => (
+        {topics.map((topic) => (
           <li key={topic.title} className="px-5 py-4">
             <h3 className="text-sm font-semibold text-ink">{topic.title}</h3>
             <p className="mt-1 text-xs leading-relaxed text-muted">{topic.blurb}</p>
@@ -66,7 +71,7 @@ export function KnownTopics({
       </ul>
 
       <p className="border-t border-line bg-surface-alt/60 px-5 py-3.5 text-xs leading-relaxed text-muted">
-        {OUT_OF_SCOPE_NOTE}
+        {coach.outOfScopeNote}
       </p>
     </aside>
   );

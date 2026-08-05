@@ -45,14 +45,20 @@ export const WHATSAPP = {
 export const hasContact = Boolean(PROFILE.email || PROFILE.bookingUrl);
 
 /**
- * What the coach does, in the learner's terms rather than the system's. Each
+ * What the coaches do, in the learner's terms rather than the system's. Each
  * claim here is one the product actually keeps — the third is the one people
  * do not expect and the one worth leading with in conversation.
+ *
+ * These describe the *shared* behaviour, which is why they can be said once for
+ * all of them: every coach is built from the same core persona in
+ * `src/lib/agent.ts` and differs only in its material. Anything that is true of
+ * one coach and not another belongs on that coach's entry in `coaches.ts`, not
+ * here.
  */
 export const CAPABILITIES = [
   {
     title: 'Para la decisión que tienes encima',
-    body: 'Implementar IA donde trabaja gente: por dónde partir, qué dice la política de uso, qué datos no pueden salir, cómo pruebas sin comprometer a la organización entera. En empresas y en colegios.',
+    body: 'Eliges el coach según lo que tengas entre manos: implementar IA en tu empresa, en tu colegio, o montar tu propio negocio. Cada uno responde solo de lo suyo, con el material de lo suyo.',
     icon: 'bolt',
   },
   {
@@ -126,19 +132,27 @@ export const DIFFERENCES = [
  *
  * Each `expect` must be something the corpus actually contains. If a document
  * is removed, the row goes with it.
+ *
+ * `coach` names where to ask, and it is load-bearing rather than a convenience:
+ * each corpus is attached to one agent only, so asking the Ley 21.719 question
+ * of the emprendedores coach correctly gets a refusal. Sending somebody to the
+ * wrong one would read as the test failing.
  */
 export const PROOF = [
   {
+    coach: 'IA para implementación estratégica',
     question: '¿Desde cuándo rige la Ley 21.719 y qué me obliga a hacer?',
     generic: 'Suele acertar el nombre y aproximar la fecha, o contestar con el marco europeo.',
     expect: '1 de diciembre de 2026, registro de actividades de tratamiento, delegado de datos, notificación de brechas en 72 horas.',
   },
   {
+    coach: 'IA para colegios',
     question: '¿Qué guía publicó el Mineduc sobre IA en el aula y de qué fecha es?',
     generic: 'Material nacional de 2025 que la mayoría de los modelos apenas ha visto.',
     expect: '«PotencIA el Aprendizaje», 12 de marzo de 2025, con Fundación Chile y CENIA.',
   },
   {
+    coach: 'IA para colegios',
     question: '¿Cuánto peor rindieron los estudiantes con acceso libre a GPT-4?',
     generic: 'Recuerda que el estudio existe y suele redondear o cambiar la cifra.',
     expect: '17% por debajo del grupo de control, en la prueba sin la herramienta. Bastani y otros, PNAS 2025.',

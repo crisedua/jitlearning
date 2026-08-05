@@ -8,9 +8,15 @@
  * learner their own history and useless for anything with money attached — a
  * closed laptop reports nothing, and a hostile tab could report anything.
  *
- * This walks the agent's conversations on the ElevenLabs side and overwrites
- * the numbers with theirs, stamping `usage_synced_at`. After a run, any row
- * with that stamp is a receipt; any row without one is still an estimate.
+ * This walks every coach agent's conversations on the ElevenLabs side and
+ * overwrites the numbers with theirs, stamping `usage_synced_at`. After a run,
+ * any row with that stamp is a receipt; any row without one is still an
+ * estimate.
+ *
+ * All coaches, not just one: `coach_sessions.agent_id` records which agent a
+ * session ran against, and a row can only be reconciled against the agent that
+ * actually held the conversation. Walking one agent would leave every session
+ * with the other coaches permanently self-reported.
  *
  * Safe to run repeatedly, and safe to run on a schedule — it only touches rows
  * that have not been synced yet.
@@ -18,7 +24,8 @@
 import './env';
 import { listConversations, type ConversationSummary } from '../src/lib/elevenlabs';
 import { supabaseAdmin, serviceConfigured } from '../src/lib/supabase/admin';
-import { requireAgentId } from '../src/lib/config';
+import { agentId } from '../src/lib/config';
+import { availableCoaches } from '../src/lib/coaches';
 
 /** How far back to look on the ElevenLabs side in one run. */
 const PAGE_SIZE = 100;
@@ -37,7 +44,15 @@ async function main() {
     process.exit(1);
   }
 
-  const agentId = requireAgentId();
+  const agents = availableCoaches()
+    .map((coach) => ({ coach, id: agentId(coach) }))
+    .filter((a): a is { coach: (typeof a)['coach']; id: string } => Boolean(a.id));
+
+  if (agents.length === 0) {
+    console.error('\nNo coach agent ids are set. Run `npm run setup:agent` first.\n');
+    process.exit(1);
+  }
+
   const db = supabaseAdmin();
 
   const { data: pending, error } = await db
@@ -55,10 +70,24 @@ async function main() {
     return;
   }
 
-  const { conversations } = await listConversations(agentId, PAGE_SIZE);
-  const byId = new Map<string, ConversationSummary>(
-    conversations.map((c) => [c.conversation_id, c]),
-  );
+  /*
+   * One page per agent, merged. Conversation ids are unique across the
+   * workspace, so a flat map is enough — a row is matched by its own
+   * conversation id regardless of which coach produced it.
+   */
+  const byId = new Map<string, ConversationSummary>();
+  for (const { coach, id } of agents) {
+    try {
+      const { conversations } = await listConversations(id, PAGE_SIZE);
+      for (const c of conversations) byId.set(c.conversation_id, c);
+    } catch (err) {
+      console.warn(
+        `  ! ${coach.label}: could not list conversations — ${
+          err instanceof Error ? err.message : err
+        }`,
+      );
+    }
+  }
 
   let synced = 0;
   let unmatched = 0;
