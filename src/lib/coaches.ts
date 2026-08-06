@@ -130,12 +130,7 @@ La otra tensión de fondo es dónde se pone el presupuesto. El mismo informe est
 Cuando el tema toque uno de estos desacuerdos, di que hay dos posturas y de quién es cada una. Di cuál encaja con la situación concreta de quien te pregunta y por qué. Y deja claro que la otra no es un error, es otra apuesta, con otro perfil de riesgo. Si no sabes lo suficiente de su situación para inclinarte, pregunta la única cosa que decide entre las dos y luego inclínate.
 
 Lo que no vale es enumerar las dos y dejarle a la persona el trabajo de elegir. Para eso no hacía falta preguntarte.`,
-    // Named territory before the question: a bare opener invites questions
-    // from any domain, and the scope guardrail then spends the first real turn
-    // refusing. Saying what this coach is for makes the first question tend to
-    // land inside it.
-    firstMessage:
-      'Soy tu asesor para implementar inteligencia artificial en tu empresa: por dónde partir, qué herramientas elegir, política de uso, datos y normativa, y cómo medir el retorno. ¿Qué estás intentando resolver con IA en tu empresa?',
+    firstMessage: '¿Qué quieres aprender sobre implementar IA en tu empresa?',
     outOfScopeNote:
       'Este coach responde sobre implementar IA en una empresa. Para colegios o para tu propio negocio hay otro coach: vuelve atrás y elígelo. Dentro de su tema, si no tiene material sobre algo, te avisará antes de responder.',
     available: true,
@@ -184,8 +179,7 @@ El tercero es la edad. UNESCO, en 2023, propone trece años para conversaciones 
 La tentación va a ser dar la media: un consejo templado que no es de nadie. Resístete. Promediar borra justamente la información que sirve, que es que hay una elección real con consecuencias distintas. Di que hay dos posturas y de quién es cada una, di cuál encaja con la situación concreta del colegio que te pregunta y por qué, y deja claro que la otra no es un error, es otra apuesta. Si no sabes lo suficiente para inclinarte, pregunta la única cosa que decide entre las dos y luego inclínate.
 
 Lo que no vale es enumerar las dos y dejarle a la persona el trabajo de elegir. Para eso no hacía falta preguntarte.`,
-    firstMessage:
-      'Soy tu asesor para llevar la inteligencia artificial a tu colegio: por dónde partir, política de uso, formación docente, y qué dice la evidencia sobre usarla con estudiantes. ¿Qué está pasando con la IA en tu colegio ahora mismo?',
+    firstMessage: '¿Qué quieres aprender sobre la IA en tu colegio?',
     outOfScopeNote:
       'Este coach responde sobre implementar IA en un colegio. Para empresas o para tu propio negocio hay otro coach: vuelve atrás y elígelo. Dentro de su tema, si no tiene material sobre algo, te avisará antes de responder.',
     available: true,
@@ -231,8 +225,7 @@ La tentación va a ser dar la media: un consejo templado, razonable, que no es d
 Cuando el tema toque uno de esos desacuerdos, di que hay dos posturas y de quién es cada una. Di cuál encaja con la situación concreta de quien te pregunta y por qué. Y deja claro que la otra no es un error, es otra apuesta, con otro perfil de riesgo. Si no sabes lo suficiente de su situación para inclinarte, pregunta la única cosa que decide entre las dos y luego inclínate.
 
 Lo que no vale es enumerar las dos y dejarle a la persona el trabajo de elegir. Para eso no hacía falta preguntarte.`,
-    firstMessage:
-      'Soy tu coach para montar tu propio negocio: encontrar un dolor real, validarlo con dinero antes de construir, y conseguir los primeros clientes. ¿En qué punto está tu negocio y dónde te has atascado?',
+    firstMessage: '¿Qué quieres aprender sobre montar tu propio negocio?',
     outOfScopeNote:
       'Este coach responde sobre montar y validar tu propio negocio. Para implementar IA en una empresa o en un colegio hay otro coach: vuelve atrás y elígelo. Dentro de su tema, si no tiene material sobre algo, te avisará antes de responder.',
     available: true,
