@@ -27,7 +27,7 @@ export function FeedbackForm({ defaultEmail = '' }: { defaultEmail?: string }) {
         <p className="mt-2 text-[15px] leading-relaxed text-ink/80">
           Si estás entre las primeras 10 personas, te escribiremos a{' '}
           <span className="font-medium">{sentTo}</span> para activar tus 3 meses del plan
-          completo.
+          básico.
         </p>
       </div>
     );

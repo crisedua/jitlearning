@@ -101,7 +101,7 @@ export default async function CoachPickerPage() {
         </span>
         <span>
           Lo pruebas, dejas tu feedback y te activo{' '}
-          <span className="font-semibold">3 meses gratis del plan completo</span>. Solo para las
+          <span className="font-semibold">3 meses gratis del plan básico</span>. Solo para las
           primeras 10 personas.
         </span>
         <span aria-hidden className="font-mono text-accent transition-transform duration-200 ease-out group-hover:translate-x-0.5">
