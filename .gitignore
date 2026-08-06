@@ -41,3 +41,8 @@ knowledge/*
 # And `empresa-ia/`: how a company implements AI — public frameworks (NIST,
 # ISO 42001), Chilean law and policy, and named studies, all cited with dates.
 !knowledge/empresa-ia/
+
+# And `gestion-proyectos/`: original prose on project management competencies —
+# public standards (PMI, IPMA, APM, ISO, GAPPS, PRINCE2) and named studies with
+# their dates. No manual or book text is reproduced.
+!knowledge/gestion-proyectos/

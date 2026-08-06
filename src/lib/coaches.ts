@@ -259,7 +259,9 @@ Lo que no vale es enumerar las dos y dejarle a la persona el trabajo de elegir. 
       'Cómo usar IA en la planificación, el seguimiento y el reporte de proyectos sin que el equipo termine revisando lo que la máquina escribió.',
     tag: 'Próximamente',
     envKey: 'ELEVENLABS_AGENT_ID_PROYECTOS',
-    sources: [],
+    // The corpus is being written ahead of the coach: documents ingested under
+    // this prefix are indexed and waiting, and attach the day this flips on.
+    sources: ['gestion-proyectos/'],
     audiences: [],
     opening: '',
     scope: '',
