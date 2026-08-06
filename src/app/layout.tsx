@@ -51,6 +51,7 @@ const NAV = [
   { href: '/#temas', label: 'Temas' },
   { href: '/#como', label: 'Cómo funciona' },
   { href: '/planes', label: 'Planes' },
+  { href: '/feedback', label: 'Feedback' },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -166,9 +167,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 {item.label}
               </Link>
             ))}
-            <Link href="/feedback" className="rounded-sm hover:text-ink">
-              Feedback
-            </Link>
             {PROFILE.email && (
               <a href={`mailto:${PROFILE.email}`} className="rounded-sm hover:text-ink">
                 {PROFILE.email}
