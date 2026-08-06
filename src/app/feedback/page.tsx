@@ -5,7 +5,7 @@ import { currentUser } from '@/lib/supabase/server';
 export const metadata: Metadata = {
   title: 'Feedback · ModoJIT',
   description:
-    'El trato: lo pruebas, dejas tu feedback y te activo 3 meses gratis del plan básico. Solo para las primeras 10 personas.',
+    'El trato: lo pruebas, dejas tu feedback y te activo 3 meses gratis del plan Esencial. Solo para las primeras 10 personas.',
 };
 
 export const dynamic = 'force-dynamic';
@@ -31,11 +31,11 @@ export default async function FeedbackPage() {
             className="absolute inset-x-0 bottom-[0.1em] -z-10 h-[0.32em] bg-gold-soft"
           />
         </span>{' '}
-        del plan básico
+        del plan Esencial
       </h1>
       <p className="mt-5 max-w-[58ch] text-[17px] leading-relaxed text-muted">
         El trato: lo pruebas, dejas tu feedback en esta página, lo bueno y lo malo sin filtro,
-        y te activo 3 meses gratis del plan básico. Solo para las primeras 10 personas.
+        y te activo 3 meses gratis del plan Esencial. Solo para las primeras 10 personas.
       </p>
 
       <div className="mt-10">
