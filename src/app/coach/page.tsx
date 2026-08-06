@@ -97,11 +97,12 @@ export default async function CoachPickerPage() {
         className="group flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-lg border border-gold/35 bg-gold-soft/30 px-5 py-4 text-[15px] leading-relaxed text-ink/85 transition duration-200 ease-out hover:-translate-y-0.5 hover:border-gold/60"
       >
         <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-warning">
-          Beta
+          El trato
         </span>
         <span>
-          Cuéntanos qué te sirvió y qué cambiarías, y te activamos{' '}
-          <span className="font-semibold">seis meses de acceso completo gratis</span>.
+          Lo pruebas, dejas tu feedback y te activo{' '}
+          <span className="font-semibold">3 meses gratis del plan completo</span>. Solo para las
+          primeras 10 personas.
         </span>
         <span aria-hidden className="font-mono text-accent transition-transform duration-200 ease-out group-hover:translate-x-0.5">
           →

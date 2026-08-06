@@ -25,8 +25,9 @@ export function FeedbackForm({ defaultEmail = '' }: { defaultEmail?: string }) {
           Gracias. Tu feedback quedó guardado.
         </p>
         <p className="mt-2 text-[15px] leading-relaxed text-ink/80">
-          Te escribiremos a <span className="font-medium">{sentTo}</span> para activar tus seis
-          meses de acceso completo.
+          Si estás entre las primeras 10 personas, te escribiremos a{' '}
+          <span className="font-medium">{sentTo}</span> para activar tus 3 meses del plan
+          completo.
         </p>
       </div>
     );
@@ -83,7 +84,7 @@ export function FeedbackForm({ defaultEmail = '' }: { defaultEmail?: string }) {
           className="w-full rounded-md border border-field bg-surface px-3.5 py-2.5 text-[15px] text-ink transition-colors duration-150 ease-out placeholder:text-muted hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft"
         />
         <span className="mt-1.5 block text-[13px] text-soft">
-          A este correo llegan los seis meses de acceso. Revísalo antes de enviar.
+          A este correo llegan los 3 meses de acceso. Revísalo antes de enviar.
         </span>
       </label>
 
