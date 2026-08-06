@@ -13,7 +13,9 @@
  * here with no material behind it, which the coach answers from general
  * knowledge. Update this file whenever documents are ingested or deleted.
  */
-import type { CoachId } from './coaches';
+// Safe value import: `coaches.ts` takes only *types* from this module, so
+// there is no runtime cycle.
+import { findCoach, type CoachId } from './coaches';
 
 /**
  * Who arrives with this problem. Now a grouping *within* a coach rather than a
@@ -206,9 +208,24 @@ export const TOPICS: readonly Topic[] = [
   },
 ];
 
-/** This coach's topics, in catalog order. */
+/**
+ * This coach's topics, its own subject first.
+ *
+ * Catalog order puts the shared AI-tools topics at the top because they were
+ * written first — but on a coach's page that order buries the coach's actual
+ * subject under generic material, and the page reads as if the coach were
+ * about ChatGPT. `Coach.audiences` already declares the priority (own subject
+ * first, 'ia' last), so ordering by it keeps every coach leading with what it
+ * alone can answer. The sort is stable, so catalog order still decides within
+ * each group.
+ */
 export function topicsFor(coach: CoachId): Topic[] {
-  return TOPICS.filter((t) => t.coaches.includes(coach));
+  const audiences = findCoach(coach)?.audiences ?? [];
+  const rank = (t: Topic) => {
+    const i = audiences.indexOf(t.audience);
+    return i === -1 ? audiences.length : i;
+  };
+  return TOPICS.filter((t) => t.coaches.includes(coach)).sort((a, b) => rank(a) - rank(b));
 }
 
 /*
