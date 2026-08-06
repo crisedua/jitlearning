@@ -20,7 +20,7 @@ import type { CoachId } from './coaches';
  * filter across all of them — picking a coach already did most of the
  * separating a school director and a founder needed.
  */
-export type Audience = 'empresa' | 'colegio' | 'ia' | 'negocio';
+export type Audience = 'empresa' | 'colegio' | 'ia' | 'negocio' | 'proyectos';
 
 export interface Topic {
   title: string;
@@ -54,6 +54,7 @@ export const AUDIENCE_LABELS: Record<Audience, string> = {
   colegio: 'Implementar en el colegio',
   ia: 'Herramientas de IA',
   negocio: 'Montar el negocio',
+  proyectos: 'Dirigir proyectos',
 };
 
 export const TOPICS: readonly Topic[] = [
@@ -69,7 +70,7 @@ export const TOPICS: readonly Topic[] = [
     audience: 'ia',
     // `herramientas/` is attached to every coach, so its topics appear on every
     // coach's page.
-    coaches: ['estrategia', 'colegios', 'emprendedores'],
+    coaches: ['estrategia', 'colegios', 'emprendedores', 'proyectos'],
   },
   {
     title: 'Sacarle partido a un modelo',
@@ -81,7 +82,7 @@ export const TOPICS: readonly Topic[] = [
       '¿Subo el documento al proyecto o lo pego en el chat?',
     ],
     audience: 'ia',
-    coaches: ['estrategia', 'colegios', 'emprendedores'],
+    coaches: ['estrategia', 'colegios', 'emprendedores', 'proyectos'],
   },
   {
     title: 'Liderar con IA',
@@ -174,6 +175,34 @@ export const TOPICS: readonly Topic[] = [
     ],
     audience: 'negocio',
     coaches: ['emprendedores'],
+  },
+  {
+    title: 'Lo que exige dirigir proyectos con excelencia',
+    blurb:
+      'El mapa completo de competencias contra los estándares: dónde suelen estar los vacíos —criterio de negocio, personas, gobernanza— y qué dicen las cifras, con sus fechas.',
+    examples: [
+      '¿Qué le falta a mi formación para dirigir proyectos bien?',
+      '¿Por qué fracasan los proyectos, según los datos?',
+      '¿Qué es el Talent Triangle de PMI y por qué cambió?',
+      '¿Qué modelo sigo para gestionar el cambio: ADKAR o Kotter?',
+    ],
+    audience: 'proyectos',
+    coaches: ['proyectos'],
+    isNew: true,
+  },
+  {
+    title: 'Estándares y certificaciones: PMI, IPMA, PRINCE2, ISO',
+    blurb:
+      'Qué cubre cada marco global, en qué se diferencian, qué cambió en PRINCE2 7 (2023), y qué certificación conviene según el punto de la carrera.',
+    examples: [
+      '¿PMP, PRINCE2 o IPMA: cuál me sirve a mí?',
+      '¿Qué cambió en PRINCE2 7?',
+      '¿VAN o TIR para justificar un proyecto ante gerencia?',
+      '¿Cómo se mide la complejidad de un proyecto?',
+    ],
+    audience: 'proyectos',
+    coaches: ['proyectos'],
+    isNew: true,
   },
 ];
 
