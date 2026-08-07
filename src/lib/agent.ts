@@ -343,14 +343,14 @@ export async function provisionAgent(coach: Coach): Promise<string> {
         // hundred ms of latency, which the LLM turn dominates anyway. (The _v2
         // variants without the _5 are English-only; never use them here.)
         model_id: 'eleven_turbo_v2_5',
-        // Ana Sofía: the most accent-neutral female Spanish voice tested —
-        // built for conversational agents. Valentina before her was livelier
-        // but carried a noticeable Mexican accent; the male voice before that
-        // read as flat and robotic. The stock default is an English voice,
-        // which reads Spanish with an English accent. Any replacement must be
-        // a voice already added to the workspace's My Voices, or the agent
-        // silently keeps the old one.
-        voice_id: voiceId || 'ewn5JTa3lNPY8QVuZJi6',
+        // Ximena: mature, vibrant, neutral-Mexican female — a woman's voice
+        // with an upbeat delivery. The trail of predecessors is instructive:
+        // Ana Sofía was neutral but read as a girl to users, Valentina was
+        // lively but accented, the male voice before them flat and robotic.
+        // The stock default is an English voice, which reads Spanish with an
+        // English accent. Any replacement must be a voice already added to
+        // the workspace's My Voices, or the agent silently keeps the old one.
+        voice_id: voiceId || '22dcXdsgE2CBQsk9cnTY',
         // Below ElevenLabs' 0.5 default on purpose: stability is the
         // expressiveness lever, and at 0.5 this voice delivers an advisor's
         // pushback in a newsreader's flat cadence. 0.35 varies the prosody
