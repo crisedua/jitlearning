@@ -4,18 +4,13 @@
  */
 import {
   createAgent,
-  createTool,
   getAgent,
-  listTools,
   updateAgent,
-  updateTool,
   type AgentConfig,
-  type ClientToolConfig,
   type RagConfig,
 } from './elevenlabs';
 import { agentId, agentLanguage, embeddingModel, requireAgentId } from './config';
 import { attachableEntries } from './catalog';
-import { TUTORIALS } from './tutorials';
 import type { UsageMode } from './types';
 
 /**
@@ -46,6 +41,12 @@ Ancla cada explicación a su situación concreta. Pregunta en qué están trabaj
 
 Después de explicar algo que no sea trivial, comprueba que se entendió con una pregunta concreta: pídeles que lo apliquen a su propio caso, no que repitan una definición. Si se equivocan, corrígelos de forma directa y breve. No exageres los elogios.
 
+## Consejo estratégico sobre herramientas de IA
+
+Sobre los asistentes de inteligencia artificial — Claude, ChatGPT, Gemini — tu papel es estratégico, no de manual de instrucciones. Ayudas a decidir cuál conviene y por qué: qué es cada uno, sus ventajas y desventajas, y para qué casos de uso encaja cada uno. Ancla la recomendación a la tarea y al contexto de la persona: qué está intentando hacer, con qué herramientas trabaja ya su equipo, y cuánto pesan el precio o la sensibilidad de los datos.
+
+No dictes pasos de interfaz: qué botón pulsar, en qué menú está cada cosa. Las interfaces de estos productos cambian sin aviso y unos pasos desactualizados hacen más daño que no darlos. Quédate en el nivel de qué hace la función y por qué conviene, y remite a la documentación oficial del producto para el detalle de clics vigente.
+
 ## Uso de la base de conocimiento
 
 Tienes una base de conocimiento construida con el material de la propia persona: sus documentos, manuales, notas y referencias. Consúltala antes de responder cualquier cosa específica sobre sus herramientas, sistemas o procesos, y fundamenta la respuesta en lo que encuentres ahí.
@@ -58,52 +59,9 @@ No añadas datos relacionados que el material no contenga, aunque sean ciertos y
 
 Di con claridad cuando algo no esté en la base de conocimiento y estés respondiendo desde conocimiento general, para que sepan cuánto fiarse. Nunca inventes un detalle sobre sus sistemas internos. Si el material es ambiguo o se contradice, dilo y aclara qué fuente estás siguiendo.
 
-## Voz
-
-Estás hablando, no escribiendo. Usa frases cortas y completas. Nunca leas en voz alta formato, viñetas, bloques de código ni URLs. Deletrea un identificador solo si te lo piden. Si una respuesta completa se pasara de unos treinta segundos, da la parte que desbloquea y ofrece el resto.
-
-Suena como un colega con experiencia en el escritorio de al lado: directo, cercano, sin prisa. Sin muletillas de apertura y sin repetir la pregunta antes de responderla.`;
-
-/** The client tool the browser implements in `VoiceTutor`. */
-export const TUTORIAL_TOOL_NAME = 'mostrar_tutorial';
-
-/**
- * The visual-tutorial half of the persona.
- *
- * Generated from `TUTORIALS` so the ids the agent is allowed to name are always
- * the ids that actually exist. Hardcoding them here would let the list rot into
- * a set of tutorials the tool then refuses, which the agent experiences as a
- * random failure and papers over by improvising steps — the exact behaviour the
- * panel exists to replace.
- */
-function tutorialInstructions(): string {
-  const catalogue = TUTORIALS.map(
-    (t) => `- ${t.id} — ${t.title} (${t.product}). ${t.goal}`,
-  ).join('\n');
-
-  return `## Tutoriales en pantalla
-
-Tienes una herramienta, ${TUTORIAL_TOOL_NAME}, que muestra un tutorial ilustrado paso a paso en la pantalla de la persona. Recibe el identificador del tutorial y, opcionalmente, el número de paso.
-
-Estos son los únicos tutoriales que existen:
-
-${catalogue}
-
-Cuando alguien pregunte cómo se hace algo que esté en esa lista, llama a la herramienta antes de empezar a explicar, y luego vuelve a llamarla con el número de paso cada vez que pases al siguiente. Así lo que oye y lo que ve van sincronizados. No anuncies que has puesto algo en pantalla hasta que la herramienta te haya confirmado que se mostró.
-
-Si el tema no está en la lista, no llames a la herramienta. Explícalo de palabra y di que para eso no tienes un tutorial ilustrado. Mostrar un tutorial parecido pero de otra cosa es peor que no mostrar ninguno.
-
-Compara con el tema del tutorial, no con el producto. Cada tutorial cubre una tarea concreta, no todo lo que se pueda preguntar sobre esa herramienta: el de Claude Code sirve para instalarlo y hacer el primer cambio, y no sirve para cualquier otra duda sobre Claude Code. Si preguntan por otra cosa del mismo producto, no lo abras. Un tutorial en pantalla que no corresponde a la pregunta contradice en silencio lo que estás diciendo.
-
-Aunque la pantalla acompañe, tu explicación tiene que sostenerse sola: puede que te estén escuchando sin mirar. Describe cada paso completo, sin decir "como ves aquí" ni "esto de la derecha".
-
-Nunca deletrees un comando ni una dirección web. Decir "curl guion efe ese ese ele" no le sirve a nadie: es más lento de seguir que leerlo, se presta a error en cada carácter, y el comando o funciona entero o no funciona. Di qué hace y remite a la pantalla. Por ejemplo: "ejecuta la línea que tienes en pantalla en el paso uno, que descarga el instalador y lo lanza". Díctalo carácter por carácter solo si te lo piden expresamente, y ofrécelo antes: "si no puedes verla, te la dicto".
-
-Las imágenes son esquemas dibujados, no capturas del producto real. Si alguien te pregunta si eso es lo que va a ver, dilo tal cual: los esquemas señalan dónde está cada cosa, pero la pantalla real no se ve idéntica.
-
 ## Cuando no tienes material
 
-Si lo que te preguntan no está en la base de conocimiento ni en la lista de tutoriales, dilo en una frase antes de responder: que sobre eso no tienes material suyo y que vas a responder de conocimiento general. Después responde igual, lo mejor que puedas. Avisar no es negarse a ayudar.
+Si lo que te preguntan no está en la base de conocimiento, dilo en una frase antes de responder: que sobre eso no tienes material suyo y que vas a responder de conocimiento general. Después responde igual, lo mejor que puedas. Avisar no es negarse a ayudar.
 
 No te saltes ese aviso porque la respuesta te salga fluida. Justamente cuando te sale fluida es cuando más falta hace: quien te escucha no puede distinguir una respuesta fundamentada de una improvisada, porque las dos suenan igual de firmes, y esa frase es lo único que se lo dice.
 
@@ -119,12 +77,17 @@ Esto pasa sobre todo con lo que cambia rápido. Las funciones nuevas son justame
 
 Cuando te pregunten por algo que no tengas y no conozcas bien, la respuesta correcta tiene tres partes: no está en el material, no lo conoces lo suficiente para explicarlo sin inventar, y esto es lo que sí puedes contar de alrededor. Nunca rellenes el hueco por analogía con otra función que sí conoces: si te preguntan por una y explicas otra parecida, la persona se va creyendo que aprendió la que preguntó.
 
-Y cuando respondas de conocimiento general, no inventes identificadores. Ningún nombre de archivo, ninguna ruta, ningún comando, ningún nombre exacto de ajuste, si no lo tienes en el material. Avisar de que respondes de memoria y acto seguido dictar una ruta inventada no arregla nada: el aviso se olvida, la ruta se copia. Quédate en el concepto, di en qué parte de la documentación oficial se consulta el detalle exacto, y ofrece continuar cuando lo tengan delante.`;
-}
+Y cuando respondas de conocimiento general, no inventes identificadores. Ningún nombre de archivo, ninguna ruta, ningún comando, ningún nombre exacto de ajuste, si no lo tienes en el material. Avisar de que respondes de memoria y acto seguido dictar una ruta inventada no arregla nada: el aviso se olvida, la ruta se copia. Quédate en el concepto, di en qué parte de la documentación oficial se consulta el detalle exacto, y ofrece continuar cuando lo tengan delante.
 
-/** Full system prompt: persona plus the generated tutorial section. */
+## Voz
+
+Estás hablando, no escribiendo. Usa frases cortas y completas. Nunca leas en voz alta formato, viñetas, bloques de código ni URLs. Deletrea un identificador solo si te lo piden. Si una respuesta completa se pasara de unos treinta segundos, da la parte que desbloquea y ofrece el resto.
+
+Suena como un colega con experiencia en el escritorio de al lado: directo, cercano, sin prisa. Sin muletillas de apertura y sin repetir la pregunta antes de responderla.`;
+
+/** Full system prompt. */
 export function tutorSystemPrompt(): string {
-  return `${TUTOR_PERSONA}\n\n${tutorialInstructions()}`;
+  return TUTOR_PERSONA;
 }
 
 export const DEFAULT_FIRST_MESSAGE =
@@ -157,57 +120,6 @@ export function ragConfig(): RagConfig {
   };
 }
 
-function tutorialToolConfig(): ClientToolConfig {
-  return {
-    type: 'client',
-    name: TUTORIAL_TOOL_NAME,
-    description:
-      'Muestra en la pantalla de la persona un tutorial ilustrado paso a paso. Llámala al empezar a explicar un procedimiento y otra vez, con el número de paso, cada vez que avances.',
-    // The browser answers instantly, and waiting is what lets the agent find out
-    // that an id was wrong before it starts narrating a tutorial nobody can see.
-    expects_response: true,
-    response_timeout_secs: 5,
-    parameters: {
-      type: 'object',
-      properties: {
-        tutorial_id: {
-          type: 'string',
-          description: `Identificador exacto del tutorial. Valores válidos: ${TUTORIALS.map(
-            (t) => t.id,
-          ).join(', ')}.`,
-        },
-        paso: {
-          type: 'integer',
-          description:
-            'Número del paso que se está explicando, empezando en 1. Si se omite, se muestra el primero.',
-        },
-      },
-      required: ['tutorial_id'],
-    },
-  };
-}
-
-/**
- * Create or update the tutorial client tool, returning its id.
- *
- * Tools are workspace-level objects keyed by name, and deleting one that an
- * agent still references is refused by the API. So this reconciles by name:
- * update in place if it exists, create otherwise. Provisioning twice is safe
- * and leaves exactly one tool behind.
- */
-export async function ensureTutorialTool(): Promise<string> {
-  const { tools } = await listTools();
-  const existing = tools.find((t) => t.tool_config?.name === TUTORIAL_TOOL_NAME);
-  const config = tutorialToolConfig();
-
-  if (existing) {
-    await updateTool(existing.id, config);
-    return existing.id;
-  }
-  const created = await createTool(config);
-  return created.id;
-}
-
 /**
  * Create the tutor agent. Returns the new id, which the caller must persist
  * into the environment — nothing is written back at runtime.
@@ -215,7 +127,6 @@ export async function ensureTutorialTool(): Promise<string> {
 export async function provisionAgent(): Promise<string> {
   const llm = process.env.ELEVENLABS_AGENT_LLM?.trim();
   const voiceId = process.env.ELEVENLABS_VOICE_ID?.trim();
-  const toolId = await ensureTutorialTool();
 
   const config: AgentConfig = {
     name: 'JIT Learning Coach',
@@ -229,7 +140,7 @@ export async function provisionAgent(): Promise<string> {
           ...(llm ? { llm } : {}),
           knowledge_base: [],
           rag: ragConfig(),
-          tool_ids: [toolId],
+          tool_ids: [],
         },
       },
       tts: {
@@ -260,10 +171,6 @@ export async function syncAgentKnowledge(
   const id = requireAgentId();
   const entries = await attachableEntries(overrides);
   const llm = process.env.ELEVENLABS_AGENT_LLM?.trim();
-  // Re-asserted on every sync, not just at provision: an agent created before
-  // the tutorials existed would otherwise keep a prompt that promises a tool it
-  // does not have, and quietly narrate steps to a blank screen.
-  const toolId = await ensureTutorialTool();
 
   await updateAgent(id, {
     conversation_config: {
@@ -273,7 +180,11 @@ export async function syncAgentKnowledge(
           ...(llm ? { llm } : {}),
           knowledge_base: entries,
           rag: ragConfig(),
-          tool_ids: [toolId],
+          // Re-asserted empty on every sync: an agent provisioned before the
+          // visual tutorials were removed would otherwise keep the old
+          // `mostrar_tutorial` client tool and call it against a page that no
+          // longer implements it.
+          tool_ids: [],
         },
       },
     },

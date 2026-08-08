@@ -20,29 +20,18 @@ export interface Topic {
   blurb: string;
   /** Real questions the corpus can answer. They double as tappable prompts. */
   examples: string[];
-  /** True when the coach can also open an illustrated step-by-step panel. */
-  illustrated?: boolean;
 }
 
 export const TOPICS: readonly Topic[] = [
   {
-    title: 'Usar Claude y ChatGPT paso a paso',
+    title: 'Elegir entre Claude, ChatGPT y Gemini',
     blurb:
-      'Proyectos en Claude, Cowork sobre tus archivos, instalar Claude Code, y Proyectos en ChatGPT.',
-    illustrated: true,
-    examples: [
-      '¿Cómo subo mis documentos a un Proyecto de Claude?',
-      '¿Cómo instalo Claude Code?',
-      '¿Qué hace Cowork con mis archivos?',
-      '¿Cómo creo un Proyecto en ChatGPT?',
-    ],
-  },
-  {
-    title: 'Elegir entre asistentes de IA',
-    blurb: 'En qué se diferencian ChatGPT, Claude y Gemini, y cuál conviene para cada tarea.',
+      'Qué es cada asistente, sus ventajas y desventajas, y cuál conviene para cada tarea, equipo y presupuesto.',
     examples: [
       '¿Cuál me conviene para escribir documentos largos?',
       '¿En qué se diferencian Claude y ChatGPT?',
+      '¿Cuándo tiene sentido elegir Gemini?',
+      'Mi equipo vive en Google Workspace, ¿qué asistente nos conviene?',
     ],
   },
   {

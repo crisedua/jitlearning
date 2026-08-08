@@ -51,9 +51,9 @@ export const CAPABILITIES = [
     icon: 'book',
   },
   {
-    title: 'Te lo enseña en pantalla',
-    body: 'Para los procedimientos que tiene documentados abre un tutorial ilustrado y va pasando los pasos mientras habla, así lo que oyes y lo que ves van sincronizados.',
-    icon: 'screen',
+    title: 'Te ayuda a elegir herramienta',
+    body: 'Sobre Claude, ChatGPT y Gemini aconseja en el nivel que no caduca: qué es cada uno, sus ventajas y desventajas, y cuál conviene para tu tarea y tu equipo.',
+    icon: 'compass',
   },
 ] as const;
 

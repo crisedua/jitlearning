@@ -6,7 +6,7 @@ import { CAPABILITIES, PROFILE, STEPS, hasContact } from '@/lib/site';
 export const metadata = {
   title: 'ModoJIT · Un coach que responde a lo que te bloquea ahora',
   description:
-    'Coach de voz de aprendizaje justo a tiempo: responde la pregunta que te tiene atascado, apoyado en material real, y te lo enseña paso a paso en pantalla.',
+    'Coach de voz de aprendizaje justo a tiempo: responde la pregunta que te tiene atascado, apoyado en material real, y te avisa cuando no tiene fuentes.',
 };
 
 /** Two passes of the same list, so the marquee wraps without a visible seam. */
@@ -149,14 +149,7 @@ export default function HomePage() {
               style={{ animationRange: `entry 0% entry ${55 + (i % 3) * 10}%` }}
               className="reveal flex flex-col rounded-lg border border-line bg-surface p-6 transition duration-300 ease-out hover:-translate-y-1.5 hover:border-accent/35 hover:shadow-md"
             >
-              <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-semibold tracking-[-0.01em]">
-                {topic.title}
-                {topic.illustrated && (
-                  <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-accent-hover">
-                    con pantalla
-                  </span>
-                )}
-              </h3>
+              <h3 className="text-base font-semibold tracking-[-0.01em]">{topic.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted">{topic.blurb}</p>
               <p className="mt-auto border-t border-line pt-3 text-[13px] leading-relaxed text-soft">
                 <span className="font-medium text-ink">Por ejemplo:</span> «{topic.examples[0]}»
