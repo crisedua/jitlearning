@@ -386,6 +386,11 @@ export async function syncAgentKnowledge(
   const entries = await attachableEntries(coach, overrides);
   const llm = process.env.ELEVENLABS_AGENT_LLM?.trim();
 
+  // Read before write: the whole prompt block goes out in one PATCH, so
+  // anything not carried forward here is erased.
+  const live = await getAgent(id);
+  const toolIds = live.conversation_config.agent.prompt.tool_ids ?? [];
+
   await updateAgent(id, {
     conversation_config: {
       agent: {
@@ -394,11 +399,18 @@ export async function syncAgentKnowledge(
           ...(llm ? { llm } : {}),
           knowledge_base: entries,
           rag: ragConfig(),
-          // Emptied deliberately: the agent has no client tools. Omitting the
-          // key would leave a stale tool attached on an agent provisioned
-          // earlier, and it would keep firing at a browser that no longer
-          // implements it.
-          tool_ids: [],
+          /*
+           * Carried over, not cleared.
+           *
+           * This used to be hardcoded to `[]`, which was right while no coach
+           * had tools: it swept away a stale client tool that would otherwise
+           * keep firing at a browser no longer implementing it. Once the
+           * founder coach gained a real server tool, that same line silently
+           * detached it on the next knowledge sync — the tool survived being
+           * registered and then vanished the first time a document changed.
+           * Tools are owned by `setup:tools`; this write must leave them alone.
+           */
+          tool_ids: toolIds,
         },
       },
     },
