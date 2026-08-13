@@ -92,8 +92,11 @@ export function RadarLlmButton({ disponible }: { disponible: boolean }) {
       </div>
 
       <p className="text-[13px] leading-relaxed text-soft">
-        Tarda alrededor de 2 minutos: la IA hace 10–12 búsquedas web reales, verifica cada URL y
-        descarta lo que no pasa la compuerta de evidencia. No cierres la página mientras corre.
+        Tarda 2 o 3 minutos: cuatro escaneos en paralelo —cobros, seguimiento, cumplimiento y
+        conseguir clientes— con unas 40 búsquedas web reales entre todos, verificando cada URL y
+        descartando lo que no pasa la compuerta de evidencia. Cuesta alrededor de US$0,60 por
+        corrida. No cierres la página mientras corre, y apriétalo varias veces: cada corrida sabe
+        lo que ya encontró y busca cosas nuevas.
       </p>
 
       {result && (

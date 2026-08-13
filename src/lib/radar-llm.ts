@@ -66,7 +66,9 @@ Foros de dueños de negocio: en inglés r/smallbusiness, r/sweatystartup, r/msp,
 
 ## Cómo buscar
 
-Presupuesto máximo: 12 búsquedas web. Haz búsquedas amplias y extrae varios dolores de cada una. Varía las frases en ambos idiomas: "no me pagan las facturas", "llevo el control en excel", "pago a alguien para que", "sick of chasing invoices", "how do you keep track of", "is there a tool for". Si una fuente o frase no da nada en dos intentos, cambia de fuente o reformula; no insistas.
+Presupuesto: entre 8 y 14 búsquedas web. Haz búsquedas amplias y exprime cada una: de un hilo con veinte comentarios pueden salir tres o cuatro dolores distintos, y esa es la forma barata de encontrar volumen. Varía las frases en ambos idiomas: "no me pagan las facturas", "llevo el control en excel", "pago a alguien para que", "sick of chasing invoices", "how do you keep track of", "is there a tool for". Si una fuente o frase no da nada en dos intentos, cambia de fuente o reformula; no insistas.
+
+Apunta a 12 dolores o más. Menos de 8 significa que dejaste búsquedas sin usar o que descartaste demasiado rápido: vuelve a buscar con otras palabras antes de darte por vencido.
 
 ## Regla de evidencia (la más importante)
 
@@ -78,7 +80,7 @@ Si encuentras menos de 8 dolores verificables, entrégalos y di cuántos faltaro
 
 ## Diversidad
 
-Máximo 2 dolores por nicho o rubro. Cubre al menos 5 nichos distintos, incluyendo alguno no obvio.
+Máximo 3 dolores por nicho o rubro. Cubre al menos 5 nichos distintos, incluyendo alguno no obvio: no todo es software y agencias — hay talleres, consultas médicas, transporte, arriendos, gimnasios, ferreterías, colegios, agricultura.
 
 ## Cómo respondes
 
@@ -96,6 +98,39 @@ Lista numerada [1]..[N]. Por cada dolor:
 - SEÑALES: cuáles de las cinco señales muestra.`;
 
 /**
+ * The territories a sweep covers, run as separate concurrent scans.
+ *
+ * One scan with one framing kept returning the same handful of pains: a
+ * search budget spent on "clientes que no pagan" never reaches the person
+ * drowning in a compliance deadline, because the model follows its first
+ * thread. Splitting the budget across angles and running them at once
+ * multiplies the yield for the same wall-clock — the calls are independent,
+ * and the curation pass dedupes by URL afterwards anyway.
+ */
+const ANGLES: { id: string; brief: string }[] = [
+  {
+    id: 'cobros',
+    brief:
+      'Concéntrate en el dinero que ya se ganó y no llega: facturas impagas, clientes morosos, perseguir el cobro, adelantar impuestos de plata no cobrada, comisiones y demoras bancarias.',
+  },
+  {
+    id: 'seguimiento',
+    brief:
+      'Concéntrate en llevar el negocio a mano: planillas monstruosas, seguimiento de clientes y pedidos, inventario, agendas, presupuestos que se pierden, cosas que se olvidan porque están en la cabeza o en tres herramientas distintas.',
+  },
+  {
+    id: 'cumplimiento',
+    brief:
+      'Concéntrate en obligaciones con fecha y multa: impuestos y declaraciones, facturación electrónica, registro de jornada, certificados y documentos que vencen, papeleo con el Estado, contratos y temas laborales.',
+  },
+  {
+    id: 'conversion',
+    brief:
+      'Concéntrate en conseguir y atender clientes: no dar abasto respondiendo mensajes por WhatsApp o redes, cotizar y que no respondan, marketing que no convierte, conseguir los primeros clientes, precios.',
+  },
+];
+
+/**
  * The user turn: an order to execute, not a briefing.
  *
  * The first production run failed on exactly this. The turn was nothing but
@@ -106,8 +141,10 @@ Lista numerada [1]..[N]. Por cada dolor:
  * with no complaints in it. The imperative first line, and the ban on
  * announcing intent, are what turn the same prompt into work.
  */
-function scanTask(scope: RadarScope): string {
+function scanTask(scope: RadarScope, angle: { id: string; brief: string }): string {
   return `Ejecuta el escaneo ahora. Empieza por hacer búsquedas web reales de inmediato — no describas lo que vas a hacer, no pidas confirmación, no propongas un plan. Tu respuesta debe ser el informe de dolores encontrados, con sus citas y URLs.
+
+ÁNGULO DE ESTA CORRIDA: ${angle.brief}
 
 ${scopeBlock(scope)}`;
 }
@@ -306,19 +343,44 @@ export async function runRadarLlm(opts: {
   log('Preparando memoria de exclusión…');
   const exclusions = await exclusionBlock();
 
-  log(`Etapa 1/2: escaneo con búsqueda web (${RADAR_SCOPES[opts.scope]})…`);
-  const scan = await createResponse({
-    instructions: SCAN_SYSTEM,
-    input: scanTask(opts.scope) + exclusions,
-    webSearch: true,
-    requireTool: true,
-    reasoningEffort: 'low',
-    timeoutMs: 150_000,
-  });
-  log(`  informe de ${scan.text.length} caracteres, ${scan.webSearches} búsquedas web`);
+  log(
+    `Etapa 1/2: ${ANGLES.length} escaneos en paralelo (${RADAR_SCOPES[opts.scope]})…`,
+  );
+  /*
+   * Concurrent, and tolerant of a partial failure: one angle timing out
+   * should cost its share of the findings, not the whole run. Settled rather
+   * than all-or-nothing for exactly that reason.
+   */
+  const settled = await Promise.allSettled(
+    ANGLES.map((angle) =>
+      createResponse({
+        instructions: SCAN_SYSTEM,
+        input: scanTask(opts.scope, angle) + exclusions,
+        webSearch: true,
+        requireTool: true,
+        reasoningEffort: 'low',
+        timeoutMs: 150_000,
+      }).then((r) => ({ angle, ...r })),
+    ),
+  );
+
+  type Scan = Awaited<ReturnType<typeof createResponse>> & { angle: (typeof ANGLES)[number] };
+  const scans = settled
+    .filter((s): s is PromiseFulfilledResult<Scan> => s.status === 'fulfilled')
+    .map((s) => s.value);
+
+  for (const s of settled) {
+    if (s.status === 'rejected') {
+      const message = s.reason instanceof Error ? s.reason.message : String(s.reason);
+      notes.push(`Un ángulo del escaneo falló: ${message}`);
+    }
+  }
+  for (const s of scans) {
+    log(`  · ${s.angle.id}: ${s.webSearches} búsquedas, ${s.text.length} caracteres`);
+  }
 
   /*
-   * A scan that searched nothing is a failed run, not an empty one.
+   * A sweep that searched nothing is a failed run, not an empty one.
    *
    * The first production run reported "0 señales · US$0.03" and looked like a
    * quiet market. It was not: the model had replied with a *plan* to search
@@ -326,19 +388,24 @@ export async function runRadarLlm(opts: {
    * that plan into zero rows. Failing here makes the difference between "no
    * pains out there" and "the search never ran" impossible to confuse.
    */
-  if (scan.webSearches === 0) {
+  const totalSearches = scans.reduce((n, s) => n + s.webSearches, 0);
+  if (scans.length === 0 || totalSearches === 0) {
     throw new Error(
-      'El escaneo no hizo ninguna búsqueda web: el modelo respondió con un plan en vez de buscar. ' +
+      'Ningún escaneo hizo búsquedas web: el modelo respondió con un plan en vez de buscar. ' +
         'No se escribió nada. Vuelve a intentarlo.',
     );
   }
 
-  log('Etapa 2/2: curaduría a datos estructurados…');
+  const combined = scans
+    .map((s) => `## Ángulo: ${s.angle.id}\n\n${s.text}`)
+    .join('\n\n---\n\n');
+
+  log(`Etapa 2/2: curaduría de ${scans.length} informes…`);
   const curatedRaw = await createResponse({
     instructions: CURATE_SYSTEM,
-    input: scan.text,
+    input: combined,
     reasoningEffort: 'medium',
-    timeoutMs: 60_000,
+    timeoutMs: 120_000,
     jsonSchema: RADAR_JSON_SCHEMA,
   });
 
@@ -401,11 +468,14 @@ export async function runRadarLlm(opts: {
   }));
 
   const usage = {
-    inputTokens: scan.usage.input_tokens + curatedRaw.usage.input_tokens,
-    outputTokens: scan.usage.output_tokens + curatedRaw.usage.output_tokens,
-    webSearches: scan.webSearches,
+    inputTokens:
+      scans.reduce((n, s) => n + s.usage.input_tokens, 0) + curatedRaw.usage.input_tokens,
+    outputTokens:
+      scans.reduce((n, s) => n + s.usage.output_tokens, 0) + curatedRaw.usage.output_tokens,
+    webSearches: totalSearches,
     estimatedUsd:
-      estimateUsd(scan.usage, scan.webSearches) + estimateUsd(curatedRaw.usage, 0),
+      scans.reduce((n, s) => n + estimateUsd(s.usage, s.webSearches), 0) +
+      estimateUsd(curatedRaw.usage, 0),
   };
 
   return { signals, dropped, notes, usage };
