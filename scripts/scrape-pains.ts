@@ -121,7 +121,7 @@ async function collect(
  * or a fresh database — starts with evidence instead of an empty table. They
  * are already curated, so they go straight in without passing the filter again.
  */
-const SEED_PATH = 'scripts/pains-seed.json';
+const SEED_PATH = 'src/lib/pains-seed.json';
 
 async function seed(dry: boolean): Promise<void> {
   const signals = JSON.parse(await readFile(SEED_PATH, 'utf8')) as PainSignal[];
