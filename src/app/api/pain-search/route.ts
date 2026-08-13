@@ -58,47 +58,84 @@ export async function GET(req: Request) {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    /*
-     * `websearch` parsing rather than `plain`: the coach passes whatever the
-     * learner said ("cobros a clientes que no pagan"), and websearch mode
-     * treats that as terms to AND rather than as one literal phrase that would
-     * match nothing.
-     */
-    let query = supabase
-      .from('pain_signals')
-      .select('title, excerpt, community, country, lang, url, captured_at, score')
-      .textSearch('search', q, { type: 'websearch', config: 'spanish' })
-      .order('score', { ascending: false, nullsFirst: false })
-      .limit(LIMIT);
+    const COLUMNS = 'title, excerpt, community, country, lang, url, captured_at, score';
+    type Row = {
+      title: string;
+      excerpt: string;
+      community: string | null;
+      country: string | null;
+      lang: string | null;
+      url: string;
+      captured_at: string;
+      score: number | null;
+    };
 
-    if (country) query = query.eq('country', country);
-
-    const { data, error } = await query;
-    if (error) {
-      console.error('[pain-search] query failed:', error.message);
-      return NextResponse.json({ results: [], note: 'La búsqueda falló. Sigue sin ella.' });
-    }
-
-    const rows = data ?? [];
-
-    /*
-     * When a country filter finds nothing, say so and fall back rather than
-     * returning an empty list. "No tengo nada de Chile sobre esto, pero de
-     * otros mercados sí" is a useful sentence; silence reads as "no existe",
-     * which is the failure the persona is written to avoid.
-     */
-    let note: string | undefined;
-    let results = rows;
-    if (country && rows.length === 0) {
-      const wider = await supabase
+    async function search(term: string, filterCountry: string | null): Promise<Row[]> {
+      let query = supabase
         .from('pain_signals')
-        .select('title, excerpt, community, country, lang, url, captured_at, score')
-        .textSearch('search', q, { type: 'websearch', config: 'spanish' })
+        .select(COLUMNS)
+        .textSearch('search', term, { type: 'websearch', config: 'spanish' })
         .order('score', { ascending: false, nullsFirst: false })
         .limit(LIMIT);
-      results = wider.data ?? [];
+      if (filterCountry) query = query.eq('country', filterCountry);
+      const { data, error } = await query;
+      if (error) throw new Error(error.message);
+      return (data ?? []) as Row[];
+    }
+
+    /*
+     * Any of the words, not all of them.
+     *
+     * `websearch_to_tsquery` ANDs bare terms, and the coach passes whole
+     * phrases — "cobros a clientes que no pagan". Measured against the live
+     * table: "cobros" found 1 row, "clientes" found 2, and "cobros clientes"
+     * found none, because no single row happened to contain both stems. The
+     * OR form is what a search over a few dozen short excerpts actually needs.
+     */
+    const orTerm = q
+      .split(/\s+/)
+      .filter((w) => w.length > 2)
+      .join(' OR ');
+
+    /*
+     * Precision first, then recall, and say which one answered. Each step
+     * widens exactly one dimension so the note can stay truthful about what
+     * was relaxed.
+     */
+    let note: string | undefined;
+    let results = await search(q, country);
+
+    if (results.length === 0 && orTerm && orTerm !== q) {
+      results = await search(orTerm, country);
+    }
+    if (results.length === 0 && country) {
+      results = await search(orTerm || q, null);
       if (results.length > 0) {
         note = `Sin registros de ${country} sobre esto. Lo que sigue es de otros mercados: el problema puede parecerse, pero la normativa y los plazos no.`;
+      }
+    }
+
+    /*
+     * Last resort: the strongest pains on record, whatever the topic.
+     *
+     * "Búscame un dolor para empezar" is a legitimate request from somebody
+     * with no idea yet, and the coach turns it into a topic query — one real
+     * session asked for "aplicaciones web software" and got nothing, because
+     * the radar holds invoicing and admin pains, not web-app pains. Answering
+     * "no hay nada" there is technically true and practically useless: the
+     * radar was full, just not of that. Handing back the top-scored rows with
+     * a note that they are off-topic keeps the conversation moving and lets
+     * the coach say honestly where they came from.
+     */
+    if (results.length === 0) {
+      const { data } = await supabase
+        .from('pain_signals')
+        .select(COLUMNS)
+        .order('score', { ascending: false, nullsFirst: false })
+        .limit(LIMIT);
+      results = (data ?? []) as Row[];
+      if (results.length > 0) {
+        note = `Nada específico sobre "${q}" en el radar. Lo que sigue son los dolores más fuertes que sí tengo registrados, sobre otros temas: dilo así al contarlos, y úsalos para mostrar qué forma tiene un dolor que la gente sí paga por resolver.`;
       }
     }
 
