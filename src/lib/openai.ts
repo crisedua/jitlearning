@@ -69,6 +69,12 @@ export interface CreateResponseOptions {
   maxOutputTokens?: number;
   /** Structured output: forces the reply to validate against this schema. */
   jsonSchema?: { name: string; schema: Record<string, unknown> };
+  /**
+   * Force at least one tool call before answering. Without it, the first
+   * production run answered with a *plan* to search ("Sí, procede: inicia
+   * hasta 12 búsquedas…") and never touched the web — $0.03, zero findings.
+   */
+  requireTool?: boolean;
   /** Per-attempt deadline. Retries get the same budget again. */
   timeoutMs?: number;
 }
@@ -113,7 +119,12 @@ export async function createResponse(opts: CreateResponseOptions): Promise<Respo
     instructions: opts.instructions,
     input: opts.input,
     max_output_tokens: opts.maxOutputTokens ?? 32_000,
-    ...(opts.webSearch ? { tools: [{ type: 'web_search' }] } : {}),
+    ...(opts.webSearch
+      ? {
+          tools: [{ type: 'web_search' }],
+          ...(opts.requireTool ? { tool_choice: 'required' as const } : {}),
+        }
+      : {}),
     ...(opts.reasoningEffort ? { reasoning: { effort: opts.reasoningEffort } } : {}),
     ...(opts.jsonSchema
       ? {

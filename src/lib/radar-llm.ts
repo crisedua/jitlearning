@@ -80,6 +80,10 @@ Si encuentras menos de 8 dolores verificables, entrégalos y di cuántos faltaro
 
 Máximo 2 dolores por nicho o rubro. Cubre al menos 5 nichos distintos, incluyendo alguno no obvio.
 
+## Cómo respondes
+
+Buscas primero y respondes después. No anuncias lo que vas a hacer, no pides permiso, no propones un plan de búsqueda: haces las búsquedas y entregas el informe. Tu respuesta empieza directamente con el primer dolor encontrado.
+
 ## Formato de salida
 
 Lista numerada [1]..[N]. Por cada dolor:
@@ -90,6 +94,23 @@ Lista numerada [1]..[N]. Por cada dolor:
 - IDIOMA: es o en.
 - PAIS: código de dos letras SOLO si la fuente lo declara o la comunidad es de ese país (r/chile → CL). Si no, escribe "desconocido". Nunca lo deduzcas del idioma.
 - SEÑALES: cuáles de las cinco señales muestra.`;
+
+/**
+ * The user turn: an order to execute, not a briefing.
+ *
+ * The first production run failed on exactly this. The turn was nothing but
+ * configuration — scope rules and an exclusion list — so the model treated it
+ * as a proposal to evaluate and replied "Sí, procede: inicia hasta 12
+ * búsquedas…", which is a perfectly sensible answer to a question nobody meant
+ * to ask. It cost three cents, made zero searches, and looked like a market
+ * with no complaints in it. The imperative first line, and the ban on
+ * announcing intent, are what turn the same prompt into work.
+ */
+function scanTask(scope: RadarScope): string {
+  return `Ejecuta el escaneo ahora. Empieza por hacer búsquedas web reales de inmediato — no describas lo que vas a hacer, no pidas confirmación, no propongas un plan. Tu respuesta debe ser el informe de dolores encontrados, con sus citas y URLs.
+
+${scopeBlock(scope)}`;
+}
 
 function scopeBlock(scope: RadarScope): string {
   switch (scope) {
@@ -288,12 +309,29 @@ export async function runRadarLlm(opts: {
   log(`Etapa 1/2: escaneo con búsqueda web (${RADAR_SCOPES[opts.scope]})…`);
   const scan = await createResponse({
     instructions: SCAN_SYSTEM,
-    input: scopeBlock(opts.scope) + exclusions,
+    input: scanTask(opts.scope) + exclusions,
     webSearch: true,
+    requireTool: true,
     reasoningEffort: 'low',
     timeoutMs: 150_000,
   });
   log(`  informe de ${scan.text.length} caracteres, ${scan.webSearches} búsquedas web`);
+
+  /*
+   * A scan that searched nothing is a failed run, not an empty one.
+   *
+   * The first production run reported "0 señales · US$0.03" and looked like a
+   * quiet market. It was not: the model had replied with a *plan* to search
+   * instead of searching, and every downstream stage faithfully processed
+   * that plan into zero rows. Failing here makes the difference between "no
+   * pains out there" and "the search never ran" impossible to confuse.
+   */
+  if (scan.webSearches === 0) {
+    throw new Error(
+      'El escaneo no hizo ninguna búsqueda web: el modelo respondió con un plan en vez de buscar. ' +
+        'No se escribió nada. Vuelve a intentarlo.',
+    );
+  }
 
   log('Etapa 2/2: curaduría a datos estructurados…');
   const curatedRaw = await createResponse({
