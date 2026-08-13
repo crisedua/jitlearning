@@ -42,7 +42,7 @@ export default async function CoachPickerPage() {
   if (!user) redirect(signInPath('/coach'));
 
   const [balance, commitment] = await Promise.all([
-    getUsageBalance(user.id),
+    getUsageBalance(user.id, user.email),
     openCommitment(user.id),
   ]);
 

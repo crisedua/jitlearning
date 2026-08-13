@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
      * billable passes through this mint, so this is the one place a limit
      * means anything.
      */
-    const allowance = await checkPlanAllowance(user.id);
+    const allowance = await checkPlanAllowance(user.id, user.email);
     if (!allowance.allowed) {
       return NextResponse.json({ error: allowance.error }, { status: 403 });
     }

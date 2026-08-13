@@ -56,7 +56,7 @@ export default async function CoachSessionPage({
   // Only the agent id is read here — the document list is behind the ingest
   // secret, so this page must not try to fetch it.
   const configured = Boolean(agentId(coach));
-  const balance = await getUsageBalance(user.id);
+  const balance = await getUsageBalance(user.id, user.email);
 
   return (
     <div className="mx-auto max-w-[96rem] space-y-8 px-6 py-10">

@@ -15,6 +15,7 @@
 import type { User } from '@supabase/supabase-js';
 import { createClient } from './supabase/server';
 import { serviceConfigured, supabaseAdmin } from './supabase/admin';
+import { isAdminEmail } from './admin';
 
 export interface Plan {
   id: string;
@@ -125,7 +126,14 @@ export interface UsageBalance {
  * null wherever the view (or Supabase) is unavailable — the caller shows
  * nothing rather than a broken meter.
  */
-export async function getUsageBalance(userId: string): Promise<UsageBalance | null> {
+export async function getUsageBalance(
+  userId: string,
+  email?: string | null,
+): Promise<UsageBalance | null> {
+  // Operators are not metered, so showing them a countdown would be a lie —
+  // and one they would trust, since it comes from the same view billing does.
+  if (isAdminEmail(email)) return null;
+
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -167,8 +175,21 @@ export async function getUsageBalance(userId: string): Promise<UsageBalance | nu
  */
 export async function checkPlanAllowance(
   userId: string,
+  email?: string | null,
 ): Promise<{ allowed: true } | { allowed: false; error: string }> {
   if (!serviceConfigured()) return { allowed: true };
+
+  /*
+   * Operators are never metered.
+   *
+   * Learned the hard way: enforcement went live on a database where the owner
+   * had already spent 149 minutes demoing across 48 conversations, and the
+   * free tier's 20 minutes locked him out of his own product with no way back
+   * in — the one account that must always be able to open a session is the one
+   * used to show the thing working. Identity-based, using the same list that
+   * gates the operator pages, so revoking it means removing an address.
+   */
+  if (isAdminEmail(email)) return { allowed: true };
 
   const { data, error } = await supabaseAdmin()
     .from('plan_usage')
