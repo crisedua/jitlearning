@@ -128,6 +128,21 @@ const ANGLES: { id: string; brief: string }[] = [
     brief:
       'Concéntrate en conseguir y atender clientes: no dar abasto respondiendo mensajes por WhatsApp o redes, cotizar y que no respondan, marketing que no convierte, conseguir los primeros clientes, precios.',
   },
+  /*
+   * The sea, on purpose.
+   *
+   * The other four angles hunt pains that any trade shares, and they keep
+   * landing in offices — invoices, spreadsheets, WhatsApp. A fisherman's
+   * paperwork, a port's waiting times and a caleta's traceability never
+   * surface from those queries, because nobody in those worlds phrases their
+   * problem as "clientes que no pagan". The corpus now carries the blue
+   * economy material; this is what fills the radar to match it.
+   */
+  {
+    id: 'mar',
+    brief:
+      'Concéntrate en el mundo del mar y la costa: pesca artesanal y acuicultura (trazabilidad de la captura, papeleo de SERNAPESCA, vender sin intermediarios, certificaciones que exige el comprador), puertos y logística marítima (tiempos de espera, coordinación de camiones, documentación), turismo costero (reservas, temporada, cancelaciones), y residuos y reciclaje en el borde costero (cumplimiento de la Ley REP, reportabilidad, recolección). Busca en foros y comunidades de pescadores, portuarios, acuicultores y operadores turísticos, en español y en inglés.',
+  },
 ];
 
 /**
