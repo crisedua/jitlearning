@@ -46,3 +46,7 @@ knowledge/*
 # public standards (PMI, IPMA, APM, ISO, GAPPS, PRINCE2) and named studies with
 # their dates. No manual or book text is reproduced.
 !knowledge/gestion-proyectos/
+
+# Raw sweep output, kept only to re-tune the pain filter without paying to
+# re-scrape. Large, disposable, and never read by the app.
+scripts/.pains-raw.json
