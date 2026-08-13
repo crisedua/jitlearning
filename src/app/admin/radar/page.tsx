@@ -55,6 +55,35 @@ async function currentRows(): Promise<{ rows: Row[]; error: string | null }> {
   return { rows: (data ?? []) as Row[], error: null };
 }
 
+/**
+ * Which variables this running deployment can actually see.
+ *
+ * Booleans only — never a value, not even a prefix. It exists because the
+ * failure it diagnoses is invisible from the outside: a variable added in
+ * Vercel but never redeployed, or added to Preview while Production serves the
+ * site, looks exactly like a variable that was never added. Reading it off the
+ * page beats guessing from a disabled button.
+ */
+function envReport(): { name: string; present: boolean; note: string }[] {
+  return [
+    {
+      name: 'OPENAI_API_KEY',
+      present: Boolean(process.env.OPENAI_API_KEY),
+      note: 'el botón de búsqueda con IA',
+    },
+    {
+      name: 'SUPABASE_SERVICE_ROLE_KEY',
+      present: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+      note: 'escribir señales en la tabla',
+    },
+    {
+      name: 'INGEST_SECRET',
+      present: Boolean(process.env.INGEST_SECRET),
+      note: '/api/health y la gestión de conocimiento',
+    },
+  ];
+}
+
 export default async function RadarAdminPage() {
   const admin = await checkAdmin();
   if (!admin.ok && admin.reason === 'anonymous') redirect(signInPath('/admin/radar'));
@@ -124,6 +153,30 @@ export default async function RadarAdminPage() {
           Buscar dolores nuevos
         </h2>
         <RadarLlmButton disponible={openaiConfigured()} />
+      </section>
+
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+          Qué ve este despliegue
+        </h2>
+        <ul className="mt-3 space-y-1.5">
+          {envReport().map((v) => (
+            <li key={v.name} className="flex flex-wrap items-baseline gap-x-2 text-[14px]">
+              <span aria-hidden className={v.present ? 'text-success' : 'text-warning'}>
+                {v.present ? '✓' : '✕'}
+              </span>
+              <code className="font-mono text-[13px] text-ink/85">{v.name}</code>
+              <span className="text-soft">
+                {v.present ? 'configurada' : 'falta'} · {v.note}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-3 text-[13px] leading-relaxed text-soft">
+          Si agregaste una variable en Vercel y sigue apareciendo como «falta», el despliegue que
+          estás viendo se construyó antes: en Vercel, Deployments → el último → ⋯ → Redeploy. Y
+          revisa que esté marcada para Production, no solo para Preview.
+        </p>
       </section>
 
       <section className="space-y-3">
