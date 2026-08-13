@@ -168,6 +168,20 @@ export const TOPICS: readonly Topic[] = [
     isNew: true,
   },
   {
+    title: '¿Mi idea cumple la rúbrica del jurado?',
+    blurb:
+      'Los cuatro criterios del Ocean Lab Hackathon con sus pesos, qué separa un 7 de un 10 en cada uno, y las seis preguntas que dicen dónde estás perdiendo puntos.',
+    examples: [
+      '¿Mi idea cumple la rúbrica?',
+      '¿Cómo se gana el 40% de uso de IA?',
+      '¿Tengo que construir una app para ganar?',
+      '¿Qué me falta para subir de 7 a 10?',
+    ],
+    audience: 'negocio',
+    coaches: ['emprendedores'],
+    isNew: true,
+  },
+  {
     title: 'Economía Azul: emprender con el mar en Valparaíso',
     blurb:
       'Puertos, caletas, pesca, turismo costero y plásticos en el borde costero: los ocho ámbitos del sector, la normativa chilena con sus cifras, y dónde están los dolores que alguien sí paga por resolver.',
