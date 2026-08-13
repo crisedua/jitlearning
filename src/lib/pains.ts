@@ -25,15 +25,36 @@ import type { RedditPost } from './apify';
  * from the text.
  */
 const COUNTRY_BY_COMMUNITY: Record<string, string> = {
+  /*
+   * Chile is listed most fully because it is the home market, and because
+   * getting it wrong was visible: a learner in Santiago asked what people were
+   * complaining about in Chile and heard "nothing". The material was there —
+   * r/chileIT and r/FinanzasChile carry most of it — but neither community was
+   * on this list, so every row landed untagged and the country filter matched
+   * none of them. A community missing here is not a missing pain; it is a pain
+   * nobody can find.
+   */
   chile: 'CL',
+  chileit: 'CL',
+  finanzaschile: 'CL',
+  santiago: 'CL',
   republicadechile: 'CL',
   emprendedoreschile: 'CL',
+  emprendimientochile: 'CL',
+  pymeschile: 'CL',
+  chilecripto: 'CL',
+  empleos_chile: 'CL',
   merval: 'AR',
   argentina: 'AR',
   empleos_ar: 'AR',
   devsarg: 'AR',
+  startupsargentina: 'AR',
+  negociosargentina: 'AR',
   mexico: 'MX',
   ayudamexico: 'MX',
+  emprendimientomexico: 'MX',
+  mexicali: 'MX',
+  sistemasitmexico: 'MX',
   espana: 'ES',
   spain: 'ES',
   autonomos: 'ES',
@@ -196,6 +217,35 @@ const FIRST_PERSON_BUSINESS = [
   'we run a',
   'owes me',
   'my employees',
+  /*
+   * Latin American idiom, and Chilean in particular.
+   *
+   * Added after a sweep aimed at Chile came back looking empty while the raw
+   * data held exactly what was wanted: somebody fifteen months into building a
+   * SaaS for minimarkets, a developer with twenty-six paying clients, and
+   * freelancers losing money on the way dollars reach a Chilean account. None
+   * of them ever write "mi negocio" — they write "boleteo", "mi pega", "llevo
+   * meses construyendo". Matching only peninsular and English phrasing was a
+   * filter that quietly excluded the market this product is built for.
+   */
+  'boleteo',
+  'boletear',
+  'boleta de honorarios',
+  'mi pega',
+  'mi emprendimiento',
+  'llevo meses',
+  'llevo años',
+  'meses construyendo',
+  'años construyendo',
+  'me pagan',
+  'trabajo para una empresa',
+  'presto servicios',
+  'clientes pagándome',
+  'monté',
+  'lancé',
+  'mi propio negocio',
+  'mi startup',
+  'mi producto',
 ];
 
 /** Posts that are almost always noise no matter what they contain. */

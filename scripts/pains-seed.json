@@ -63,12 +63,24 @@
   "source": "reddit",
   "community": "chileit",
   "url": "https://www.reddit.com/r/chileIT/comments/1t1aa49/soy_promotor_de_ia_en_mi_empresa_y_de_su/",
-  "lang": "en",
-  "country": null,
+  "lang": "es",
+  "country": "CL",
   "title": "Soy promotor de IA en mi empresa y de su implementación, y el panorama me parece, honestamente, distópico.",
   "excerpt": "Hola a todos. Espero que la estén pasando muy bien. Quiero compartir mi experiencia actual trabajando en una corporación multinacional. Entré con el rol de \"desenredar\" conocimiento oscuro y acelerar al equipo enseñando (me gusta enseñar) y brindando soporte para optimizar y migrar sistemas. Recientemente, me convertí en promotor de IA (GitHub Copilot y Microsoft Copilot) tras un piloto exitoso. El aumento de productividad es innegable, pero la trasfondo de esta eficiencia me genera una inquietud profesional profunda.…",
   "score": 179,
   "comments": 122,
+  "query": "negocio chile me cuesta"
+ },
+ {
+  "source": "reddit",
+  "community": "chile",
+  "url": "https://www.reddit.com/r/chile/comments/1tebbrr/la_realidad_de_emprender/",
+  "lang": "es",
+  "country": "CL",
+  "title": "La realidad de emprender 😭",
+  "excerpt": "Hola comunidad… vengo a descargarme un poco. 😔 Llevo un poco más de 15 meses construyendo un sistema de inventario SaaS para minimarkets y almacenes e incluso personas que hacen venta de productos de manera informal. Solo, sin equipo de trabajo, sin financiamiento. Programando de noche después de la pega, sacrificando fines de semana, aprendiendo marketing, DevOps, infraestructura, cloud, etc. Lancé en marzo el sistema con la ilusión de que “si resuelve un problema real, la gente va a pagar”.…",
+  "score": 19,
+  "comments": 72,
   "query": "negocio chile me cuesta"
  },
  {
@@ -85,15 +97,27 @@
  },
  {
   "source": "reddit",
-  "community": "republicadechile",
-  "url": "https://www.reddit.com/r/RepublicadeChile/comments/1ub1pq6/el_mercado_laboral_en_chile_es_un_asco/",
+  "community": "chileit",
+  "url": "https://www.reddit.com/r/chileIT/comments/1pztc4c/un_cliente_me_dio_una_idea_y_la_hice/",
   "lang": "es",
   "country": "CL",
-  "title": "El mercado laboral en Chile es un asco",
-  "excerpt": "He visto caleta de post aquí de gente que estudia diversas cosas pero no encuentran pega, lo más chistoso es que todas las carreras pasan por lo mismo. Los contratos son una mierda, tenemos más egresados universitarios que nunca y sin embargo el empleo y la vivienda está peor que hace 10 años. Esto para mí tiene pinta de que tiene una sola solución que al mismo tiempo será inevitable: Brain Drain, es decir, chilenos con grados y estudios emigrando por mejores oportunidades. Quiero contar mi historia, yo soy Ingeniero Civil en Informática, salí de la UBB en el campus Concepción.…",
-  "score": 301,
-  "comments": 167,
-  "query": "emprender en chile"
+  "title": "Un cliente me dio una idea y la hice",
+  "excerpt": "Como el titulo lo dice, fue tal cual, ahora con mas de 26 clientes ya pagándome mensualmente y en conversaciones con empresas. No fue muy fácil pero tampoco extremadamente difícil, importante que se logró y estoy re contento porque mas que el dinero (obviamente ayuda mucho) es que tu herramienta solucione algo que esta latente. No me da miedo que roben la idea, siempre dicen lo mismo, pero hacerlo es una cosa y captar clientes es otra, ambas muy complejas, no es llegar y copiar.…",
+  "score": 404,
+  "comments": 163,
+  "query": "chile clientes no pagan"
+ },
+ {
+  "source": "reddit",
+  "community": "santiago",
+  "url": "https://www.reddit.com/r/Santiago/comments/1t04k52/extranjero_dejando_chile_definitivamente_es/",
+  "lang": "es",
+  "country": "CL",
+  "title": "Extranjero dejando Chile definitivamente — ¿es obligatorio el Aviso de Pérdida de Domicilio (Art. 103) o basta con término de giro?",
+  "excerpt": "Hola, busco una segunda opinión porque siento que mi contador me está simplificando un poco el tema y no quiero dejar cagadas atrás. Mi situación: Soy extranjero, con residencia en Chile desde 2023. Trabajo de forma remota para un cliente en EEUU. Me pagan en USD a una billetera digital extranjera, nunca pasa por mi banco chileno. No tengo ningún cliente ni ingreso de fuente chilena. Emito boletas de honorarios mensualmente y pago F29 al día. A fines de julio 2026 me voy de Chile para siempre, no pienso volver a vivir acá. Desde agosto 2026 entiendo que ya no debería tributar en Chile.…",
+  "score": 9,
+  "comments": 3,
+  "query": "chile clientes no pagan"
  },
  {
   "source": "reddit",
@@ -111,12 +135,24 @@
   "source": "reddit",
   "community": "startupsargentina",
   "url": "https://www.reddit.com/r/startupsArgentina/comments/1msaxco/hice_un_sistema_pos_y_te_muestro_el_paso_a_paso_a/",
-  "lang": "en",
-  "country": null,
+  "lang": "es",
+  "country": "AR",
   "title": "Hice un sistema POS y te muestro el paso a paso a nivel producto",
   "excerpt": "Buenos días gente, primero, si se que el título suena muy Taringa 2016. Pero mi idea hoy es poder mostrarle el paso a paso a nivel de producto, de cómo construí uno propio. Un poco de historia de vida y motivación que tal vez les puede servir. Presentandome rápidamente, mi nombre es Nahuel, vivía en Entre Ríos, ahora vivo en Chile porque trabajo para una empresa de ahí, tengo 22 años y no soy ni a palos una eminencia del producto, pero si me gusta mucho estudiar sobre producto y todo lo relacionado.…",
   "score": 21,
   "comments": 7,
+  "query": "pyme chile problema"
+ },
+ {
+  "source": "reddit",
+  "community": "finanzaschile",
+  "url": "https://www.reddit.com/r/FinanzasChile/comments/1sxgamq/problema_con_ingresos_desde_skool_en_chile_cómo/",
+  "lang": "es",
+  "country": "CL",
+  "title": "Problema con ingresos desde Skool en Chile: ¿cómo declararlos?",
+  "excerpt": "Hola! Quería consultar si alguien ha pasado por algo similar o sabe cómo manejarlo. Yo recibía pagos semanales en mi cuenta corriente de Banco Santander Chile por membresías de una comunidad online (Skool). Todo funcionaba bien hasta la semana del 16 de marzo, que fue la última vez que recibí un pago. Llamé al banco y me dijeron que, debido a cambios recientes en la legislación, los ingresos desde el extranjero deben ser declarados, y que por eso los pagos ya no están llegando como antes.…",
+  "score": 5,
+  "comments": 4,
   "query": "pyme chile problema"
  },
  {
@@ -133,14 +169,26 @@
  },
  {
   "source": "reddit",
-  "community": "finanzaschile",
-  "url": "https://www.reddit.com/r/FinanzasChile/comments/1qajed0/la_vida_tras_las_deudas_pt3_mi_primera_tarjeta_de/",
-  "lang": "en",
-  "country": null,
-  "title": "La vida tras las deudas pt3 - Mi primera tarjeta de crédito post DICOM",
-  "excerpt": "Hola! Vengo con mi último update porque siento que es información relevante y creo que hay mucha confusión de por medio con salir de dicom y cuándo nos dan crédito. A modo de resumen de mis posts anteriores, tuve una deuda de 40 palos app que después de un par de años logré pagar, encontré un trabajo que me deja 2m líquidos al mes y tengo una pyme que me da entre 300k y 1m más al mes, dependiendo del nivel de ventas y el compromiso que le ponga. Empecé a ahorrar en Octubre, tengo un fondo de emergencias de 4m y la semana pasada me dieron mi primera tarjeta de crédito en el banco falabella.…",
-  "score": 37,
-  "comments": 18,
-  "query": "trámite chile empresa lata"
+  "community": "chileit",
+  "url": "https://www.reddit.com/r/chileIT/comments/1rlaa9p/implementé_un_sistema_de_finanzas_y_cotizaciones/",
+  "lang": "es",
+  "country": "CL",
+  "title": "Implementé un sistema de finanzas y cotizaciones para una pyme desde cero a puro claude code, sin ser programador",
+  "excerpt": "Mi madre tiene una pyme hace años, y como muchas empresas familiares, el uso de tecnologías avanzadas es escuálido. El excel se usa para todo. Pero de verdad, para todo, mucho email con adjuntos para allá y para acá. Y harto papel. Contratar cualquier ERP se escapa de las realidades, no solo en costos iniciales, sino en licencias, implementación, cuanta cosa hay, y dado el tamaño, lo que se busca es algo básico, Coticé sistemas de empresas (Kame, Bsale, Laudus, Manager) Probé Gemini, Codex y Claude Code, al principio tirandole ideas básicas de lo que necesitaba.…",
+  "score": 90,
+  "comments": 155,
+  "query": "pyme chile problema"
+ },
+ {
+  "source": "reddit",
+  "community": "chileit",
+  "url": "https://www.reddit.com/r/chileIT/comments/1up0e9w/es_normal_tener_que_regalar_el_tiempo_personal/",
+  "lang": "es",
+  "country": "CL",
+  "title": "¿Es normal tener que regalar el tiempo personal para capacitarse en consultoras TI en Chile?",
+  "excerpt": "Hola comunidad, Vengo a compartir un fenómeno que estoy viendo en mi pega y ojalá poder obtener sus opiniones. Trabajo como Ingeniero de Software en una de las típicas consultoras de TI grandes que operan en Chile (estilo Sonda, Accenture, NTT, Deloitte, etc.) y ya llevo un poco más de 3 años en el lugar. He leído harto en este foro sobre las consultoras y pareciera que cada una tiene sus propias banderas rojas.…",
+  "score": 70,
+  "comments": 54,
+  "query": "pyme chile problema"
  }
 ]
