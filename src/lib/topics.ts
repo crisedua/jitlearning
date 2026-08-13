@@ -168,6 +168,20 @@ export const TOPICS: readonly Topic[] = [
     isNew: true,
   },
   {
+    title: 'Economía Azul: emprender con el mar en Valparaíso',
+    blurb:
+      'Puertos, caletas, pesca, turismo costero y plásticos en el borde costero: los ocho ámbitos del sector, la normativa chilena con sus cifras, y dónde están los dolores que alguien sí paga por resolver.',
+    examples: [
+      '¿Qué problema real puedo resolver en el mundo del mar?',
+      '¿Qué dice la ley chilena sobre plásticos y qué oportunidad deja?',
+      'Tengo día y medio para prototipar. ¿Por dónde parto?',
+      '¿A quién le pregunto en una caleta o en un puerto?',
+    ],
+    audience: 'negocio',
+    coaches: ['emprendedores'],
+    isNew: true,
+  },
+  {
     title: 'Encontrar un dolor que valga la pena resolver',
     blurb:
       'Cómo se distingue un dolor por el que alguien paga de una idea que solo suena bien, dónde buscar, y qué se está quejando la gente en foros ahora mismo (barrido de agosto de 2026).',
