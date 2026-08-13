@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { SeedRadarButton } from '@/components/SeedRadarButton';
+import { RadarLlmButton } from '@/components/RadarLlmButton';
+import { openaiConfigured } from '@/lib/openai';
 import { checkAdmin } from '@/lib/admin';
 import { signInPath } from '@/lib/paths';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
@@ -117,7 +119,19 @@ export default async function RadarAdminPage() {
         </div>
       )}
 
-      <SeedRadarButton count={rows.length} />
+      <section className="space-y-3 rounded-lg border border-line bg-surface p-6">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+          Buscar dolores nuevos
+        </h2>
+        <RadarLlmButton disponible={openaiConfigured()} />
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+          Semilla curada
+        </h2>
+        <SeedRadarButton count={rows.length} />
+      </section>
 
       {rows.length > 0 && (
         <section>
@@ -138,9 +152,11 @@ export default async function RadarAdminPage() {
       )}
 
       <p className="text-[13px] leading-relaxed text-soft">
-        Para agregar señales nuevas hace falta un barrido:{' '}
-        <code className="font-mono">npm run scrape:pains</code>, que consume crédito de Apify y
-        corre fuera de la aplicación porque tarda decenas de segundos.
+        Dos formas de alimentar el radar: el botón de arriba (o{' '}
+        <code className="font-mono">npm run radar</code>) usa IA con búsqueda web y cuesta
+        centavos por corrida; <code className="font-mono">npm run scrape:pains</code> barre Reddit
+        vía Apify y consume su crédito mensual. Ambos escriben en la misma tabla y el coach no
+        distingue el origen.
       </p>
     </div>
   );

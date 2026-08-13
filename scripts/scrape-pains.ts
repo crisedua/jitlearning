@@ -20,7 +20,7 @@ import './env';
 import { readFile, writeFile } from 'node:fs/promises';
 import { monthlySpendUsd, sweepReddit, type RedditPost } from '../src/lib/apify';
 import { curate, type PainSignal } from '../src/lib/pains';
-import { serviceConfigured, supabaseAdmin } from '../src/lib/supabase/admin';
+import { storePainSignals } from '../src/lib/pains-store';
 
 /**
  * The standing query set: phrases that surface a complaint rather than an
@@ -78,26 +78,9 @@ const QUERIES_BY_COUNTRY = [
 ];
 
 async function store(signals: PainSignal[], dry: boolean): Promise<number> {
-  if (dry || signals.length === 0) return 0;
-  if (!serviceConfigured()) {
-    console.error('  ! SUPABASE_SERVICE_ROLE_KEY is not set, so nothing was stored.');
-    return 0;
-  }
-
-  // Upsert on the URL: the same thread resurfacing in a later sweep should
-  // refresh its score, not accumulate a second row.
-  const { error, count } = await supabaseAdmin()
-    .from('pain_signals')
-    .upsert(
-      signals.map((s) => ({ ...s, published: true })),
-      { onConflict: 'url', ignoreDuplicates: false, count: 'exact' },
-    );
-
-  if (error) {
-    console.error('  ! could not store signals:', error.message);
-    return 0;
-  }
-  return count ?? signals.length;
+  const { stored, error } = await storePainSignals(signals, { dry });
+  if (error) console.error('  !', error);
+  return stored;
 }
 
 /**

@@ -313,6 +313,13 @@ export interface PainSignal {
   score: number | null;
   comments: number | null;
   query: string | null;
+  /**
+   * Set by the LLM radar, absent on Apify rows: which of the radar document's
+   * clusters the pain belongs to, and the method's verdict on it. Optional so
+   * the two producers share one shape without lying about what each knows.
+   */
+  theme?: string | null;
+  verdict?: 'painkiller' | 'vitamin';
 }
 
 /** How many distinct signal groups a post hits. Zero means it is not evidence. */
@@ -359,8 +366,17 @@ export function isPainEvidence(post: RedditPost): boolean {
   return signalGroups(post).length >= 2;
 }
 
+/**
+ * Whether a two-letter code is one the community map can produce — the same
+ * universe `/api/pain-search` accepts. Exported so the LLM radar can validate
+ * a country the model claims before storing it.
+ */
+export function isKnownCountry(code: string): boolean {
+  return Object.values(COUNTRY_BY_COMMUNITY).includes(code);
+}
+
 /** Trim a body to something a voice answer can quote without rambling. */
-function excerpt(body: string, max = 600): string {
+export function excerpt(body: string, max = 600): string {
   const clean = body
     .replace(/&#(\d+);/g, (_, n: string) => String.fromCharCode(Number(n)))
     .replace(/&amp;/g, '&')
