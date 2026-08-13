@@ -224,6 +224,8 @@ export interface AgentConfig {
       turn_eagerness?: 'patient' | 'normal' | 'eager';
       /** Start generating while endpointing is still deciding; discarded if the user goes on. */
       speculative_turn?: boolean;
+      /** Seconds of silence before the agent fills the gap. */
+      turn_timeout?: number;
     };
   };
   platform_settings?: {

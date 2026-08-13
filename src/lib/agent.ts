@@ -325,15 +325,26 @@ export async function provisionAgent(coach: Coach): Promise<string> {
           rag: ragConfig(),
         },
       },
-      // The latency that matters in voice is not the models — LLM first-token
-      // and TTS first-byte measure well under two seconds combined — it is the
-      // dead air while the turn-taking model decides the user has finished.
-      // Measured at "normal" eagerness: 2–4s of silence before initiation,
-      // 4–6.5s to first audio. Eager endpointing plus speculative generation
-      // attacks exactly that gap.
+      /*
+       * The latency that matters in voice is not the models — LLM first-token
+       * and TTS first-byte measure well under two seconds combined — it is the
+       * dead air while the turn-taking model decides the learner has finished.
+       *
+       * `eager` endpointing was tried against that and had to be reverted: it
+       * cut people off mid-word ("Hay modelos de V"), which is a far worse
+       * failure than waiting. Someone thinking aloud about their business
+       * pauses mid-sentence, and a coach that talks over them is not a coach.
+       *
+       * What survives is speculative generation, which buys most of the same
+       * latency without touching when the turn ends: it starts composing while
+       * endpointing is still deciding and throws the work away if the learner
+       * keeps going. The longer `turn_timeout` is deliberate for the same
+       * reason — room to think before the agent fills the silence.
+       */
       turn: {
-        turn_eagerness: 'eager',
+        turn_eagerness: 'normal',
         speculative_turn: true,
+        turn_timeout: 10.0,
       },
       tts: {
         // Turbo, not flash: flash is the lowest-latency tier but audibly the
