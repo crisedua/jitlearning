@@ -168,6 +168,20 @@ export const TOPICS: readonly Topic[] = [
     isNew: true,
   },
   {
+    title: 'Encontrar un dolor que valga la pena resolver',
+    blurb:
+      'Cómo se distingue un dolor por el que alguien paga de una idea que solo suena bien, dónde buscar, y qué se está quejando la gente en foros ahora mismo (barrido de agosto de 2026).',
+    examples: [
+      'No tengo idea todavía. ¿Por dónde parto?',
+      '¿Cómo sé si esto es un dolor real o solo me parece buena idea?',
+      '¿De qué se está quejando la gente ahora?',
+      '¿Dónde busco ideas si no se me ocurre ninguna?',
+    ],
+    audience: 'negocio',
+    coaches: ['emprendedores'],
+    isNew: true,
+  },
+  {
     title: 'Productividad y energía para sostenerlo',
     blurb:
       'Qué hacer cuando no arrancas, cómo fijar objetivos que dependan de ti, y cómo recomprar tu tiempo.',

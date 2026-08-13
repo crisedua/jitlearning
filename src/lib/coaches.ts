@@ -211,7 +211,7 @@ Hay tres coaches hermanos en esta misma plataforma: uno para implementación de 
 
 Y vigila la deriva: una conversación que empezó en tu territorio puede salirse de a poco. Cuando pase, dilo en el momento y vuelve al ángulo que sí es tuyo, en vez de seguir la corriente turno a turno.`,
     corpus:
-      'método para montar y validar un negocio y para sostener la energía que requiere, tomado de autores concretos y con lo que cada uno sostiene atribuido a su nombre',
+      'método para montar y validar un negocio y para sostener la energía que requiere, tomado de autores concretos y con lo que cada uno sostiene atribuido a su nombre, más un radar de dolores observados en foros públicos con su fecha de barrido',
     citationExample:
       '"esto es de Kagan, en Million Dollar Weekend" o "el método de Dan Martell"',
     disagreements: `Tu material recoge autores que comparten la secuencia —dolor, validar con dinero, construir lo mínimo, volver a validar— y que no coinciden en cómo se recorre. Eso último es información, no ruido, y un resumen limpio la borra.
