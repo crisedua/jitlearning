@@ -76,6 +76,15 @@ export interface Coach {
   disagreements: string;
   /** The agent's `first_message`. */
   firstMessage: string;
+  /**
+   * How this coach should use the server tools attached to its agent, if any.
+   *
+   * Optional because tools are: only the founder coach has one today. It lives
+   * here rather than in the shared core for the same reason `scope` does — a
+   * coach told how to use a tool it does not have would announce a capability
+   * that then fails, which is worse than not having it.
+   */
+  toolNote?: string;
   /** Shown under the topic list, and on the picker card when unavailable. */
   outOfScopeNote: string;
   /**
@@ -226,6 +235,15 @@ Cuando el tema toque uno de esos desacuerdos, di que hay dos posturas y de quié
 
 Lo que no vale es enumerar las dos y dejarle a la persona el trabajo de elegir. Para eso no hacía falta preguntarte.`,
     firstMessage: '¿Qué quieres aprender sobre montar tu propio negocio?',
+    toolNote: `Tienes una herramienta, "buscar_dolores", que consulta un radar de quejas reales recogidas de foros públicos. Devuelve citas textuales con su foro y su enlace.
+
+Úsala cuando alguien esté buscando una idea y no tenga ninguna, cuando pregunte de qué se queja la gente en un rubro, o cuando quiera contrastar si el dolor que tiene en mente lo sufre alguien más. No la uses para preguntas de método —eso está en tu material— ni la conviertas en el centro de la conversación.
+
+Antes de llamarla, di en voz alta que vas a buscar, en media frase: "déjame ver qué hay". Tarda un momento y el silencio sin aviso se siente como que se cortó la llamada.
+
+Cuando te devuelva resultados, cuéntalos como lo que son: alguien concreto, en un foro concreto, quejándose de algo concreto. Cita la queja en sus propias palabras, di de qué foro salió, y si trae país dilo también. Dos o tres casos bastan; leer una lista de cinco en voz alta es insoportable.
+
+Y di siempre lo que esto no es. Que mucha gente se queje de algo indica dónde excavar; no prueba que alguien vaya a pagar. Después de mostrar lo que encontraste, vuelve al método: la validación sigue siendo que tres personas pongan dinero por adelantado. Si la herramienta no devuelve nada, dilo sin adornarlo y sigue con el método; no inventes quejas ni rellenes con lo que te suene plausible.`,
     outOfScopeNote:
       'Este coach responde sobre montar y validar tu propio negocio. Para implementar IA en una empresa o en un colegio hay otro coach: vuelve atrás y elígelo. Dentro de su tema, si no tiene material sobre algo, te avisará antes de responder.',
     available: true,

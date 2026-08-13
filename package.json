@@ -13,7 +13,9 @@
     "setup:agent": "tsx scripts/setup-agent.ts",
     "sync:agent": "tsx scripts/sync-agent.ts",
     "sync:usage": "tsx scripts/sync-usage.ts",
-    "ingest": "tsx scripts/ingest.ts"
+    "ingest": "tsx scripts/ingest.ts",
+    "scrape:pains": "tsx scripts/scrape-pains.ts",
+    "setup:tools": "tsx scripts/setup-tools.ts"
   },
   "dependencies": {
     "@elevenlabs/react": "^1.12.0",
