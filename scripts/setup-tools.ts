@@ -93,9 +93,20 @@ async function main() {
   const attached = new Set(prompt.tool_ids ?? []);
   attached.add(record.id);
 
+  /*
+   * `tools` has to go, or the write is rejected.
+   *
+   * ElevenLabs mirrors attached tools into a deprecated inline `tools` array
+   * alongside `tool_ids`, and reading the agent hands both back. Sending them
+   * both returns 400 "Cannot specify both tools and tool IDs" — so a
+   * read-modify-write of the whole prompt fails on the second run, once the
+   * first has populated the legacy field. Only `tool_ids` is written here.
+   */
+  const { tools: _deprecated, ...rest } = prompt as typeof prompt & { tools?: unknown };
+
   await updateAgent(requireAgentId(coach), {
     conversation_config: {
-      agent: { prompt: { ...prompt, tool_ids: [...attached] } },
+      agent: { prompt: { ...rest, tool_ids: [...attached] } },
     },
   });
   console.log(`✓ Attached to ${coach.label} (${agent.agent_id})`);

@@ -1,9 +1,11 @@
 /**
  * Sweep public forums for pain signals and store the ones worth showing.
  *
- *   npm run scrape:pains                  # the standing query set
- *   npm run scrape:pains -- --chile       # only the Chilean set
- *   npm run scrape:pains -- --dry         # sweep and report, write nothing
+ *   npm run scrape:pains                  # every query, all markets
+ *   npm run scrape:pains -- --paises      # only the per-country set
+ *   npm run scrape:pains -- --general     # only the language-neutral set
+ *   npm run scrape:pains -- --seed        # load the committed signals, no sweep
+ *   npm run scrape:pains -- --dry         # report, write nothing
  *
  * Runs offline, never in a request: an Apify run takes tens of seconds, and the
  * coach's tool call has to answer in about one. This fills the table; the tool
@@ -39,16 +41,40 @@ const QUERIES_GENERAL = [
 ];
 
 /**
- * Chile-specific, because a learner in Santiago asking about their own market
- * is the case the general sweep answered badly enough to be worth naming.
+ * The same complaint, market by market.
+ *
+ * Naming each country explicitly rather than trusting one Spanish sweep to
+ * reach all of them: Reddit's search ranks by engagement, and the large
+ * communities crowd out the small ones, so "clientes que no pagan" returns
+ * Spain and Mexico and never Uruguay. A country in this list is a country the
+ * coach can answer about.
+ *
+ * The phrasing stays local on purpose — a Chilean writes "boleta", an
+ * Argentine "monotributo", a Spaniard "autónomo". Searching for the local word
+ * is what surfaces the local pain.
  */
-const QUERIES_CHILE = [
+const QUERIES_BY_COUNTRY = [
+  // Chile
   'pyme chile problema',
   'emprender en chile',
-  'chile clientes no pagan',
-  'boleta factura chile pyme',
-  'trámite chile empresa lata',
-  'negocio chile me cuesta',
+  'boleta honorarios chile problema',
+  // Argentina
+  'monotributo problema facturar',
+  'emprender en argentina pyme',
+  'clientes no pagan argentina',
+  // México
+  'sat factura problema pyme',
+  'emprender en méxico negocio',
+  'clientes no pagan méxico',
+  // España
+  'autónomo factura no me pagan',
+  'emprender en españa pyme',
+  // Colombia, Perú, Uruguay y el resto
+  'emprender en colombia negocio',
+  'emprender en perú negocio',
+  'emprender en uruguay pyme',
+  'facturación electrónica problema pyme',
+  'cobrar a clientes latinoamérica',
 ];
 
 async function store(signals: PainSignal[], dry: boolean): Promise<number> {
@@ -143,11 +169,11 @@ async function main() {
     return;
   }
 
-  const queries = args.includes('--chile')
-    ? QUERIES_CHILE
+  const queries = args.includes('--paises')
+    ? QUERIES_BY_COUNTRY
     : args.includes('--general')
       ? QUERIES_GENERAL
-      : [...QUERIES_GENERAL, ...QUERIES_CHILE];
+      : [...QUERIES_GENERAL, ...QUERIES_BY_COUNTRY];
 
   const posts = await collect(args, queries);
 

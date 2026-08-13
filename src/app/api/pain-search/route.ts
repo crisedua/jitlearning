@@ -23,8 +23,15 @@ export const dynamic = 'force-dynamic';
 /** Enough to answer with, few enough to say out loud. */
 const LIMIT = 5;
 
-/** Two-letter codes the sweep actually tags rows with. */
-const COUNTRIES = new Set(['CL', 'AR', 'MX', 'ES', 'UY', 'CO', 'PE', 'BO']);
+/**
+ * Two-letter codes the sweep tags rows with. Every Spanish-speaking market the
+ * community map knows, so the coach can filter by the country a learner names
+ * rather than by the handful that happened to be swept first.
+ */
+const COUNTRIES = new Set([
+  'CL', 'AR', 'MX', 'ES', 'CO', 'PE', 'UY', 'BO', 'VE', 'EC',
+  'CR', 'PA', 'PY', 'DO', 'GT', 'SV', 'HN', 'NI', 'CU', 'PR',
+]);
 
 export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;
@@ -59,7 +66,7 @@ export async function GET(req: Request) {
      */
     let query = supabase
       .from('pain_signals')
-      .select('title, excerpt, community, country, url, captured_at, score')
+      .select('title, excerpt, community, country, lang, url, captured_at, score')
       .textSearch('search', q, { type: 'websearch', config: 'spanish' })
       .order('score', { ascending: false, nullsFirst: false })
       .limit(LIMIT);
@@ -85,7 +92,7 @@ export async function GET(req: Request) {
     if (country && rows.length === 0) {
       const wider = await supabase
         .from('pain_signals')
-        .select('title, excerpt, community, country, url, captured_at, score')
+        .select('title, excerpt, community, country, lang, url, captured_at, score')
         .textSearch('search', q, { type: 'websearch', config: 'spanish' })
         .order('score', { ascending: false, nullsFirst: false })
         .limit(LIMIT);
@@ -95,20 +102,39 @@ export async function GET(req: Request) {
       }
     }
 
+    /*
+     * Field names in Spanish, and the source language stated per row.
+     *
+     * The coach speaks Spanish to everyone, but a good share of the corpus is
+     * English — the strongest signal in it is a US contractor owed $14,200. A
+     * row marked `idioma: "en"` is a row whose quote must be translated before
+     * it is spoken, and saying so per row is more reliable than hoping the
+     * model notices mid-sentence.
+     */
+    const spoken = results.map((r) => ({
+      titulo: r.title,
+      cita: r.excerpt,
+      idioma: r.lang === 'en' ? 'en' : 'es',
+      foro: r.community,
+      pais: r.country ?? 'sin país identificado',
+      url: r.url,
+      capturado: r.captured_at,
+    }));
+    const needsTranslation = spoken.some((r) => r.idioma === 'en');
+
     return NextResponse.json({
-      results: results.map((r) => ({
-        titulo: r.title,
-        cita: r.excerpt,
-        foro: r.community,
-        pais: r.country,
-        url: r.url,
-        capturado: r.captured_at,
-      })),
+      results: spoken,
       note:
         note ??
         (results.length === 0
           ? 'No hay registros sobre ese tema en el radar. Dilo y sigue con el método.'
           : 'Esto es lo que se quejó gente en foros públicos: evidencia de dónde mirar, no validación. Validar sigue siendo que alguien pague.'),
+      ...(needsTranslation
+        ? {
+            idioma_aviso:
+              'Hay citas en inglés. Tradúcelas al español al contarlas; nunca las leas en su idioma original.',
+          }
+        : {}),
     });
   } catch (err) {
     console.error('[pain-search] lookup failed:', err);
