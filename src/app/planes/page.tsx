@@ -7,14 +7,10 @@
  * `src/lib/plans.ts` holds the card copy and a fallback copy of the figures for
  * when the database cannot be reached.
  *
- * The order on the page is deliberate: the individual tiers first, because
- * that is what someone arriving alone can buy; then Empresa, full-width and
- * featured, because it is the offer with a salesperson behind it; then Equipo
- * as the smaller organisational option.
- *
- * There is no checkout here, because there is no payment integration yet. The
- * paid tiers link to a real person or say nothing; what they must not do is
- * offer a button that pretends to take money.
+ * There is no checkout here, because there is no payment integration yet — see
+ * the TODO on `CHECKOUT_READY` in `src/lib/plans.ts` for where it attaches. The
+ * paid tiers write to a person or say nothing; what they must not do is offer a
+ * button that pretends to take money.
  */
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -37,13 +33,17 @@ import {
 export const metadata: Metadata = {
   title: 'Planes · ModoJIT',
   description:
-    'Planes de ModoJIT por minutos de conversación: gratis para probar, tres tamaños según cuánto lo uses, y el plan Empresa — su propio coach, con su material, en su dominio.',
+    'Planes de ModoJIT por minutos de conversación: 20 minutos gratis para probar, y 2 planes mensuales para estudiar a diario.',
 };
 
 /** Prices change without a deploy, so the page must not be cached forever. */
 export const revalidate = 300;
 
-const EMPRESA_ID = 'empresa';
+/*
+ * The per-seat Empresa tier is retired along with the coach it was priced for.
+ * The card logic that special-cased it is gone; what remains works off the
+ * public plans the table returns, so retiring another tier is a row update.
+ */
 
 /**
  * The plans, from Postgres when it is available.
@@ -117,12 +117,10 @@ function Check() {
 /**
  * What the card's button does.
  *
- * The free plan starts a conversation, because that is a thing this deployment
- * can actually do. The individual paid plans cannot be bought yet — there is no
- * payment integration — so they say "pronto" plainly rather than rendering a
- * button that pretends to take money. Empresa is the exception: it is sold
- * through a conversation, not a checkout, so its button writes to a person —
- * unless no address has been filled in at `src/lib/site.ts`.
+ * The free plan starts a session, because that is a thing this deployment can
+ * actually do. The paid ones cannot be bought yet, so they write to a person
+ * instead — and when no address is filled in at `src/lib/site.ts`, they say so
+ * plainly rather than rendering a button that goes nowhere.
  */
 function PlanAction({ plan }: { plan: Plan }) {
   if (plan.priceMinor === 0) {
@@ -136,7 +134,7 @@ function PlanAction({ plan }: { plan: Plan }) {
     );
   }
 
-  if (plan.id !== EMPRESA_ID || !PROFILE.email) {
+  if (!PROFILE.email) {
     return (
       <p className="mt-7 rounded-full border border-dashed border-line-strong px-5 py-2.5 text-center text-[15px] text-soft">
         Disponible pronto
@@ -158,7 +156,7 @@ function PlanAction({ plan }: { plan: Plan }) {
 
 function PlanCard({ plan }: { plan: Plan }) {
   const recommended = plan.id === RECOMMENDED_PLAN_ID;
-  const organisation = plan.id === EMPRESA_ID;
+  const organisation = plan.seatMinimum !== null;
   const features = PLAN_FEATURES[plan.id] ?? [];
   const sessions = approximateSessions(plan.monthlyMinutes);
 
@@ -240,8 +238,6 @@ function PlanCard({ plan }: { plan: Plan }) {
 export default async function PlanesPage() {
   const plans = await loadPlans();
   const selfServe = plans.filter((p) => p.isPublic);
-  const empresa =
-    plans.find((p) => p.id === EMPRESA_ID) ?? FALLBACK_PLANS.find((p) => p.id === EMPRESA_ID)!;
   const currency = plans[0]?.currency ?? 'USD';
 
   return (
@@ -268,7 +264,7 @@ export default async function PlanesPage() {
       <section className="mx-auto max-w-[96rem] px-6 pb-20">
         {/* Five across only where five fit; below that the cards pair up. */}
         <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {[...selfServe, empresa].map((plan) => (
+          {selfServe.map((plan) => (
             <PlanCard key={plan.id} plan={plan} />
           ))}
         </ul>

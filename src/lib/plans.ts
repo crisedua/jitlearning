@@ -89,7 +89,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     id: 'free',
     name: 'Gratis',
     monthlyMinutes: 20,
-    monthlySessions: 3,
+    monthlySessions: null,
     priceMinor: 0,
     currency: 'USD',
     overageMinorPerMin: null,
@@ -97,77 +97,35 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     setupMinor: null,
     isPublic: true,
     sortOrder: 10,
-    blurb: 'Para probar si el coach sabe de lo tuyo.',
+    blurb: '20 minutos para probar si estudiar hablando te sirve.',
   },
   {
-    id: 'esencial',
-    name: 'Esencial',
-    monthlyMinutes: 60,
+    id: 'founder',
+    name: 'Fundador',
+    monthlyMinutes: 300,
     monthlySessions: null,
-    priceMinor: 1900,
+    priceMinor: 900,
     currency: 'USD',
-    overageMinorPerMin: 35,
+    overageMinorPerMin: null,
     seatMinimum: null,
     setupMinor: null,
     isPublic: true,
     sortOrder: 20,
-    blurb: 'Una consulta por semana, con margen.',
+    blurb: 'Precio fijo para siempre. Para los primeros que se suben.',
   },
   {
-    id: 'profesional',
-    name: 'Profesional',
-    monthlyMinutes: 180,
+    id: 'standard',
+    name: 'Estándar',
+    monthlyMinutes: 300,
     monthlySessions: null,
-    priceMinor: 4900,
+    priceMinor: 1900,
     currency: 'USD',
-    overageMinorPerMin: 35,
+    overageMinorPerMin: null,
     seatMinimum: null,
     setupMinor: null,
     isPublic: true,
     sortOrder: 30,
-    blurb: 'Para quien vuelve varias veces por semana.',
-  },
-  {
-    id: 'intensivo',
-    name: 'Intensivo',
-    monthlyMinutes: 400,
-    monthlySessions: null,
-    priceMinor: 9900,
-    currency: 'USD',
-    overageMinorPerMin: 30,
-    seatMinimum: null,
-    setupMinor: null,
-    isPublic: true,
-    sortOrder: 40,
-    blurb: 'Uso diario, o un proyecto con fecha.',
-  },
-  {
-    id: 'equipo',
-    name: 'Equipo',
-    monthlyMinutes: 120,
-    monthlySessions: null,
-    priceMinor: 3500,
-    currency: 'USD',
-    overageMinorPerMin: 30,
-    seatMinimum: 10,
-    setupMinor: null,
-    isPublic: false,
-    sortOrder: 50,
-    blurb: 'Por persona, desde 10 personas.',
-  },
-  {
-    id: 'empresa',
-    name: 'Empresa',
-    monthlyMinutes: 120,
-    monthlySessions: null,
-    priceMinor: 4500,
-    currency: 'USD',
-    overageMinorPerMin: 30,
-    seatMinimum: 20,
-    setupMinor: 150_000,
-    isPublic: false,
-    sortOrder: 60,
-    blurb: 'Su propio coach, con su material, en su dominio.',
+    blurb: 'Estudio diario, con memoria entre sesiones.',
   },
 ] as const;
 
@@ -177,47 +135,36 @@ export const FALLBACK_PLANS: readonly Plan[] = [
  */
 export const PLAN_FEATURES: Record<string, readonly string[]> = {
   free: [
-    'Acceso completo a la base de conocimiento',
-    'Máximo 3 conversaciones al mes',
+    'Los 2 coaches, sin restricción de temas',
+    '20 minutos en total, no al mes',
     'Se detiene al llegar al límite: nunca genera un cobro',
     'Sin tarjeta',
   ],
-  esencial: [
-    'Sin límite en el número de conversaciones',
+  founder: [
+    '300 minutos al mes',
     'Memoria entre sesiones: retoma donde quedaste',
-    'Historial de tus consultas',
+    'El precio no sube mientras mantengas el plan',
   ],
-  profesional: [
-    'Todo lo de Esencial',
-    'Tres veces los minutos, no tres veces el precio',
-    'Para quien lo usa como parte del trabajo',
-  ],
-  intensivo: [
-    'Todo lo de Profesional',
-    'Para uso diario, o un proyecto con fecha',
-    'El minuto extra más barato de los planes individuales',
-  ],
-  // No seat minimum here: the card's prose already states it, from
-  // `seatMinimum`, so repeating it as a bullet says the same thing twice and
-  // goes stale the day that column changes.
-  equipo: [
-    'Minutos por persona, no un bolsón compartido',
-    'Cada quien conserva su propio historial',
-    'Un solo interlocutor para toda la organización',
-  ],
-  // No bullet for the setup fee: the card prints it from `setupMinor`, next to
-  // the monthly price where a buyer actually looks for it.
-  empresa: [
-    'Coach entrenado con el material de la organización: políticas, procesos, documentos',
-    'En su propio dominio y con su marca',
-    'Base de conocimiento privada, en infraestructura separada',
-    'Minutos por persona; cada quien con su historial y su memoria',
-    'Actualización mensual del material, incluida',
+  standard: [
+    '300 minutos al mes',
+    'Memoria entre sesiones y seguimiento de tu plan',
+    'Los 2 coaches',
   ],
 };
 
+/**
+ * TODO(checkout): nothing here takes money yet.
+ *
+ * `priceMinor` is the source of truth for what to charge, and the Stripe (or
+ * Mercado Pago) price id belongs in a column beside it rather than in code.
+ * The button on /planes writes to a person until this exists; wiring a
+ * checkout means replacing that handler and setting `profiles.plan_id` from
+ * the provider webhook, never from the browser.
+ */
+export const CHECKOUT_READY = false;
+
 /** The plan given prominence on the page. */
-export const RECOMMENDED_PLAN_ID = 'profesional';
+export const RECOMMENDED_PLAN_ID = 'founder';
 
 /**
  * How many minor units make one unit of the currency. CLP has no cents, so a

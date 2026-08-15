@@ -184,12 +184,42 @@ export async function checkPlanAllowance(
    *
    * Learned the hard way: enforcement went live on a database where the owner
    * had already spent 149 minutes demoing across 48 conversations, and the
-   * free tier's 20 minutes locked him out of his own product with no way back
-   * in — the one account that must always be able to open a session is the one
-   * used to show the thing working. Identity-based, using the same list that
-   * gates the operator pages, so revoking it means removing an address.
+   * free tier locked him out of his own product with no way back in. The one
+   * account that must always be able to open a session is the one used to show
+   * the thing working.
    */
   if (isAdminEmail(email)) return { allowed: true };
+
+  /*
+   * Which window to count depends on the plan.
+   *
+   * Free is a lifetime allowance, so counting the calendar month would hand a
+   * free learner 20 fresh minutes every 1st and quietly make the tier
+   * unlimited. Paid plans reset monthly. `plan_usage_total` carries `period`,
+   * so one read answers both.
+   */
+  const total = await supabaseAdmin()
+    .from('plan_usage_total')
+    .select('monthly_minutes, period, minutes')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (!total.error && total.data) {
+    const row = total.data as {
+      monthly_minutes: number | null;
+      period: string | null;
+      minutes: number;
+    };
+    if (row.period === 'total') {
+      if (row.monthly_minutes !== null && row.minutes >= row.monthly_minutes) {
+        return {
+          allowed: false,
+          error: `Usaste los ${row.monthly_minutes} minutos gratis. Para seguir estudiando necesitas un plan.`,
+        };
+      }
+      return { allowed: true };
+    }
+  }
 
   const { data, error } = await supabaseAdmin()
     .from('plan_usage')
@@ -197,6 +227,14 @@ export async function checkPlanAllowance(
     .eq('user_id', userId)
     .maybeSingle();
 
+  /*
+   * Fails open. A deployment whose migration has not run, or a Supabase
+   * hiccup, degrades to "the coach still answers" rather than to a wall: a
+   * free learner slipping through costs cents, a paying one locked out by an
+   * outage costs trust. The check is also only at connection time, so a
+   * session already running is never cut off and the cap stays soft by about
+   * one session.
+   */
   if (error || !data) {
     if (error) console.error('[account] could not read plan usage, allowing:', error.message);
     return { allowed: true };
