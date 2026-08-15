@@ -1,12 +1,34 @@
-# JIT Learning
+# ModoJIT
 
-A just-in-time learning system: a voice advisor you think out loud with about
-using language models at work, grounded in your own material via RAG.
+A study partner by voice, in Spanish. It asks you questions, listens to your
+answer, and tells you where you failed and what to review. Most people use it
+while walking or driving, which is the constraint behind every design decision
+here: short turns, nothing to read, no course to sit through.
 
-Built on the [ElevenLabs Agents Platform](https://elevenlabs.io/docs/eleven-agents)
-— ElevenLabs handles speech-to-text, the LLM turn, text-to-speech, chunking,
+**Two coaches.**
+
+| Coach | For | Corpus |
+|---|---|---|
+| `pmp` | Preparing for the PMI PMP exam by drilling situational questions out loud | `knowledge/pmp/` |
+| `empleabilidad` | Career orientation for people out of work, afraid of losing the job, or still studying: what to learn next to raise their opportunities as AI changes their field | `knowledge/empleabilidad/` |
+
+**The corpus is a supplement, not a fence.** Both coaches answer from the
+model's general knowledge and use retrieved material to sharpen specifics. This
+reverses an earlier design in which a coach could not answer outside its
+corpus, and which therefore said "no tengo material sobre eso" to ordinary
+questions. What replaces the fence is the honesty rule in the persona:
+attribute only what was retrieved, say plainly when an answer is general
+criterion, and never attach a figure, author, year or course name to something
+merely recalled. `npm run doctor` checks that rule is still in every persona.
+
+Built on the [ElevenLabs Agents Platform](https://elevenlabs.io/docs/eleven-agents):
+ElevenLabs handles speech-to-text, the LLM turn, text-to-speech, chunking,
 embedding and vector retrieval. This repo is the ingestion backend, the agent
 configuration, and the UI around it.
+
+One ElevenLabs agent per coach, so the attachment list is the corpus boundary:
+a PMP question cannot retrieve employability material, because those chunks are
+not attached to that agent.
 
 **The knowledge side is stateless.** ElevenLabs holds the documents and their
 indexes; the agent's own config records which documents are attached and in
@@ -16,6 +38,33 @@ which mode. Any number of Vercel instances see identical state.
 session — see [Accounts, plans and usage](#accounts-plans-and-usage). Nothing
 about the corpus lives there, so the two halves fail independently: a Supabase
 outage stops new sign-ins, it does not touch retrieval.
+
+## Ingesting the corpora
+
+Documents are stored as `<folder>/<file>`, and that prefix is what assigns them
+to a coach (`sources` in `src/lib/coaches.ts`). So the folder a file sits in
+decides which coach can retrieve it.
+
+```bash
+# Everything, both coaches
+npm run ingest -- ./knowledge
+
+# One coach at a time
+npm run ingest -- ./knowledge/pmp
+npm run ingest -- ./knowledge/empleabilidad
+```
+
+`knowledge/_retired/` holds the corpora of the coaches this product no longer
+runs. Those files stay on disk and are skipped by ingestion; nothing there is
+attached to any agent.
+
+After ingesting, push personas and attachment lists to the live agents:
+
+```bash
+npm run sync:agent                    # report drift for every coach
+npm run sync:agent -- --push          # apply
+npm run sync:agent -- pmp --push      # one coach
+```
 
 ## Feeding knowledge from your backend
 
@@ -96,11 +145,11 @@ Set these in **Project Settings → Environment Variables**, then redeploy:
 Create one agent per coach by calling the deployed app:
 
 ```bash
-for c in estrategia colegios emprendedores; do
+for c in pmp empleabilidad; do
   curl -X POST "https://<app>.vercel.app/api/agent/provision?coach=$c" \
     -H "x-ingest-secret: $INGEST_SECRET"
 done
-# -> {"coach":"estrategia","agentId":"agent_...","created":true}
+# -> {"coach":"pmp","agentId":"agent_...","created":true}
 ```
 
 Set each returned id as that coach's `ELEVENLABS_AGENT_ID_*`, redeploy once
@@ -124,10 +173,10 @@ If you'd rather work locally, put the same values in `.env.local` and run
 | Variable | Required | Notes |
 |---|---|---|
 | `ELEVENLABS_API_KEY` | yes | Needs Agents + Knowledge Base read/write |
-| `ELEVENLABS_AGENT_ID_ESTRATEGIA` | yes | From `npm run setup:agent` |
-| `ELEVENLABS_AGENT_ID_COLEGIOS` | yes | One agent per coach — the attachment list is what scopes the corpus |
-| `ELEVENLABS_AGENT_ID_EMPRENDEDORES` | yes | |
-| `ELEVENLABS_AGENT_ID` | no | Legacy single-coach id; read as the fallback for `_ESTRATEGIA` |
+| `ELEVENLABS_AGENT_ID_PMP` | yes | From `npm run setup:agent -- pmp` |
+| `ELEVENLABS_AGENT_ID_EMPLEABILIDAD` | yes | One agent per coach: the attachment list is what scopes the corpus |
+| `ELEVENLABS_AGENT_ID_PMP_MAX_VECTOR_DISTANCE` | no | Per-coach retrieval threshold; overrides `maxVectorDistance` in `coaches.ts` |
+| `ELEVENLABS_AGENT_ID_EMPLEABILIDAD_MAX_VECTOR_DISTANCE` | no | Same, for the other coach |
 | `INGEST_SECRET` | yes | `openssl rand -hex 32` |
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Public key; safe in the browser |
@@ -274,6 +323,31 @@ migration is a cost optimisation, not a feature flag. Deleting a conversation
 at ElevenLabs before its summary is cached forgets that session; after, the
 cached copy survives.
 
+### Study memory
+
+The summaries above are ElevenLabs' free-text paragraphs, which is enough to
+open a session warmly and not enough to teach from. Two structured tables sit
+beside them, filled from the per-coach extraction fields in
+[`dataCollection()`](src/lib/agent.ts):
+
+| Table | What it holds |
+|---|---|
+| `session_summaries` | One row per finished session: exam or target date, weak areas, which questions were asked and which were missed, and the commitment. |
+| `career_profiles` | One row per learner: role, field, years, weekly tasks, tools, goal, the map they were given and the plan built from it. |
+
+[`studyContext()`](src/lib/study.ts) turns those into the block sent through
+`sendContextualUpdate` at the start of a session, capped at 800 characters
+because it competes with the persona for the same turn. It is what lets PMP bias
+the next set of questions toward the domains missed last time, and what lets the
+employability coach open on the step of the plan the learner is actually on.
+`isFirstSession()` sets `first_session`, which is how a coach knows to run the
+diagnostic instead of the follow-up.
+
+Run [`supabase/migrations/20260808000000_study_memory.sql`](supabase/migrations/20260808000000_study_memory.sql).
+RLS is on and every policy is scoped to `auth.uid()`. Reads fail soft on a
+missing table or column, so a deployment without the migration behaves like one
+without memory rather than erroring.
+
 ### Commitments
 
 The follow-up above used to be a coin flip. The commitment lived only in the
@@ -307,18 +381,25 @@ this existed picks the fields up on its next sync.
 
 The knobs live in `ragConfig()` in [`src/lib/agent.ts`](src/lib/agent.ts):
 
-- **`max_vector_distance`** (0.8) — the relevance gate, and the setting that
-  matters most. Set too tight, the coach retrieves nothing and falls back to
-  general knowledge **in the same confident voice** it uses when grounded, so
-  the learner cannot tell the difference. This is not theoretical: at 0.6, a
-  question about a study the model already knew from training produced invented
-  figures plus a statistic the source never contained. At 0.8 it retrieves
-  correctly. Raise it further only while watching for the opposite failure —
-  loosely-related chunks answered from as if they were on point.
+- **`max_vector_distance`** (0.8 by default) is the relevance gate and the
+  setting that matters most. Set too tight and the coach retrieves nothing,
+  answering from general knowledge instead. That is now a legitimate answer
+  rather than a failure, which is exactly why the threshold still matters: the
+  learner loses the specific material without anything sounding wrong. At 0.6, a
+  question about a study already in the model's training produced invented
+  figures plus a statistic the source never contained. Raise it past 0.8 only
+  while watching for the opposite failure: loosely related chunks answered from
+  as if they were on point.
 
   Tune it against questions whose answers you can check by hand, and include at
   least one on a topic the model likely knows independently. Questions only your
   corpus can answer will pass at almost any threshold and tell you nothing.
+
+  It is set **per coach**, because the corpora do not behave alike. PMP material
+  is terminology-dense and phrased almost identically across sources, so it sits
+  at 0.7 to keep near-duplicates from crowding out the chunk that answers the
+  question. `maxVectorDistance` in [`src/lib/coaches.ts`](src/lib/coaches.ts) is
+  the default; `<ENVKEY>_MAX_VECTOR_DISTANCE` overrides it without a deploy.
 - **`max_retrieved_rag_chunks_count`** (12) and **`max_documents_length`**
   (12,000 tokens) — retrieval budget. Larger mostly buys latency, which is felt
   much more sharply in voice than in text.
@@ -340,10 +421,11 @@ claude-haiku-4-5    claude-sonnet-4     claude-3-7-sonnet
 Leave the variable unset and you get the ElevenLabs workspace default rather
 than a Claude model.
 
-The persona is `TUTOR_PERSONA` in the same file, returned by
-`tutorSystemPrompt()`. Written for voice — short turns, nothing read aloud that
-only makes sense on a page — and for advising rather than instructing. See
-[What the coach is for](#what-the-coach-is-for).
+The persona is built by `personaFor()` in the same file and returned by
+`tutorSystemPrompt(coach)`: one shared base plus the coach's own session spine
+from [`src/lib/coaches.ts`](src/lib/coaches.ts). Written for voice, so turns run
+to at most 3 sentences and nothing is read aloud that only makes sense on a
+page. See [What the coaches are for](#what-the-coaches-are-for).
 
 ### `auto` vs `prompt` usage mode
 
@@ -356,23 +438,30 @@ only makes sense on a page — and for advising rather than instructing. See
 glossary of internal acronyms. Pass `"usageMode": "prompt"` on upload, or tick
 "Always in context" in the UI.
 
-## What the coach is for
+## What the coaches are for
 
-A thinking partner on using language models, not a step-by-step instructor.
+**PMP** runs the same shape every session: ask the exam date and say how many
+days are left, put one PMI-style situational question with 4 options, correct
+the answer naming the domain and task from the Examination Content Outline,
+explain in at most 3 sentences why the best answer is best and why the most
+tempting distractor is wrong, repeat 3 to 5 times biased toward the domains
+missed last time, and close on a commitment. Where PMI's expected answer
+differs from what an experienced project manager would actually do, the coach
+says so out loud, because that gap is where most of the score is lost.
 
-The persona refuses click-by-click procedures even when asked for them
-outright — and it is asked that way most of the time. Two reasons, both load
-bearing: there is no interface material in the corpus, so any sequence of clicks
-would come from memory and the button names churn every few weeks; and someone
-asking for steps usually wants to solve something, so handing over the mechanics
-alone leaves them able to press buttons without the judgement to know whether
-they should. It says the vendor docs are the better source, in one sentence
-without apologising, and moves to the decision underneath.
+**Empleabilidad con IA** starts with a diagnostic: role or degree, field,
+years, the 3 to 5 tasks that fill the week, tools already used, and the goal.
+Then it gives the map before any plan: where the learner's existing knowledge
+gains value, what categories of tool exist and what each unlocks for their
+tasks, and 3 paths from closest to farthest. Later sessions are lessons anchored
+to one of the learner's own weekly tasks, never a tool in the abstract: the
+concept in 2 sentences, the exact steps at voice pace, the verification habit,
+and an exercise. It asks whether the learner is at a computer or walking and
+teaches differently for each. It is career and technical guidance, not interview
+rehearsal.
 
-What it does instead: explains concepts and how mechanisms differ, gives a
-recommendation with the condition that would flip it rather than a comparison
-table, disagrees early when the framing is wrong, and raises the one thing that
-changes what you should do rather than a list of risks.
+Both close every session the same way: 1 action, 1 date, 1 signal that confirms
+it worked. The next session opens by asking about it.
 
 ### Why not just use ChatGPT
 
@@ -421,8 +510,9 @@ commitment exists to remove.
 
 ### Pushing a persona change
 
-The persona is source code, but the agent holds its own copy — editing
-`TUTOR_PERSONA` changes nothing audible until it is pushed.
+The persona is source code, but each agent holds its own copy: editing
+`personaFor()` or a coach's `sessionSpine` changes nothing audible until it is
+pushed.
 
 ```bash
 npm run sync:agent            # report drift, change nothing
@@ -442,7 +532,9 @@ change before you can hear it.
 src/lib/elevenlabs.ts   Typed REST client (knowledge base, RAG, agents, signed URLs)
 src/lib/knowledge.ts    Ingestion + index status
 src/lib/catalog.ts      Assembles document state from ElevenLabs + agent config
-src/lib/agent.ts        Advisor persona, RAG config, knowledge sync
+src/lib/agent.ts        Persona, RAG config, data collection, knowledge sync
+src/lib/coaches.ts      The two coaches: scope, corpus prefixes, session spines
+src/lib/study.ts        Session summaries and career profiles, for continuity
 src/lib/auth.ts         Shared-secret gate
 src/lib/config.ts       Env config + bounded-concurrency helper
 src/app/api/            Route handlers
@@ -465,9 +557,12 @@ scripts/                setup-agent, sync-agent, bulk ingest, doctor
   not sufficient for a client's private corpus, which needs its own workspace.
 - **Voice needs HTTPS.** Fine on Vercel and on `localhost`; a plain-HTTP host
   will silently fail to get mic access.
-- **No interface material in the corpus.** Deliberate — the coach advises rather
-  than instructs — but it means any procedural question is answered by pointing
-  at the vendor docs, not from knowledge.
+- **Procedural steps come from general knowledge, not the corpus.** The
+  employability coach's job includes saying which menu to open and what to type,
+  and no corpus here documents anyone's interface. So those steps come from the
+  model, are subject to the honesty rule like anything else, and go stale when a
+  vendor moves a button. The persona keeps them at voice pace and pairs each one
+  with a way to check the result, which is what makes a wrong step recoverable.
 - **Memory is per-deployment-with-Supabase, and only as good as the
   summaries.** Session memory (see [Session memory](#session-memory)) needs the
   service role to read the ledger — a deployment without Supabase starts every
@@ -475,7 +570,7 @@ scripts/                setup-agent, sync-agent, bulk ingest, doctor
   automatic ones: a paragraph per call, usually in English, with no control
   over what they keep. Nuance does not survive; the commitment no longer relies
   on it, since it is extracted as its own field (see [Commitments](#commitments)).
-- **The persona is long** (~14.7k characters, roughly 3.7k tokens) and rides on
-  every turn. It is a system prompt, so it caches, but a materially larger one
+- **The persona is long** (9.2k characters for PMP, 13.6k for employability)
+  and rides on every turn. `npm run doctor` fails it past 15k. It is a system prompt, so it caches, but a materially larger one
   will start to be felt as latency in voice, where it is much more noticeable
   than in text.
