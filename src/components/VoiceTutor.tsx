@@ -243,6 +243,10 @@ function VoiceTutorInner({ coach }: { coach: Coach }) {
         sessionId?: string | null;
         /** Memory of previous sessions, composed server-side. Null on a first visit. */
         context?: string | null;
+        /** Structured study record: countdown, weak areas, plan step. */
+        study?: string | null;
+        /** True when this coach has never met this learner. */
+        firstSession?: boolean;
         error?: string;
       };
       if (!res.ok || !data.signedUrl) {
@@ -274,8 +278,12 @@ function VoiceTutorInner({ coach }: { coach: Coach }) {
       // action went instead of starting from zero.
       const goal = (seed ?? objective).trim();
       pendingContextRef.current = [
-        `Hoy es ${todayInSpanish()}. Úsalo para fijar plazos concretos.`,
+        `Hoy es ${todayInSpanish()}. Úsalo para fijar plazos y para contar los días que faltan.`,
         goal && `Objetivo declarado para esta sesión: ${goal}`,
+        // The structured record first: it is what the coach opens on, and a
+        // long free-text summary underneath must not crowd out the countdown.
+        data.study && `Registro de estudio de esta persona: ${data.study}`,
+        data.firstSession && 'Es su primera sesión con este coach: no tienes perfil ni plan previo.',
         data.context,
       ]
         .filter(Boolean)

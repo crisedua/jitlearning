@@ -238,12 +238,13 @@ export async function checkPlanAllowance(
 export async function startCoachSession(
   userId: string,
   agentId: string,
+  coach?: string,
 ): Promise<string | null> {
   if (!serviceConfigured()) return null;
 
   const { data, error } = await supabaseAdmin()
     .from('coach_sessions')
-    .insert({ user_id: userId, agent_id: agentId })
+    .insert({ user_id: userId, agent_id: agentId, ...(coach ? { coach } : {}) })
     .select('id')
     .single();
 
@@ -284,4 +285,41 @@ export async function finishCoachSession(
     .eq('user_id', userId);
 
   if (error) console.error('[account] could not close usage row:', error.message);
+}
+
+/**
+ * Remember which coach this learner opened, so the picker preselects it.
+ *
+ * On the profile rather than in a cookie: someone who studies on a phone at
+ * lunch and a laptop at night should not have to choose twice. Best effort,
+ * and deliberately not awaited for its result at the call site — a failed
+ * preference write must never cost somebody their session.
+ */
+export async function rememberCoachChoice(userId: string, coach: string): Promise<void> {
+  if (!serviceConfigured()) return;
+
+  const { error } = await supabaseAdmin()
+    .from('profiles')
+    .update({ last_coach: coach })
+    .eq('id', userId);
+
+  // 42703: the study_memory migration has not run here. Not worth a log line
+  // on every connect.
+  if (error && error.code !== '42703') {
+    console.error('[account] could not store coach choice:', error.message);
+  }
+}
+
+/** The coach this learner opened last, or null. Drives the picker's preselection. */
+export async function lastCoachChoice(userId: string): Promise<string | null> {
+  if (!serviceConfigured()) return null;
+
+  const { data, error } = await supabaseAdmin()
+    .from('profiles')
+    .select('last_coach')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return (data as { last_coach: string | null }).last_coach ?? null;
 }

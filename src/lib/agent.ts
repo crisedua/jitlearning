@@ -210,8 +210,8 @@ export function ragConfig(coach: Coach): RagConfig {
  * important as the rest, because most of the damage a field like this can do is
  * inventing a commitment nobody made.
  */
-export function dataCollection(): DataCollectionConfig {
-  return {
+export function dataCollection(coach: Coach): DataCollectionConfig {
+  const shared: DataCollectionConfig = {
     commitment: {
       type: 'string',
       description:
@@ -226,6 +226,32 @@ export function dataCollection(): DataCollectionConfig {
       type: 'string',
       description:
         'Qué señal contaría como que la acción salió bien, tal como se dijo ("que dos digan que sí"). Cadena vacía si no se definió ninguna o si no hay compromiso.',
+    },
+    target_date: {
+      type: 'string',
+      description:
+        'La fecha objetivo que la persona mencionó, en formato AAAA-MM-DD: la fecha de su examen PMP, o la fecha para la que necesita estar lista laboralmente. Cadena vacía si no la dijo. No la inventes ni la deduzcas de "en dos meses" salvo que la conversación diga de qué fecha se cuenta.',
+    },
+    weak_areas: {
+      type: 'string',
+      description:
+        'Los temas o dominios en los que la persona se mostró más débil en esta sesión, separados por punto y coma, con el nombre que usa el material ("gestión de interesados; control integrado de cambios"). Cadena vacía si la sesión no lo dejó claro.',
+    },
+  };
+
+  if (coach.id !== 'pmp') return shared;
+
+  return {
+    ...shared,
+    questions_asked: {
+      type: 'string',
+      description:
+        'Los temas de las preguntas situacionales que el coach hizo en esta sesión, separados por punto y coma, uno por pregunta ("cambio de alcance; riesgo secundario; equipo desmotivado").',
+    },
+    questions_missed: {
+      type: 'string',
+      description:
+        'Los temas de las preguntas que la persona respondió mal, separados por punto y coma. Cadena vacía si respondió todas bien.',
     },
   };
 }
@@ -306,7 +332,7 @@ export async function provisionAgent(coach: Coach): Promise<string> {
         similarity_boost: 0.8,
       },
     },
-    platform_settings: { data_collection: dataCollection() },
+    platform_settings: { data_collection: dataCollection(coach) },
   };
 
   const { agent_id } = await createAgent(config);
@@ -365,7 +391,7 @@ export async function syncAgentKnowledge(
     // own copy, so a change here is invisible until pushed. An agent
     // provisioned before commitments existed picks the fields up on its next
     // sync rather than needing to be recreated.
-    platform_settings: { data_collection: dataCollection() },
+    platform_settings: { data_collection: dataCollection(coach) },
   });
 
   return { agentId: id, attached: entries.length };

@@ -12,8 +12,13 @@ import { getSignedUrl } from '@/lib/elevenlabs';
 import { agentId } from '@/lib/config';
 import { findCoach } from '@/lib/coaches';
 import { currentUser } from '@/lib/supabase/server';
-import { checkPlanAllowance, startCoachSession } from '@/lib/account';
+import {
+  checkPlanAllowance,
+  rememberCoachChoice,
+  startCoachSession,
+} from '@/lib/account';
 import { learnerContext } from '@/lib/memory';
+import { isFirstSession, studyContext } from '@/lib/study';
 
 export const runtime = 'nodejs';
 // The URL is short-lived; caching it would hand stale credentials to new sessions.
@@ -74,12 +79,29 @@ export async function GET(request: NextRequest) {
      * learner's session into a continuation, and it degrades to null (a cold
      * start) rather than ever failing the mint.
      */
-    const [sessionId, context] = await Promise.all([
-      startCoachSession(user.id, id),
+    const [sessionId, context, study, firstSession, lastCoachSaved] = await Promise.all([
+      startCoachSession(user.id, id, coach.id),
       learnerContext(user.id),
+      studyContext(user.id, coach.id),
+      isFirstSession(user.id, coach.id),
+      rememberCoachChoice(user.id, coach.id),
     ]);
+    void lastCoachSaved;
 
-    return NextResponse.json({ signedUrl, agentId: id, sessionId, context });
+    /*
+     * Two context blocks, kept apart on purpose. `context` is the free-text
+     * memory of what was discussed; `study` is the structured record the
+     * coaches actually open on — days to the exam, weak domains, the plan step.
+     * Merging them would let a rambling summary crowd out the countdown.
+     */
+    return NextResponse.json({
+      signedUrl,
+      agentId: id,
+      sessionId,
+      context,
+      study,
+      firstSession,
+    });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Could not get signed URL' },
