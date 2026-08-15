@@ -31,3 +31,7 @@ knowledge/*
 # Retired corpora stay on disk and out of git: they are no longer ingested,
 # and they carry the same copyright caution as any source material.
 knowledge/_retired/
+
+# Raw sweep output, kept only to re-tune the pain filter without paying to
+# re-scrape. Large, disposable, and never read by the app.
+scripts/.pains-raw.json
