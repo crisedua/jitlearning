@@ -35,17 +35,36 @@ export function agentLanguage(): string {
  * prints them; you set them in Vercel's project settings. Nothing is written
  * back at runtime, which is what lets every instance stay stateless.
  *
- * `ELEVENLABS_AGENT_ID` is still read as a fallback for the estrategia coach,
- * which is what the single-coach deployment was. Without it, shipping this
- * change would take the live coach down until the new variables were set — and
- * a deploy that only goes right if two systems are updated in the same second
- * is a deploy that goes wrong.
+ * No legacy fallback any more. The old one pointed `ELEVENLABS_AGENT_ID` at the
+ * strategy coach, and that coach is retired: inheriting its agent would give a
+ * PMP learner an agent still carrying another subject's persona and attachment
+ * list, which is worse than a clear error saying the variable is unset.
  */
 export function agentId(coach: Coach): string | undefined {
-  const id = process.env[coach.envKey]?.trim();
-  if (id) return id;
-  if (coach.id === 'estrategia') return process.env.ELEVENLABS_AGENT_ID?.trim() || undefined;
-  return undefined;
+  return process.env[coach.envKey]?.trim() || undefined;
+}
+
+/**
+ * Retrieval strictness, per coach.
+ *
+ * One number decides whether a chunk counts as relevant, and the right value
+ * is not the same for both corpora. PMP material is terminology-dense and
+ * internally similar, so a loose gate drags competency prose into a question
+ * about integrated change control. Employability answers lean mostly on
+ * general knowledge over a small, varied corpus, where a tight gate returns
+ * nothing at all and the supplement never fires.
+ *
+ * The failure when this is too tight is the dangerous one: the agent retrieves
+ * nothing, answers from general knowledge, and sounds exactly as confident. The
+ * honesty rule in the persona is what keeps that honest, but a coach that never
+ * retrieves is a coach whose corpus is decorative.
+ */
+const DEFAULT_MAX_VECTOR_DISTANCE = 0.8;
+
+export function maxVectorDistance(coach: Coach): number {
+  const override = Number(process.env[`${coach.envKey}_MAX_VECTOR_DISTANCE`]);
+  if (Number.isFinite(override) && override > 0) return override;
+  return coach.maxVectorDistance ?? DEFAULT_MAX_VECTOR_DISTANCE;
 }
 
 export function requireAgentId(coach: Coach): string {
