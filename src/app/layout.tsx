@@ -3,7 +3,7 @@ import { Instrument_Sans, Instrument_Serif, JetBrains_Mono } from 'next/font/goo
 import Link from 'next/link';
 import { BrandMark, Wordmark } from '@/components/BrandMark';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
-import { PROFILE, hasContact } from '@/lib/site';
+import { PROFILE, TAGLINE, hasContact } from '@/lib/site';
 import './globals.css';
 
 /**
@@ -37,7 +37,13 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'ModoJIT',
   icons: { icon: '/icono.svg' },
-  description: 'Coach de aprendizaje justo a tiempo con agentes de voz de ElevenLabs y RAG',
+  description: TAGLINE,
+  openGraph: {
+    title: 'ModoJIT',
+    description: TAGLINE,
+    type: 'website',
+    locale: 'es_CL',
+  },
 };
 
 /**
@@ -46,9 +52,7 @@ export const metadata: Metadata = {
  * here a visitor may arrive at directly, from a link someone sent them.
  */
 const NAV = [
-  { href: '/#que-hace', label: 'Qué hace' },
-  { href: '/#diferencia', label: 'La diferencia' },
-  { href: '/#temas', label: 'Temas' },
+  { href: '/#coaches', label: 'Los coaches' },
   { href: '/#como', label: 'Cómo funciona' },
   { href: '/planes', label: 'Planes' },
   { href: '/feedback', label: 'Feedback' },
@@ -103,7 +107,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   aria-hidden
                   className="hidden text-[9.5px] font-semibold uppercase leading-none tracking-[0.13em] text-soft xs:block"
                 >
-                  Aprendizaje justo a tiempo
+                  Estudia por voz
                 </span>
               </span>
             </Link>

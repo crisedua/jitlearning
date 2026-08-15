@@ -54,15 +54,14 @@ export default async function CoachPickerPage() {
         </div>
         <p className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em] text-accent">
           <span aria-hidden className="inline-block h-px w-[34px] bg-gold" />
-          Aprendizaje justo a tiempo
+          Estudia por voz
         </p>
         <h1 className="mt-3 font-serif text-[clamp(2.25rem,5vw,3.25rem)] font-normal leading-[1.05] tracking-[-0.02em]">
-          ¿Sobre qué quieres hablar?
+          ¿Con cuál estudias hoy?
         </h1>
         <p className="mt-3 max-w-2xl text-[17px] leading-relaxed text-muted">
-          Cada coach tiene su propia base de conocimiento y responde solo sobre lo suyo.
-          Elige el que corresponda a lo que tienes entre manos: puedes cambiar cuando
-          quieras.
+          Cada coach tiene su propio material y su propia forma de trabajar contigo. Elige
+          el que corresponda a lo que estás estudiando: puedes cambiar cuando quieras.
         </p>
 
         {balance && (
@@ -120,9 +119,8 @@ function CoachCard({ coach }: { coach: Coach }) {
    *
    * Leaving it out entirely would be simpler, but the picker is also where
    * somebody learns what this is becoming, and an announced gap reads better
-   * than a silent one. What it must not do is start a conversation: everything
-   * that makes these coaches worth using — la fuente con su fecha, no promediar
-   * a los autores — comes from material that does not exist yet.
+   * than a silent one. What it must not do is start a conversation: a coach is
+   * only listed as open once its agent exists and its session spine is written.
    */
   if (!coach.available) {
     return (
