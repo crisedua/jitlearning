@@ -335,16 +335,22 @@ export async function provisionAgent(coach: Coach): Promise<string> {
        * failure than waiting. Someone thinking aloud about their business
        * pauses mid-sentence, and a coach that talks over them is not a coach.
        *
-       * What survives is speculative generation, which buys most of the same
-       * latency without touching when the turn ends: it starts composing while
-       * endpointing is still deciding and throws the work away if the learner
-       * keeps going. The longer `turn_timeout` is deliberate for the same
-       * reason — room to think before the agent fills the silence.
+       * Speculative generation was the next thing tried and is also off now.
+       * It starts composing while endpointing is still deciding, which buys
+       * latency — but a learner reported being unable to interrupt, and an
+       * agent that has already begun composing is an agent committed to
+       * speaking. Between a slightly slower coach and one that talks over
+       * you, the slower one wins every time: interrupting is how somebody
+       * says "no, that is not my problem", and losing that costs more than a
+       * second of silence.
+       *
+       * These three settings are stock. Anything faster has to be earned
+       * without touching who holds the floor.
        */
       turn: {
         turn_eagerness: 'normal',
-        speculative_turn: true,
-        turn_timeout: 10.0,
+        speculative_turn: false,
+        turn_timeout: 8.0,
       },
       tts: {
         // Turbo, not flash: flash is the lowest-latency tier but audibly the
