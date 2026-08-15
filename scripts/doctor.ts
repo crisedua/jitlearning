@@ -15,6 +15,8 @@ import './env';
 import { getAgent, listDocuments } from '../src/lib/elevenlabs';
 import { agentId, embeddingModel } from '../src/lib/config';
 import { availableCoaches, coachOwnsDocument } from '../src/lib/coaches';
+import { tutorSystemPrompt } from '../src/lib/agent';
+import { PROMISES } from '../src/lib/site';
 import { supabaseAdmin } from '../src/lib/supabase/admin';
 
 const ok = (m: string) => console.log(`  ok    ${m}`);
@@ -144,6 +146,82 @@ async function main() {
       supabaseFailures++;
     } else {
       ok('Schema reachable — profiles, plans and coach_sessions are in place');
+    }
+
+    // The study tables carry everything that makes a session a continuation
+    // rather than a first meeting, so their absence is worth naming precisely.
+    for (const table of ['session_summaries', 'career_profiles']) {
+      const probe = await supabaseAdmin().from(table).select('*', { count: 'exact', head: true });
+      if (!probe.error) {
+        ok(`${table} exists with row-level security`);
+      } else {
+        bad(`${table} is not queryable: ${probe.error.message}`);
+        console.log('        Run supabase/migrations/20260808000000_study_memory.sql.');
+        supabaseFailures++;
+      }
+    }
+  }
+
+  /*
+   * The persona is the product, so it gets checked like code.
+   *
+   * Two things can rot silently here. A persona can lose the honesty rule in
+   * an edit and keep sounding fine, right up until it invents a citation. And
+   * the marketing copy can promise a behaviour the persona no longer performs,
+   * which for a product whose central claim is "no inventa" is the worst kind
+   * of drift. Both are mechanical to check, so they are checked.
+   */
+  console.log('\nPersonas\n');
+
+  for (const coach of availableCoaches()) {
+    const persona = tutorSystemPrompt(coach);
+
+    const honesty = [
+      'Nunca cifras sin fuente',
+      'Nunca inventes nombres',
+      'criterio general',
+    ].filter((phrase) => !persona.includes(phrase));
+
+    if (honesty.length === 0) {
+      ok(`${coach.label}: honesty rule complete`);
+    } else {
+      bad(`${coach.label}: honesty rule incomplete, missing: ${honesty.join(', ')}`);
+      failures++;
+    }
+
+    if (persona.includes('## Cómo va la sesión') && coach.sessionSpine.trim().length > 200) {
+      ok(`${coach.label}: session spine present`);
+    } else {
+      bad(`${coach.label}: no usable session spine`);
+      failures++;
+    }
+
+    // Voice is the whole premise: a persona over budget gets truncated or
+    // ignored, and the first thing to go is whatever was said last.
+    const size = persona.length;
+    if (size <= 15_000) {
+      ok(`${coach.label}: persona is ${size} chars`);
+    } else {
+      bad(`${coach.label}: persona is ${size} chars, over the 15,000 budget`);
+      failures++;
+    }
+  }
+
+  console.log('\nSite promises against persona behaviour\n');
+
+  for (const promise of PROMISES) {
+    const missing = availableCoaches().filter(
+      (coach) => !tutorSystemPrompt(coach).includes(promise.personaMarker),
+    );
+    if (missing.length === 0) {
+      ok(`"${promise.key}" is honoured by all ${availableCoaches().length} personas`);
+    } else {
+      bad(
+        `"${promise.key}" is promised in site.ts but missing from: ${missing
+          .map((c) => c.label)
+          .join(', ')}`,
+      );
+      failures++;
     }
   }
 
