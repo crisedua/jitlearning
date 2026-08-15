@@ -38,8 +38,21 @@ const SUPPORTED = new Set(Object.keys(MIME_TYPES));
  * Never worth descending into, and `node_modules` in particular turns the
  * duplicate-name check below into a walk of tens of thousands of files when the
  * corpus root is the repo root.
+ *
+ * `_retired` holds the corpora of coaches this product no longer runs. The
+ * documents stay on disk because they were written here and may be worth
+ * something later, but ingesting them would attach material no coach claims —
+ * invisible until a learner gets an answer from a subject the product dropped.
  */
-const SKIP_DIRS = new Set(['node_modules', '.git', '.next', 'dist', 'build', 'out']);
+const SKIP_DIRS = new Set([
+  'node_modules',
+  '.git',
+  '.next',
+  'dist',
+  'build',
+  'out',
+  '_retired',
+]);
 
 /**
  * The name a document is stored under: `<carpeta>/<archivo>`.
