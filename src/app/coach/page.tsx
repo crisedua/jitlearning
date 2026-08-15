@@ -7,7 +7,7 @@ import { COACHES, type Coach } from '@/lib/coaches';
 import { topicsFor } from '@/lib/topics';
 import { currentUser } from '@/lib/supabase/server';
 import { signInPath } from '@/lib/paths';
-import { getUsageBalance } from '@/lib/account';
+import { getUsageBalance, lastCoachChoice } from '@/lib/account';
 import { openCommitment } from '@/lib/commitments';
 
 export const dynamic = 'force-dynamic';
@@ -41,9 +41,10 @@ export default async function CoachPickerPage() {
   const user = await currentUser();
   if (!user) redirect(signInPath('/coach'));
 
-  const [balance, commitment] = await Promise.all([
+  const [balance, commitment, lastCoach] = await Promise.all([
     getUsageBalance(user.id, user.email),
     openCommitment(user.id),
+    lastCoachChoice(user.id),
   ]);
 
   return (
@@ -79,12 +80,20 @@ export default async function CoachPickerPage() {
       */}
       {commitment && <OpenCommitment commitment={commitment} />}
 
+      {/*
+        The coach used last comes first and is marked, rather than being
+        auto-opened. Someone who studies PMP daily should not have to hunt for
+        it, but jumping straight into a session would take away the choice on
+        the one screen whose whole job is choosing.
+      */}
       <ul className="grid gap-4 sm:grid-cols-2">
-        {COACHES.map((coach) => (
-          <li key={coach.id}>
-            <CoachCard coach={coach} />
-          </li>
-        ))}
+        {[...COACHES]
+          .sort((a, b) => Number(b.id === lastCoach) - Number(a.id === lastCoach))
+          .map((coach) => (
+            <li key={coach.id}>
+              <CoachCard coach={coach} isLast={coach.id === lastCoach} />
+            </li>
+          ))}
       </ul>
 
       {/*
@@ -111,7 +120,7 @@ export default async function CoachPickerPage() {
   );
 }
 
-function CoachCard({ coach }: { coach: Coach }) {
+function CoachCard({ coach, isLast }: { coach: Coach; isLast?: boolean }) {
   const topics = topicsFor(coach.id);
 
   /*
@@ -142,10 +151,19 @@ function CoachCard({ coach }: { coach: Coach }) {
   return (
     <Link
       href={`/coach/${coach.id}`}
-      className="group flex h-full flex-col rounded-lg border border-line bg-surface p-5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md sm:p-6"
+      className={`group flex h-full flex-col rounded-lg border bg-surface p-5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md sm:p-6 ${
+        isLast ? 'border-accent/45 ring-1 ring-accent/15' : 'border-line'
+      }`}
     >
-      <span className="inline-flex w-fit items-center gap-2 rounded-full border border-accent/25 bg-accent-soft/40 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-accent">
-        {coach.tag}
+      <span className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex w-fit items-center gap-2 rounded-full border border-accent/25 bg-accent-soft/40 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-accent">
+          {coach.tag}
+        </span>
+        {isLast && (
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-soft">
+            El último que usaste
+          </span>
+        )}
       </span>
 
       <h2 className="mt-3 font-serif text-[21px] font-normal leading-snug tracking-[-0.01em]">
@@ -173,7 +191,7 @@ function CoachCard({ coach }: { coach: Coach }) {
       )}
 
       <span className="mt-auto flex items-center gap-1.5 pt-5 text-[13px] font-medium text-accent">
-        Hablar con este coach
+        Estudiar con este coach
         <span
           aria-hidden
           className="transition-transform duration-200 ease-out group-hover:translate-x-0.5"
