@@ -33,14 +33,14 @@ import {
 export const metadata: Metadata = {
   title: 'Planes · ModoJIT',
   description:
-    'Planes de ModoJIT por minutos de conversación: 20 minutos gratis para probar, y 2 planes mensuales para estudiar a diario.',
+    'Planes de ModoJIT por minutos de clase: 20 minutos gratis para el diagnóstico y tu plan, y 2 planes mensuales para el currículum completo.',
 };
 
 /** Prices change without a deploy, so the page must not be cached forever. */
 export const revalidate = 300;
 
 /*
- * The per-seat Empresa tier is retired along with the coach it was priced for.
+ * The per-seat Empresa tier is retired along with the product it was priced for.
  * The card logic that special-cased it is gone; what remains works off the
  * public plans the table returns, so retiring another tier is a row update.
  */
@@ -334,17 +334,17 @@ export default async function PlanesPage() {
       <section className="mx-auto max-w-[96rem] px-6 py-20 lg:py-24">
         <div className="reveal rounded-xl bg-accent-hover px-8 py-14 sm:px-14 sm:py-16">
           <h2 className="max-w-[20ch] font-serif text-[clamp(1.875rem,4vw,2.75rem)] font-normal leading-[1.06] tracking-[-0.02em] text-bg">
-            Pruébalo antes de elegir tamaño
+Haz la primera clase antes de elegir
           </h2>
           <p className="mt-5 max-w-[52ch] text-[17px] leading-relaxed text-bg/75">
-            Veinte minutos gratis, sin tarjeta. Es tiempo suficiente para saber si sabe de lo tuyo,
-            que es lo único que importa antes de pagar.
+            Veinte minutos gratis, sin tarjeta. Alcanza para el diagnóstico, el mapa y tu plan
+            armado, que es lo que necesitas ver antes de pagar.
           </p>
           <Link
             href="/coach"
             className="mt-9 inline-flex items-center gap-2.5 rounded-full bg-bg px-6 py-3 text-[16px] font-medium text-ink transition duration-200 ease-out hover:-translate-y-0.5"
           >
-            Hablar con el coach
+            Empezar la primera clase
             <span
               aria-hidden
               className="h-[7px] w-[7px] rounded-full bg-gold [animation:ring_2.2s_ease-out_infinite]"

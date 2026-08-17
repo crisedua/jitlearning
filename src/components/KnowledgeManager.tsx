@@ -84,7 +84,7 @@ export function KnowledgeManager() {
       if (stillPending.length === 0 && newlyReady) {
         await fetch('/api/agent', { method: 'POST', headers: authHeaders() });
         await load();
-        setNotice('Indexación terminada: el coach ya lo tiene.');
+        setNotice('Indexación terminada: el profesor ya lo tiene.');
       }
     }, 3000);
     return () => clearInterval(timer);
@@ -134,7 +134,7 @@ export function KnowledgeManager() {
       setNotice(
         pinned
           ? 'Subido y adjuntado al coach.'
-          : 'Subido. Indexando: el coach lo tomará automáticamente al terminar.',
+          : 'Subido. Indexando: el profesor lo tomará automáticamente al terminar.',
       );
       if (data.syncError) setError(`Adjuntado con una advertencia: ${data.syncError}`);
 

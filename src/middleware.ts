@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest) {
    * silently ignores it and delivers the code to the project's Site URL
    * instead — the bare origin, with no path. The code is then sitting on a page
    * that does nothing with it, the learner never gets a session, and clicking
-   * "Hablar con el coach" sends them back through Google forever. The loop is
+   * the call-to-action sends them back through Google forever. The loop is
    * indistinguishable from a broken login.
    *
    * Forward it to the route that knows what to do with it. This only fires on

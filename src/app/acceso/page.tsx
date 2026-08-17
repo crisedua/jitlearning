@@ -48,7 +48,7 @@ export default async function AccesoPage({
         Acceso
       </p>
       <h1 className="mt-3 font-serif text-[clamp(2rem,4.5vw,2.75rem)] font-normal leading-[1.05] tracking-[-0.02em]">
-        {error ? 'No pudimos entrar' : 'Entra para hablar con el coach'}
+        {error ? 'No pudimos entrar' : 'Entra para empezar tu clase'}
       </h1>
       <p className="mt-3 text-[17px] leading-relaxed text-muted">
         Cada conversación es una sesión de voz real, así que pedimos que entres con tu
@@ -90,7 +90,7 @@ export default async function AccesoPage({
 
       <p className="mt-6 text-xs leading-relaxed text-soft">
         Google nos comparte tu nombre, tu correo y tu foto de perfil. Guardamos eso y el
-        registro de tus sesiones con el coach, para saber cuánto has usado tu plan.
+        registro de tus clases, para saber cuánto has usado tu plan.
       </p>
     </div>
   );

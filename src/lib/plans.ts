@@ -97,7 +97,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     setupMinor: null,
     isPublic: true,
     sortOrder: 10,
-    blurb: '20 minutos para probar si estudiar hablando te sirve.',
+    blurb: '20 minutos para hacer el diagnóstico y ver tu plan.',
   },
   {
     id: 'founder',
@@ -125,7 +125,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     setupMinor: null,
     isPublic: true,
     sortOrder: 30,
-    blurb: 'Estudio diario, con memoria entre sesiones.',
+    blurb: 'Una clase por semana, con memoria entre sesiones.',
   },
 ] as const;
 
@@ -135,20 +135,21 @@ export const FALLBACK_PLANS: readonly Plan[] = [
  */
 export const PLAN_FEATURES: Record<string, readonly string[]> = {
   free: [
-    'Los 2 coaches, sin restricción de temas',
+    'El diagnóstico, el mapa y tu plan armado',
     '20 minutos en total, no al mes',
     'Se detiene al llegar al límite: nunca genera un cobro',
-    'Sin tarjeta',
+    'Sin tarjeta. Para estudiantes y para probar',
   ],
   founder: [
     '300 minutos al mes',
+    'El currículum completo, de fundamentos a portafolio',
     'Memoria entre sesiones: retoma donde quedaste',
     'El precio no sube mientras mantengas el plan',
   ],
   standard: [
     '300 minutos al mes',
+    'El currículum completo y tu página de progreso',
     'Memoria entre sesiones y seguimiento de tu plan',
-    'Los 2 coaches',
   ],
 };
 

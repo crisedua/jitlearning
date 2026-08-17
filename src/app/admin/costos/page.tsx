@@ -164,7 +164,7 @@ export default async function CostosPage() {
     <section className="mx-auto max-w-[75rem] px-6 pb-24 pt-16">
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Administración</p>
       <h1 className="mt-4 max-w-[24ch] font-serif text-[clamp(2rem,4.5vw,3.25rem)] font-normal leading-[1.08] tracking-[-0.02em]">
-        Qué cuesta operar el coach
+        Qué cuesta operar el profesor
       </h1>
       <p className="mt-5 max-w-[62ch] text-[17px] leading-relaxed text-muted">
         Cuatro proveedores. Dos escalan con los minutos hablados y dos son fijos. Todos los supuestos

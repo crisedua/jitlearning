@@ -25,7 +25,7 @@ export async function GET() {
     const user = await currentUser();
     if (!user) {
       return NextResponse.json(
-        { error: 'Inicia sesión con Google para hablar con el coach.' },
+        { error: 'Inicia sesión con Google para empezar tu clase.' },
         { status: 401 },
       );
     }

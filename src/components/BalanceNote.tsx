@@ -42,7 +42,7 @@ export function BalanceNote({ balance }: { balance: UsageBalance }) {
       />
       {exhausted
         ? 'Agotaste tu plan de este mes. El contador vuelve a cero el día 1.'
-        : `Este mes te quedan ${parts.join(' y ')}. Se comparten entre todos los coaches.`}
+        : `Este mes te quedan ${parts.join(' y ')} de clase.`}
     </p>
   );
 }

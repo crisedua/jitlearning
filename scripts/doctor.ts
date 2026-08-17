@@ -15,7 +15,7 @@ import './env';
 import { getAgent, listDocuments } from '../src/lib/elevenlabs';
 import { agentId, embeddingModel } from '../src/lib/config';
 import { ownsDocument, TEACHER } from '../src/lib/teacher';
-import { teacherSystemPrompt } from '../src/lib/agent';
+import { PROMISE_MARKERS, teacherSystemPrompt } from '../src/lib/agent';
 import { PROMISES } from '../src/lib/site';
 import { supabaseAdmin } from '../src/lib/supabase/admin';
 
@@ -175,8 +175,9 @@ async function main() {
   }
 
   for (const promise of PROMISES) {
-    if (persona.includes(promise.personaMarker)) ok(`"${promise.key}" is honoured by the persona`);
-    else {
+    if (persona.includes(PROMISE_MARKERS[promise.key])) {
+      ok(`"${promise.key}" is honoured by the persona`);
+    } else {
       bad(`"${promise.key}" is promised in site.ts but missing from the persona`);
       failures++;
     }

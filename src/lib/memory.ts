@@ -29,7 +29,7 @@ const RECENT_ROWS = 5;
 const CONTEXT_SESSIONS = 3;
 /**
  * Summary fetches per start when the cache is available. Bounds what the
- * backfill can add to the time between "Hablar con el coach" and the first
+ * backfill can add to the time between pressing the button and the first
  * word — anything left unfetched is picked up on a later start.
  */
 const BACKFILL_LIMIT = 2;
