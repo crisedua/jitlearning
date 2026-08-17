@@ -29,6 +29,7 @@ import { NextResponse } from 'next/server';
 import { billingConfigured, stripe } from '@/lib/billing';
 import { requireSecret, UnauthorizedError } from '@/lib/auth';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
+import { siteOrigin } from '@/lib/origin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -171,6 +172,24 @@ export async function POST(req: Request) {
     }
   }
 
+  /*
+   * The billing portal has to be configured before a session can be opened.
+   *
+   * `/api/billing/portal` calls `billingPortal.sessions.create`, and Stripe
+   * rejects that outright on an account whose portal settings have never been
+   * saved. The offer on /progreso promises "cancelas cuando quieras, desde esta
+   * misma página", and that promise is made at the moment somebody hands over a
+   * card. Breaking it is worse than most bugs here: cancelling has to work for
+   * the same reason it has to be offered, and in most places this is sold, "email
+   * us to cancel" is not lawful.
+   *
+   * Configured from here rather than left as a dashboard step, because a manual
+   * step nobody knows about is what the Stripe Tax check exists to catch, and
+   * this one can simply be done instead.
+   */
+  const portal = await ensurePortal(force);
+  results.push(portal);
+
   const failed = results.filter((r) => 'error' in r).length;
 
   return NextResponse.json(
@@ -184,4 +203,77 @@ export async function POST(req: Request) {
     },
     { status: failed === 0 ? 200 : 500 },
   );
+}
+
+/**
+ * Make sure a customer portal configuration exists, and report what happened.
+ *
+ * Idempotent by asking Stripe first: an account that already has a default
+ * configuration keeps it, because whoever set it up may have chosen things
+ * deliberately and this endpoint gets called again every time a plan is added.
+ *
+ * ## Cancellation is at period end, and the reason is collected
+ *
+ * `at_period_end` is the honest reading of a monthly plan: they paid for this
+ * month, they keep this month. Cancelling immediately would take back time
+ * already bought.
+ *
+ * The cancellation reason is collected because this product has no other way to
+ * learn why somebody leaves. `/admin/embudo` shows where people stop; only this
+ * says why, and it says it in their words at the one moment they are certain
+ * about the answer.
+ *
+ * ## What this cannot do
+ *
+ * Stripe requires a privacy policy and terms of service URL on a live-mode
+ * portal, and this app has neither page. The configuration below therefore omits
+ * `business_profile` links, which is fine in test mode and will be rejected in
+ * live mode. Writing terms of service is not something to generate; it is
+ * flagged by `npm run doctor` and named in the README instead.
+ */
+async function ensurePortal(force: boolean): Promise<Record<string, unknown>> {
+  try {
+    const existing = await stripe().billingPortal.configurations.list({
+      is_default: true,
+      limit: 1,
+    });
+
+    if (existing.data.length > 0 && !force) {
+      return { portal: 'already configured', configuration: existing.data[0]!.id };
+    }
+
+    const configuration = await stripe().billingPortal.configurations.create({
+      business_profile: { headline: 'ModoJIT' },
+      default_return_url: `${await siteOrigin()}/progreso`,
+      features: {
+        invoice_history: { enabled: true },
+        payment_method_update: { enabled: true },
+        // `address` is what keeps the tax calculation right after a move, and it
+        // is the field checkout collected in the first place.
+        customer_update: { enabled: true, allowed_updates: ['email', 'address', 'tax_id'] },
+        subscription_cancel: {
+          enabled: true,
+          mode: 'at_period_end',
+          cancellation_reason: {
+            enabled: true,
+            options: [
+              'too_expensive',
+              'missing_features',
+              'unused',
+              'customer_service',
+              'switched_service',
+              'other',
+            ],
+          },
+        },
+      },
+    });
+
+    return { portal: 'created', configuration: configuration.id };
+  } catch (err) {
+    return {
+      plan: 'billing portal',
+      error: err instanceof Error ? err.message : 'Stripe rejected the portal configuration',
+    };
+  }
 }

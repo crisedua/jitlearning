@@ -53,7 +53,9 @@ npm run sync:agent -- --push
 # 3. The lookup tool (needs ANTHROPIC_API_KEY deployed first).
 npm run setup:tools -- --push
 
-# 4. Stripe prices, created from price_minor so the two never disagree.
+# 4. Stripe prices, created from price_minor so the two never disagree,
+#    and the customer portal, without which cancelling fails and the
+#    offer's "cancelas cuando quieras" is a promise the app cannot keep.
 curl -X POST https://<app>.vercel.app/api/billing/setup \
   -H "x-ingest-secret: $INGEST_SECRET"
 

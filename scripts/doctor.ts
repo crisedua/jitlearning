@@ -308,6 +308,41 @@ async function main() {
     }
 
     /*
+     * Cancelling has to work, because the offer promises it.
+     *
+     * "Cancelas cuando quieras, desde esta misma página" is said next to the pay
+     * button, and `/api/billing/portal` cannot open a session on an account whose
+     * portal was never configured. `/api/billing/setup` now creates that
+     * configuration, so this check is really asking whether that step was run.
+     */
+    try {
+      const portals = await stripeClient().billingPortal.configurations.list({
+        is_default: true,
+        limit: 1,
+      });
+      if (portals.data.length > 0) {
+        ok('Billing portal is configured, so a subscriber can cancel');
+      } else {
+        bad('No billing portal configuration. Cancelling is promised and would fail.');
+        note('curl -X POST <app>/api/billing/setup -H "x-ingest-secret: $INGEST_SECRET"');
+        billingFailures++;
+      }
+    } catch (err) {
+      bad(`Could not read the billing portal config: ${err instanceof Error ? err.message : err}`);
+      billingFailures++;
+    }
+
+    /*
+     * Stripe requires both of these on a live-mode portal, and this app has
+     * neither page. Not a failure of the code, and not something to generate: a
+     * terms of service is a commitment somebody has to actually make. Named here
+     * because the alternative is discovering it on the day of the switch to live
+     * keys, with the portal rejected and no idea why.
+     */
+    note('Live mode also needs a privacy policy and terms of service URL for the portal.');
+    note('This app has neither page. Test mode works without them.');
+
+    /*
      * Stripe Tax has to be switched on in the dashboard, and nothing in this repo
      * could tell you that.
      *
