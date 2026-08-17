@@ -12,7 +12,7 @@ import { getSignedUrl } from '@/lib/elevenlabs';
 import { agentId } from '@/lib/config';
 import { TEACHER } from '@/lib/teacher';
 import { currentUser } from '@/lib/supabase/server';
-import { checkPlanAllowance, startCoachSession } from '@/lib/account';
+import { checkPlanAllowance, getUsageBalance, startCoachSession } from '@/lib/account';
 import { learnerContext } from '@/lib/memory';
 import { learnerRecord } from '@/lib/progress';
 
@@ -58,11 +58,36 @@ export async function GET() {
      * learner's session into a continuation, and it degrades to null (a cold
      * start) rather than ever failing the mint.
      */
-    const [sessionId, context, record] = await Promise.all([
+    const [sessionId, context, record, balance] = await Promise.all([
       startCoachSession(user.id, id),
       learnerContext(user.id),
       learnerRecord(user.id),
+      getUsageBalance(user.id, user.email),
     ]);
+
+    /*
+     * How long this session can run, appended to the record the teacher opens on.
+     *
+     * Appended rather than sent as a fourth dynamic variable on purpose: a new
+     * variable means a new placeholder on the agent, and an agent that has not been
+     * re-synced would fail every conversation outright. This rides in a field that
+     * already exists.
+     *
+     * It matters because the first session has to *finish* something. A teacher
+     * that does not know it has eight minutes left will start the map, and the
+     * learner will run out of minutes holding a plan instead of a finished task,
+     * which is the exact failure the whole session order was rebuilt to avoid.
+     */
+    const left =
+      balance?.monthlyMinutes === null || balance == null
+        ? null
+        : Math.max(0, Math.floor(balance.monthlyMinutes - balance.minutes));
+
+    if (left !== null) {
+      record.registro = `${record.registro} Le quedan ${left} minutos de clase${
+        balance?.period === 'total' ? ' gratis en total' : ' este mes'
+      }.`.slice(0, 900);
+    }
 
     /*
      * Two kinds of memory, kept apart on purpose.

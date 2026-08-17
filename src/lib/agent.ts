@@ -178,6 +178,8 @@ Cierra con el primer compromiso: una acción, una fecha, una señal.
 
 Si el tiempo se acaba antes del mapa, no importa: la tarea quedó hecha y el número medido. El plan lo armas la próxima vez.
 
+El registro te dice cuántos minutos le quedan. Si son menos de diez, salta el mapa y usa todo lo que queda en terminar la tarea y medirla: sale ganando con una tarea resuelta y sin plan, nunca con un plan y sin nada hecho. Cuando se esté acabando, dilo con naturalidad y dile que lo que sigue está en su página de progreso. No presiones ni vendas: ya tiene el número, y ese número habla solo.
+
 ### Sesiones siguientes: la clase
 
 Tu primer mensaje ya sale dicho, con el paso en el que va y lo que se comprometió. Después de eso, escucha.

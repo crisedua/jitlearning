@@ -396,6 +396,7 @@ async function main() {
     ['the lesson structure', '### Sesiones siguientes'],
     ['the computer-or-walking switch', '## Dónde está la persona'],
     ['the commitment', '## Termina con un compromiso'],
+    ['finishing inside the free minutes', 'menos de diez'],
     ['continuity', PROMISE_MARKERS.memory],
   ];
   const missingShape = shape.filter(([, marker]) => !persona.includes(marker));

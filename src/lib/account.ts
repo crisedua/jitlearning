@@ -108,12 +108,23 @@ export async function getAccount(): Promise<Account | null> {
 }
 
 export interface UsageBalance {
-  /** Minutes and sessions spent this calendar month, including unreconciled rows. */
+  /** Minutes and sessions spent in the plan's window, including unreconciled rows. */
   minutes: number;
   sessions: number;
   /** The plan's limits; null = unlimited. */
   monthlyMinutes: number | null;
   monthlySessions: number | null;
+  /**
+   * Which window those numbers cover. `total` is a lifetime allowance and belongs
+   * to the free tier.
+   *
+   * This was missing, and its absence was a lie at the worst possible moment: the
+   * gate has always read `plan_usage_total` for a `total` plan, while this read the
+   * monthly view, so an exhausted free learner was told the counter resets on the
+   * 1st. It does not. They were sent away to wait for something that never arrives,
+   * at the exact moment they had just finished a task and seen what it saved.
+   */
+  period: 'month' | 'total';
 }
 
 /**
@@ -136,6 +147,40 @@ export async function getUsageBalance(
 
   try {
     const supabase = await createClient();
+
+    /*
+     * The lifetime view first, and the same way the gate reads it.
+     *
+     * `plan_usage_total` carries `period`, so one read answers both "how much have
+     * they used" and "used within what window". Falling through to `plan_usage`
+     * only when this is unavailable keeps the display and the enforcement reading
+     * the same numbers — the previous split is what produced a meter that
+     * contradicted the wall it was measuring.
+     */
+    const total = await supabase
+      .from('plan_usage_total')
+      .select('monthly_minutes, period, minutes, sessions')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!total.error && total.data) {
+      const row = total.data as {
+        monthly_minutes: number | null;
+        period: string | null;
+        minutes: number;
+        sessions: number;
+      };
+      if (row.period === 'total') {
+        return {
+          minutes: Number(row.minutes) || 0,
+          sessions: Number(row.sessions) || 0,
+          monthlyMinutes: row.monthly_minutes,
+          monthlySessions: null,
+          period: 'total',
+        };
+      }
+    }
+
     const { data, error } = await supabase
       .from('plan_usage')
       .select('monthly_minutes, monthly_sessions, minutes, sessions')
@@ -151,6 +196,7 @@ export async function getUsageBalance(
       sessions: Number(data.sessions) || 0,
       monthlyMinutes: data.monthly_minutes,
       monthlySessions: data.monthly_sessions,
+      period: 'month',
     };
   } catch (err) {
     console.error('[account] usage balance lookup failed:', err);

@@ -16,6 +16,7 @@ import {
 } from '@/lib/progress';
 import { LEVELS, PATHS, stepDetail, type LevelId, type PathId } from '@/lib/curriculum';
 import { subscriptionFor, type Subscription } from '@/lib/billing';
+import { getUsageBalance } from '@/lib/account';
 import { BillingLink } from '@/components/BillingLink';
 import { saveEvidence, setCommitmentDone } from './actions';
 
@@ -45,11 +46,12 @@ export default async function ProgresoPage({
   const user = await currentUser();
   if (!user) redirect(signInPath('/progreso'));
 
-  const [profile, steps, history, subscription, params] = await Promise.all([
+  const [profile, steps, history, subscription, balance, params] = await Promise.all([
     careerProfile(user.id),
     planSteps(user.id),
     sessionHistory(user.id),
     subscriptionFor(user.id),
+    getUsageBalance(user.id, user.email),
     searchParams,
   ]);
 
@@ -89,6 +91,16 @@ export default async function ProgresoPage({
 
       {saved.perWeek > 0 && <Recuperado saved={saved} />}
 
+      {/*
+        The offer goes directly under the number, and only for somebody still on
+        the free tier who has one. That pairing is the entire argument: the hours
+        are theirs and measured, the price is small and next to it. Anywhere else
+        on the page it would be an ad; here it is arithmetic the reader can do.
+      */}
+      {subscription?.planId === 'free' && saved.perWeek > 0 && (
+        <Ofrecer saved={saved} minutesLeft={freeMinutesLeft(balance)} />
+      )}
+
       {subscription && subscription.planId !== 'free' && (
         <Suscripcion subscription={subscription} />
       )}
@@ -103,6 +115,61 @@ export default async function ProgresoPage({
 
       {history.length > 0 && <Historial history={history} />}
     </div>
+  );
+}
+
+/** Free minutes remaining, or null when this deployment does not meter. */
+function freeMinutesLeft(balance: Awaited<ReturnType<typeof getUsageBalance>>): number | null {
+  if (!balance || balance.monthlyMinutes === null) return null;
+  return Math.max(0, Math.floor(balance.monthlyMinutes - balance.minutes));
+}
+
+/**
+ * The one place this product asks to be paid.
+ *
+ * It states the learner's own weekly figure and the price, and does the division
+ * for nobody: no "worth $X of your time", because that needs an hourly wage this
+ * product does not know and must not invent. Hours against dollars, both real, and
+ * the reader closes the gap themselves.
+ *
+ * The button goes to /planes rather than straight to checkout. Somebody deciding
+ * wants to see what the tiers are, and skipping that step to shave a click reads as
+ * a trick at the moment trust matters most.
+ */
+function Ofrecer({ saved, minutesLeft }: { saved: TimeSaved; minutesLeft: number | null }) {
+  const outOfMinutes = minutesLeft !== null && minutesLeft <= 5;
+
+  return (
+    <section className="rounded-lg border border-accent/40 bg-accent-soft/25 p-6 ring-1 ring-accent/10">
+      <h2 className="font-serif text-[22px] font-normal leading-snug tracking-[-0.01em]">
+        Te quedan {saved.tasksMeasured === 1 ? 'las otras tareas' : 'las tareas que faltan'} de tu
+        semana.
+      </h2>
+      <p className="mt-3 max-w-[58ch] text-[15px] leading-relaxed text-ink/85">
+        Con una sola tarea ya recuperas {spellMinutes(saved.perWeek)} cada semana, medidos por ti.
+        El plan Fundador cuesta US$9 al mes y son 300 minutos de clase: alcanza para las 3 a 5
+        tareas de tu semana, el nivel 2 y el portafolio.
+      </p>
+      {outOfMinutes && (
+        <p className="mt-2 text-[14px] leading-relaxed text-warning">
+          {minutesLeft === 0
+            ? 'Ya usaste tus minutos gratis.'
+            : `Te quedan ${minutesLeft} minutos gratis.`}
+        </p>
+      )}
+      <Link
+        href="/planes"
+        className="mt-5 inline-flex items-center gap-2.5 rounded-full bg-accent px-6 py-3 text-[15px] font-medium text-white shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover"
+      >
+        Ver los planes
+        <span aria-hidden className="font-mono">
+          →
+        </span>
+      </Link>
+      <p className="mt-3 text-[13px] leading-relaxed text-soft">
+        Cancelas cuando quieras, desde esta misma página.
+      </p>
+    </section>
   );
 }
 
