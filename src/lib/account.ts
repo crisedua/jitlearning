@@ -16,6 +16,7 @@ import type { User } from '@supabase/supabase-js';
 import { createClient } from './supabase/server';
 import { serviceConfigured, supabaseAdmin } from './supabase/admin';
 import { UPGRADE_MARKER } from './gate';
+import { expireGrantIfDue } from './grants';
 import { isAdminEmail } from './admin';
 
 export interface Plan {
@@ -236,6 +237,16 @@ export async function checkPlanAllowance(
    * the thing working.
    */
   if (isAdminEmail(email)) return { allowed: true };
+
+  /*
+   * A comped plan that has run out ends here, at the moment somebody tries to
+   * use it. This is the only choke point every billable conversation passes
+   * through, so expiring lazily needs no scheduler and cannot be forgotten in a
+   * deploy. Three months free that quietly became forever is the failure this
+   * prevents, and it would have been invisible: a granted plan and a paid plan
+   * look identical in every other read.
+   */
+  await expireGrantIfDue(userId);
 
   /*
    * Which window to count depends on the plan.

@@ -97,6 +97,12 @@ measured what it saves → came back → paid. The drop between any two steps sa
 more than any opinion about the product. If people measure and never pay, the
 offer or the price is wrong, not the teaching.
 
+`/admin/feedback` is the other half: what those people said, and the button that
+honours the deal `/feedback` makes them. Read it, then activate the three months
+if they earned it — the seat count and the expiry take care of themselves, so
+the three months stay three months. Ten seats, and nothing but asking ten people
+will fill them.
+
 **The one path not covered by `npm test` or `npm run doctor` is a real card.** The
 signature verification and the plan decision are tested locally
 ([`billing.test.ts`](src/lib/billing.test.ts)); the round trip through Stripe is

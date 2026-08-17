@@ -124,12 +124,27 @@ export const STEPS = [
  * passes earlier. Nobody noticed, because a plan name is exactly the kind of
  * detail that reads as fine until somebody tries to claim it.
  *
- * `plan` must name a row that `is_public` in the `plans` table. Grant it by hand:
- * this is a promise made by a person, not a coupon the code redeems.
+ * `planId` must name a row that `is_public` in the `plans` table, and
+ * `site.test.ts` checks it against the plan list so the same thing cannot happen
+ * again quietly.
+ *
+ * ## It used to say "grant it by hand"
+ *
+ * On the grounds that this is a promise made by a person, not a coupon the code
+ * redeems. That is still true and `/admin/feedback` keeps it true: nothing is
+ * granted when feedback arrives, somebody reads it and decides.
+ *
+ * What by hand actually meant was writing an UPDATE, remembering how many of the
+ * ten seats were gone, and remembering to take the plan away in three months.
+ * The first is tedious and the other two are the promise itself. Nothing recorded
+ * that a plan was given rather than bought, so every grant would have become
+ * permanent and the seat count on a public page would have been a guess. The
+ * judgement stays with the person; the bookkeeping does not.
  */
 export const FEEDBACK_REWARD = {
   months: 3,
   plan: 'Fundador',
+  planId: 'founder',
   seats: 10,
 } as const;
 
