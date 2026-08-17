@@ -308,17 +308,44 @@ async function main() {
     }
 
     if (process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() && missingAuth.length === 0) {
-      // The idempotency ledger. Without it a retried subscription event can apply
-      // out of order and leave a paying learner on the free plan.
+      /*
+       * The idempotency ledger. Without it a retried subscription event can apply
+       * out of order and leave a paying learner on the free plan.
+       *
+       * `handled_at` is selected rather than `id` on purpose: it is the column
+       * that distinguishes an event that was claimed from one that was finished,
+       * and selecting only `id` would pass on a database where the second
+       * migration never ran. That is the state where a failed handler makes
+       * Stripe's retry look like a duplicate and a charged customer stays free.
+       */
       const events = await supabaseAdmin()
         .from('billing_events')
-        .select('id', { count: 'exact', head: true });
+        .select('id, handled_at')
+        .is('handled_at', null)
+        .order('received_at', { ascending: true })
+        .limit(50);
+
       if (events.error) {
         bad(`billing_events is not queryable: ${events.error.message}`);
-        note('Run supabase/migrations/20260813000000_billing.sql.');
+        note(
+          events.error.code === '42703'
+            ? 'Run supabase/migrations/20260815000000_billing_event_claim.sql.'
+            : 'Run supabase/migrations/20260813000000_billing.sql.',
+        );
+        billingFailures++;
+      } else if (events.data && events.data.length > 0) {
+        /*
+         * Claimed and never finished. Each one is a Stripe delivery whose handler
+         * threw, which means somebody may have been charged without being given
+         * the plan. This is the single most important number in this whole script
+         * and it is the only one that costs a real person real money.
+         */
+        bad(`${events.data.length} billing event(s) claimed but never handled.`);
+        note('Stripe -> Developers -> Webhooks -> Resend, or check the function logs.');
+        note(`Oldest: ${(events.data[0] as { id: string }).id}`);
         billingFailures++;
       } else {
-        ok('billing_events exists, so a redelivered webhook is applied once');
+        ok('billing_events exists and nothing is stuck half-applied');
       }
 
       /*

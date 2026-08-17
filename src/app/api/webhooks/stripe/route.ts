@@ -32,7 +32,7 @@
  */
 import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
-import { applySubscription, billingConfigured, firstDelivery, stripe } from '@/lib/billing';
+import { applySubscription, billingConfigured, claimEvent, markHandled, stripe } from '@/lib/billing';
 import { serviceConfigured } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!(await firstDelivery(event))) {
+  if (!(await claimEvent(event))) {
     return NextResponse.json({ duplicate: event.id });
   }
 
@@ -120,9 +120,16 @@ export async function POST(req: Request) {
       }
     }
   } catch (err) {
+    /*
+     * The claim is deliberately left open. Stripe retries a 500, and the retry
+     * has to be allowed to redo the work that failed here: this is the delivery
+     * that decides whether somebody who has been charged gets what they paid for.
+     */
     console.error('[stripe] handler failed:', err instanceof Error ? err.message : err);
     return NextResponse.json({ error: 'Handler failed.' }, { status: 500 });
   }
+
+  await markHandled(event.id);
 
   return NextResponse.json({ ok: true, type: event.type });
 }

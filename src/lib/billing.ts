@@ -134,30 +134,70 @@ export async function customerFor(
 }
 
 /**
- * Record that an event was handled, and report whether it is new.
+ * Claim an event for processing, and report whether to process it.
  *
  * Stripe delivers at least once and retries anything that does not return 2xx, so
  * every handler runs more than once eventually. A duplicated
  * `checkout.session.completed` is harmless; a duplicated or reordered
  * subscription change is not, which is why this gate is in front of all of them.
+ *
+ * ## Claimed is not handled
+ *
+ * This used to record the id and treat "already recorded" as "already applied".
+ * Those are different, and the gap between them is where a paid upgrade
+ * disappears: the id goes in, the handler throws, the route returns 500 so Stripe
+ * will retry, and the retry finds the id present and is waved through with a 200.
+ * The customer has been charged, sits on the free plan permanently, and no
+ * further delivery is coming. The webhook route describes that exact outcome as
+ * the worst failure this app can have, in the comment explaining why its handlers
+ * return 500 — and the gate in front of them caused it.
+ *
+ * So the insert claims, and `markHandled` completes. A row claimed but never
+ * completed is reprocessed on the next delivery: applying a subscription twice
+ * sets the same plan to the same value, and not applying it at all does not.
  */
-export async function firstDelivery(event: Stripe.Event): Promise<boolean> {
+export async function claimEvent(event: Stripe.Event): Promise<boolean> {
   const { error } = await supabaseAdmin()
     .from('billing_events')
     .insert({ id: event.id, type: event.type });
 
   if (!error) return true;
 
-  // 23505: unique violation, meaning this event id is already recorded.
-  if (error.code === '23505') return false;
+  // 23505: unique violation, meaning this event id is already claimed. Whether
+  // it was ever finished is the question that decides what happens next.
+  if (error.code === '23505') {
+    const { data, error: readError } = await supabaseAdmin()
+      .from('billing_events')
+      .select('handled_at')
+      .eq('id', event.id)
+      .maybeSingle();
+
+    /*
+     * Unreadable, or the column does not exist because the migration has not
+     * run: process it. The cost of processing twice is nothing; the cost of
+     * skipping the delivery that would have applied a payment is everything.
+     */
+    if (readError || !data) return true;
+    return (data as { handled_at: string | null }).handled_at === null;
+  }
+
+  console.error('[billing] could not claim event, processing anyway:', error.message);
+  return true;
+}
+
+/** Mark the claim finished. Only ever called after the handler returned. */
+export async function markHandled(eventId: string): Promise<void> {
+  const { error } = await supabaseAdmin()
+    .from('billing_events')
+    .update({ handled_at: new Date().toISOString() })
+    .eq('id', eventId);
 
   /*
-   * Any other failure (the migration has not run, Postgres is unreachable) is
-   * reported as "new" so the handler still runs. Losing an upgrade is worse than
-   * applying one twice: applying twice sets the same plan to the same value.
+   * Logged and swallowed. The work is already done and the customer already has
+   * what they paid for; the only consequence is that a retry would redo it,
+   * which is safe. Turning this into a 500 would ask Stripe to redo it for sure.
    */
-  console.error('[billing] could not record event, processing anyway:', error.message);
-  return true;
+  if (error) console.error('[billing] could not mark event handled:', error.message);
 }
 
 /**
