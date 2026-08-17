@@ -345,10 +345,16 @@ export interface ConversationSummary {
 export async function listConversations(
   agentId: string,
   pageSize = 30,
-): Promise<{ conversations: ConversationSummary[] }> {
-  return request<{ conversations: ConversationSummary[] }>('/convai/conversations', {
+  cursor?: string,
+): Promise<{
+  conversations: ConversationSummary[];
+  /** Pass back as `cursor` for the next page. Absent on the last one. */
+  next_cursor?: string | null;
+  has_more?: boolean;
+}> {
+  return request('/convai/conversations', {
     method: 'GET',
-    query: { agent_id: agentId, page_size: pageSize },
+    query: { agent_id: agentId, page_size: pageSize, cursor },
   });
 }
 

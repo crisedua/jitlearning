@@ -308,6 +308,39 @@ async function main() {
     }
 
     /*
+     * Whether the minutes behind the gate are receipts or guesses.
+     *
+     * Every `coach_sessions` row starts self-reported by the browser, and a
+     * closed laptop reports nothing at all. `npm run sync:usage` overwrites them
+     * with ElevenLabs' own numbers and stamps `usage_synced_at`, and nothing
+     * schedules it. So the plan gate, the balance meter and every figure on
+     * /admin/costos can quietly be running on numbers a tab made up, which is
+     * the one thing the sync script's own header says must never happen for
+     * anything with money attached.
+     *
+     * A day's grace, because a session that ended an hour ago has not had a
+     * chance to be synced and saying so every time would train the reader to
+     * ignore this line.
+     */
+    const dayAgo = new Date(Date.now() - 86_400_000).toISOString();
+    const stale = await supabaseAdmin()
+      .from('coach_sessions')
+      .select('id', { count: 'exact', head: true })
+      .is('usage_synced_at', null)
+      .lt('started_at', dayAgo);
+
+    if (!stale.error) {
+      const count = stale.count ?? 0;
+      if (count === 0) {
+        ok('Every session over a day old carries ElevenLabs numbers, not browser ones');
+      } else {
+        bad(`${count} session(s) over a day old still hold self-reported minutes.`);
+        note('npm run sync:usage — until then the plan gate is enforcing guesses.');
+        billingFailures++;
+      }
+    }
+
+    /*
      * Cancelling has to work, because the offer promises it.
      *
      * "Cancelas cuando quieras, desde esta misma página" is said next to the pay

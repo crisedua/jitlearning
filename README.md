@@ -380,8 +380,18 @@ If you'd rather work locally, put the same values in `.env.local` and run
 | `ELEVENLABS_EMBEDDING_MODEL` | no | Set before indexing anything |
 
 Beyond the Supabase project itself, nothing to provision — no volume, no cron.
-`npm run sync:usage` is worth scheduling once there is real traffic, but the app
-is correct without it.
+
+`npm run sync:usage` is the exception, and "the app is correct without it" is
+what this said until somebody read the gate carefully. Every session's minutes
+start self-reported by the browser. Until the sync overwrites them with
+ElevenLabs' own numbers, that is what the plan gate counts, what the balance
+meter shows and what `/admin/costos` bills against — so a tab that reports zero
+seconds has a free tier that never runs out, and an honest learner whose laptop
+lid closed mid-session is never charged for it either. Both are silent.
+
+Run it on a schedule, or run it by hand and often. `npm run doctor` fails when
+sessions older than a day still carry browser numbers, so the state is at least
+visible.
 
 ### Bulk loading
 

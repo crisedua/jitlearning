@@ -21,8 +21,15 @@ import { supabaseAdmin, serviceConfigured } from '../src/lib/supabase/admin';
 import { agentId } from '../src/lib/config';
 import { TEACHER } from '../src/lib/teacher';
 
-/** How far back to look on the ElevenLabs side in one run. */
+/** How many conversations to pull per request. */
 const PAGE_SIZE = 100;
+
+/**
+ * A stop, so a misconfigured agent cannot page forever. Fifty pages is five
+ * thousand conversations, which is well past any backlog this script would meet
+ * before somebody notices it has not been run.
+ */
+const MAX_PAGES = 50;
 
 interface PendingRow {
   id: string;
@@ -61,13 +68,42 @@ async function main() {
     return;
   }
 
-  // Rows are matched by conversation id, which is unique across the workspace,
-  // so sessions held by an agent from an earlier product still reconcile as long
-  // as that agent's conversations come back in this page.
+  /*
+   * Rows are matched by conversation id, and the ElevenLabs side is paged.
+   *
+   * This used to fetch a single page of the hundred most recent conversations
+   * and match up to five hundred pending rows against it. Anything older than
+   * that window could never be reconciled, no matter how often the script ran,
+   * so those rows kept their browser-reported numbers forever and the run
+   * reported them as "unmatched" as though it were a transient state. Since
+   * nothing schedules this script, the backlog is exactly the case that matters:
+   * the first run after a busy week is the one with more than a page in it.
+   *
+   * So it pages until every pending id is accounted for, or the list runs out.
+   */
+  const wanted = new Set(rows.map((r) => r.conversation_id).filter(Boolean) as string[]);
   const byId = new Map<string, ConversationSummary>();
+  let pages = 0;
+
   try {
-    const { conversations } = await listConversations(agent, PAGE_SIZE);
-    for (const c of conversations) byId.set(c.conversation_id, c);
+    let cursor: string | undefined;
+    do {
+      const page = await listConversations(agent, PAGE_SIZE, cursor);
+      pages++;
+      for (const c of page.conversations) {
+        if (wanted.has(c.conversation_id)) byId.set(c.conversation_id, c);
+      }
+      // Stop as soon as every row we came for is in hand: the pages are newest
+      // first, so there is nothing further back worth reading.
+      if (byId.size >= wanted.size) break;
+      cursor = page.has_more ? (page.next_cursor ?? undefined) : undefined;
+    } while (cursor && pages < MAX_PAGES);
+
+    if (pages >= MAX_PAGES && byId.size < wanted.size) {
+      console.warn(
+        `  ! stopped after ${MAX_PAGES} pages with ${wanted.size - byId.size} row(s) still unfound.`,
+      );
+    }
   } catch (err) {
     console.warn(
       `  ! could not list conversations — ${err instanceof Error ? err.message : err}`,
@@ -106,7 +142,7 @@ async function main() {
   console.log(`\n  ${synced} session(s) reconciled with ElevenLabs.`);
   if (unmatched > 0) {
     console.log(
-      `  ${unmatched} still unmatched — no conversation id, or older than the last ${PAGE_SIZE} conversations.`,
+      `  ${unmatched} still unmatched — no conversation id on the row, so there is nothing on the ElevenLabs side to match.`,
     );
   }
   console.log('');
