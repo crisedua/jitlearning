@@ -15,6 +15,7 @@
 import type { User } from '@supabase/supabase-js';
 import { createClient } from './supabase/server';
 import { serviceConfigured, supabaseAdmin } from './supabase/admin';
+import { UPGRADE_MARKER } from './gate';
 import { isAdminEmail } from './admin';
 
 export interface Plan {
@@ -260,7 +261,7 @@ export async function checkPlanAllowance(
       if (row.monthly_minutes !== null && row.minutes >= row.monthly_minutes) {
         return {
           allowed: false,
-          error: `Usaste los ${row.monthly_minutes} minutos gratis. Para seguir con tu plan de clases, mira los planes en /planes.`,
+          error: `Usaste los ${row.monthly_minutes} minutos gratis. Para seguir con tu plan de clases, mira los planes${UPGRADE_MARKER}.`,
         };
       }
       return { allowed: true };
@@ -296,13 +297,20 @@ export async function checkPlanAllowance(
   if (row.monthly_minutes !== null && row.minutes >= row.monthly_minutes) {
     return {
       allowed: false,
-      error: `Alcanzaste los ${row.monthly_minutes} minutos de tu plan este mes. El contador vuelve a cero el día 1, o puedes subir de plan en /planes.`,
+      error: `Alcanzaste los ${row.monthly_minutes} minutos de tu plan este mes. El contador vuelve a cero el día 1, o puedes subir de plan${UPGRADE_MARKER}.`,
     };
   }
   if (row.monthly_sessions !== null && row.sessions >= row.monthly_sessions) {
     return {
       allowed: false,
-      error: `Alcanzaste las ${row.monthly_sessions} conversaciones de tu plan este mes. El contador vuelve a cero el día 1.`,
+      /*
+       * The upgrade is offered here too. This message used to end at "vuelve a
+       * cero el día 1", which dead-ends the most motivated person the product
+       * ever has: somebody on a paid plan who has used everything it gives and
+       * wants more right now. The two minute-based limits both offered a way
+       * out; this one told them to wait three weeks.
+       */
+      error: `Alcanzaste las ${row.monthly_sessions} conversaciones de tu plan este mes. El contador vuelve a cero el día 1, o puedes subir de plan${UPGRADE_MARKER}.`,
     };
   }
   return { allowed: true };
