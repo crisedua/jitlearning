@@ -314,7 +314,7 @@ export function lessonsForLevel(level: LevelId): readonly Lesson[] {
 }
 
 /** The level 3 lessons that fit a chosen path. Unknown or unchosen path: all of them. */
-export function advancedFor(path: PathId | null | undefined): readonly Lesson[] {
+function advancedFor(path: PathId | null | undefined): readonly Lesson[] {
   if (!path || !(path in PATHS)) return FLUJO;
   return FLUJO.filter((l) => l.paths?.includes(path));
 }

@@ -7,7 +7,9 @@ arithmetic behind them, so that when a number changes it is obvious what else
 has to move.
 
 Every figure below is derived from this repository's own configuration and
-published list prices. Nothing here is a quote, and none of it is a measurement:
+published list prices. The prompt size is the one that drifts: `npm run doctor`
+prints it on every run, and `DEFAULT_INPUTS.inputTokensPerTurn` in
+`src/lib/costs.ts` is what has to move with it. Nothing here is a quote, and none of it is a measurement:
 there is no production traffic yet. The first month of real
 `coach_sessions.duration_seconds` should replace the two assumptions flagged as
 such.
@@ -49,27 +51,27 @@ Per model turn, measured from `src/lib/agent.ts`:
 
 | Component | Source | ≈ tokens |
 |---|---|---:|
-| System prompt | `tutorSystemPrompt()`, 17,791 chars | 5,100 |
+| System prompt | `teacherSystemPrompt()`, ~15,400 chars | 4,400 |
 | Retrieved RAG context | `max_documents_length: 12_000` chars, typical fill | 2,000 |
 | Conversation history | mid-session average | 2,000 |
-| **Input total** | | **9,100** |
+| **Input total** | | **8,400** |
 | Output | ~130 spoken words | 200 |
 
 At **2 model turns per minute** (a ~30-second question-and-answer cycle):
 
-    input   18,200 tok × $3/M   = $0.0546
+    input   16,800 tok × $3/M   = $0.0504
     output     400 tok × $15/M  = $0.0060
                                   ────────
-                                  $0.061 / min
+                                  $0.056 / min
 
 **Assumption to replace with data:** the 2 turns/minute figure and the 2,000-token
 history average are estimates. `coach_sessions.message_count` and
 `duration_seconds` together give the real turn rate after one month of use.
 
-**Possible upside, unverified:** the system prompt is 5,100 stable tokens at the
-front of every request — well above the 1,024-token minimum for prompt caching.
-If ElevenLabs caches it, that component drops from $0.0306 to ~$0.003/min and
-the LLM total falls to ~$0.033/min. This model assumes it does **not**, because
+**Possible upside, unverified:** the system prompt is ~4,400 stable tokens at the
+front of every request, well above the minimum for prompt caching. If ElevenLabs
+caches it, that component drops from $0.026 to ~$0.003/min and the LLM total
+falls to ~$0.032/min. This model assumes it does **not**, because
 that cannot be checked from outside. If it turns out to cache, every margin
 below improves; none of them gets worse.
 
