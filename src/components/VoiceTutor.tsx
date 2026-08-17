@@ -419,12 +419,26 @@ function VoiceTutorInner() {
         {error && (
           <p
             role="alert"
-            className="flex items-start gap-2.5 rounded-md border border-danger/25 bg-danger-soft/60 px-4 py-3 text-sm text-danger"
+            className="flex flex-wrap items-start gap-2.5 rounded-md border border-danger/25 bg-danger-soft/60 px-4 py-3 text-sm text-danger"
           >
             <span aria-hidden className="mt-px font-semibold">
               !
             </span>
-            <span className="text-ink/85">{error}</span>
+            <span className="text-ink/85">{error.replace(' en /planes', '')}</span>
+            {/*
+              The plan gate is the one error with somewhere to go. The message
+              comes from the server, which cannot render a link, so the mention
+              of /planes is turned into one here and stripped from the prose
+              above rather than being read twice.
+            */}
+            {error.includes('/planes') && (
+              <a
+                href="/planes"
+                className="font-semibold text-accent underline underline-offset-2 hover:text-accent-hover"
+              >
+                Ver los planes
+              </a>
+            )}
           </p>
         )}
 

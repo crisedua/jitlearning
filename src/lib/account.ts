@@ -214,7 +214,7 @@ export async function checkPlanAllowance(
       if (row.monthly_minutes !== null && row.minutes >= row.monthly_minutes) {
         return {
           allowed: false,
-          error: `Usaste los ${row.monthly_minutes} minutos gratis. Para seguir estudiando necesitas un plan.`,
+          error: `Usaste los ${row.monthly_minutes} minutos gratis. Para seguir con tu plan de clases, mira los planes en /planes.`,
         };
       }
       return { allowed: true };
@@ -229,7 +229,7 @@ export async function checkPlanAllowance(
 
   /*
    * Fails open. A deployment whose migration has not run, or a Supabase
-   * hiccup, degrades to "the coach still answers" rather than to a wall: a
+   * hiccup, degrades to "the teacher still answers" rather than to a wall: a
    * free learner slipping through costs cents, a paying one locked out by an
    * outage costs trust. The check is also only at connection time, so a
    * session already running is never cut off and the cap stays soft by about
@@ -250,7 +250,7 @@ export async function checkPlanAllowance(
   if (row.monthly_minutes !== null && row.minutes >= row.monthly_minutes) {
     return {
       allowed: false,
-      error: `Alcanzaste los ${row.monthly_minutes} minutos de tu plan este mes. El contador vuelve a cero el día 1.`,
+      error: `Alcanzaste los ${row.monthly_minutes} minutos de tu plan este mes. El contador vuelve a cero el día 1, o puedes subir de plan en /planes.`,
     };
   }
   if (row.monthly_sessions !== null && row.sessions >= row.monthly_sessions) {
