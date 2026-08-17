@@ -334,6 +334,49 @@ teacher that never cites its material. The ingest script warns about such
 documents by name, and both `/api/health` and `npm run doctor` fail when the
 agent is carrying one.
 
+## Taking money
+
+Stripe Checkout, hosted. Three routes and one rule.
+
+**`profiles.plan_id` is written by the Stripe webhook and by nothing else.** Not
+by the browser, not by the checkout route, not optimistically after the redirect.
+`checkPlanAllowance` reads that column on every mint, so anything else would be a
+paywall you could walk through by closing the tab at the right moment.
+
+| Route | What it does |
+|---|---|
+| [`/api/checkout`](src/app/api/checkout/route.ts) | Mints a Checkout Session for a plan and returns its URL. Resolves the price from `plans.stripe_price_id` server-side, so a tampered request can only name a plan we sell, at that plan's real price. |
+| [`/api/webhooks/stripe`](src/app/api/webhooks/stripe/route.ts) | Verifies the signature over the raw bytes, then applies the subscription. Non-2xx on any write failure so Stripe retries: silently 200-ing there leaves somebody charged and unupgraded. |
+| [`/api/billing/portal`](src/app/api/billing/portal/route.ts) | Stripe's portal for changing a card, getting invoices and cancelling. Linked from `/progreso`, because a product that makes cancelling hard gets cancelled by chargeback instead. |
+
+Setup, in order:
+
+1. Run [20260813000000_billing.sql](supabase/migrations/20260813000000_billing.sql):
+   `plans.stripe_price_id`, three columns on `profiles`, and `billing_events`.
+2. Set `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` (see `.env.example` for the
+   exact event list to subscribe to).
+3. Create a recurring Price per paid plan in Stripe and write the ids in:
+   `update public.plans set stripe_price_id = 'price_...' where id = 'founder';`
+4. `npm run doctor`. It fails when the secret key is set without the webhook
+   secret, when `billing_events` is missing, or when a public paid plan has no
+   price id. Each of those is a state where a button takes money and grants
+   nothing.
+
+Three details worth knowing:
+
+- **`price_minor` and the Stripe price are two records of the same fact**, and
+  nothing keeps them in step. The page quotes the first; the card is charged the
+  second. Change both.
+- **`past_due` still counts as paying.** A failed retry is a dunning problem, not
+  a reason to cut off somebody mid-month; Stripe cancels on its own once retries
+  run out, and that arrives as `customer.subscription.deleted`.
+- **A lapsed subscription returns to `free`, not to nothing.** `plan_id` is a
+  non-null foreign key, and `free` is the honest meaning: they keep their plan and
+  their history, and the minutes stop.
+
+To swap Stripe for Mercado Pago, everything provider-shaped is in
+[`billing.ts`](src/lib/billing.ts), those three routes, and one column.
+
 ## Auth model
 
 Every knowledge and agent route requires `INGEST_SECRET`, compared in constant

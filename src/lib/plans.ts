@@ -46,13 +46,19 @@ export interface Plan {
   setupMinor: number | null;
   /** False for plans that are sold rather than bought — no self-serve checkout. */
   isPublic: boolean;
+  /**
+   * The Stripe price this plan charges against, or null when it has not been
+   * created yet. Null is what makes the pricing page fall back to writing to a
+   * person instead of opening a checkout that cannot complete.
+   */
+  stripePriceId: string | null;
   sortOrder: number;
   blurb: string | null;
 }
 
 /** The columns the pricing page needs, as named in Postgres. */
 export const PLAN_COLUMNS =
-  'id, name, period, monthly_minutes, monthly_sessions, price_minor, currency, overage_minor_per_min, seat_minimum, setup_minor, is_public, sort_order, blurb';
+  'id, name, period, monthly_minutes, monthly_sessions, price_minor, currency, overage_minor_per_min, seat_minimum, setup_minor, is_public, sort_order, blurb, stripe_price_id';
 
 /** Shape of a `plans` row as it comes back from Supabase. */
 interface PlanRow {
@@ -69,6 +75,7 @@ interface PlanRow {
   is_public: boolean;
   sort_order: number;
   blurb: string | null;
+  stripe_price_id: string | null;
 }
 
 export function rowToPlan(row: PlanRow): Plan {
@@ -89,6 +96,7 @@ export function rowToPlan(row: PlanRow): Plan {
     isPublic: row.is_public,
     sortOrder: row.sort_order,
     blurb: row.blurb,
+    stripePriceId: row.stripe_price_id ?? null,
   };
 }
 
@@ -111,6 +119,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     isPublic: true,
     sortOrder: 10,
     blurb: '20 minutos para resolver una tarea de tu semana y medir lo que ahorra.',
+    stripePriceId: null,
   },
   {
     id: 'founder',
@@ -126,6 +135,10 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     isPublic: true,
     sortOrder: 20,
     blurb: 'Precio fijo para siempre. Para los primeros que se suben.',
+    // Deliberately null in the fallback: these rows are only rendered when
+    // Postgres is unreachable, and offering a checkout with a hardcoded price id
+    // during an outage is how somebody gets charged for the wrong thing.
+    stripePriceId: null,
   },
   {
     id: 'standard',
@@ -141,6 +154,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     isPublic: true,
     sortOrder: 30,
     blurb: 'Una clase por semana, con memoria entre sesiones.',
+    stripePriceId: null,
   },
 ] as const;
 
@@ -170,15 +184,16 @@ export const PLAN_FEATURES: Record<string, readonly string[]> = {
 };
 
 /**
- * TODO(checkout): nothing here takes money yet.
+ * Checkout exists now: `plans.stripe_price_id` names the Stripe price, the button
+ * on /planes opens a Checkout Session, and `profiles.plan_id` is written by the
+ * Stripe webhook and by nothing else. See `src/lib/billing.ts`.
  *
- * `priceMinor` is the source of truth for what to charge, and the Stripe (or
- * Mercado Pago) price id belongs in a column beside it rather than in code.
- * The button on /planes writes to a person until this exists; wiring a
- * checkout means replacing that handler and setting `profiles.plan_id` from
- * the provider webhook, never from the browser.
+ * `priceMinor` remains the number shown on the page, and Stripe's price is the
+ * number actually charged. **They are two records of the same fact and nothing
+ * keeps them in step**, so changing a price means changing it in both places. The
+ * pricing page reads this one; a card reads the other.
  */
-export const CHECKOUT_READY = false;
+export const CHECKOUT_READY = true;
 
 /** The plan given prominence on the page. */
 export const RECOMMENDED_PLAN_ID = 'founder';

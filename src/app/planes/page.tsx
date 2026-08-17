@@ -7,15 +7,18 @@
  * `src/lib/plans.ts` holds the card copy and a fallback copy of the figures for
  * when the database cannot be reached.
  *
- * There is no checkout here, because there is no payment integration yet — see
- * the TODO on `CHECKOUT_READY` in `src/lib/plans.ts` for where it attaches. The
- * paid tiers write to a person or say nothing; what they must not do is offer a
- * button that pretends to take money.
+ * The paid cards open a Stripe checkout, but only for a plan that actually has a
+ * price created in Stripe (`plans.stripe_price_id`). A plan without one falls back
+ * to writing to a person: a button that pretends to take money and then cannot is
+ * worse than one that admits it is not ready, and this page will be read by people
+ * deciding whether to trust us with a card.
  */
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 import { anonKey, authConfigured, supabaseUrl } from '@/lib/supabase/env';
+import { CheckoutButton } from '@/components/CheckoutButton';
+import { billingConfigured } from '@/lib/billing';
 import { PROFILE } from '@/lib/site';
 import {
   FALLBACK_PLANS,
@@ -117,12 +120,16 @@ function Check() {
 /**
  * What the card's button does.
  *
- * The free plan starts a session, because that is a thing this deployment can
- * actually do. The paid ones cannot be bought yet, so they write to a person
- * instead — and when no address is filled in at `src/lib/site.ts`, they say so
- * plainly rather than rendering a button that goes nowhere.
+ * The free plan starts a session. The paid ones open a Stripe checkout, unless
+ * this deployment has no Stripe key or the plan has no price created yet, in which
+ * case they fall back to writing to a person — a button that opens a dead checkout
+ * is worse than one that says it is not ready.
+ *
+ * `buyable` is resolved on the server, per plan, from `plans.stripe_price_id`. It
+ * is not a global flag: the founder tier can be purchasable while a later tier is
+ * still being set up, and the page should tell the truth about each.
  */
-function PlanAction({ plan }: { plan: Plan }) {
+function PlanAction({ plan, buyable }: { plan: Plan; buyable: boolean }) {
   if (plan.priceMinor === 0) {
     return (
       <Link
@@ -131,6 +138,16 @@ function PlanAction({ plan }: { plan: Plan }) {
       >
         Empezar gratis
       </Link>
+    );
+  }
+
+  if (buyable) {
+    return (
+      <CheckoutButton
+        plan={plan.id}
+        label={`Contratar ${plan.name}`}
+        recommended={plan.id === RECOMMENDED_PLAN_ID}
+      />
     );
   }
 
@@ -154,7 +171,7 @@ function PlanAction({ plan }: { plan: Plan }) {
   );
 }
 
-function PlanCard({ plan }: { plan: Plan }) {
+function PlanCard({ plan, buyable }: { plan: Plan; buyable: boolean }) {
   const recommended = plan.id === RECOMMENDED_PLAN_ID;
   const organisation = plan.seatMinimum !== null;
   const features = PLAN_FEATURES[plan.id] ?? [];
@@ -233,7 +250,7 @@ function PlanCard({ plan }: { plan: Plan }) {
 
       <p className="mt-6 text-[13px] leading-relaxed text-soft">{formatOverage(plan)}</p>
 
-      <PlanAction plan={plan} />
+      <PlanAction plan={plan} buyable={buyable} />
     </li>
   );
 }
@@ -242,6 +259,18 @@ export default async function PlanesPage() {
   const plans = await loadPlans();
   const selfServe = plans.filter((p) => p.isPublic);
   const currency = plans[0]?.currency ?? 'USD';
+
+  /*
+   * Which plans can actually be charged for, resolved once per render.
+   *
+   * Two conditions, both required: this deployment has a Stripe key, and the plan
+   * row carries a price id. `loadPlans` reads through the public anon client and
+   * the fallback rows carry no price id at all, so a Postgres outage degrades to
+   * the write-to-a-person button rather than to a broken checkout.
+   */
+  const buyable = new Set(
+    billingConfigured() ? selfServe.filter((p) => p.stripePriceId).map((p) => p.id) : [],
+  );
 
   return (
     <>
@@ -268,15 +297,11 @@ export default async function PlanesPage() {
         {/* Five across only where five fit; below that the cards pair up. */}
         <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {selfServe.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} />
+            <PlanCard key={plan.id} plan={plan} buyable={buyable.has(plan.id)} />
           ))}
         </ul>
 
-        <p className="mt-6 text-[13px] text-soft">
-          Precios en {currency === 'CLP' ? 'pesos chilenos' : 'dólares'}, sin IVA. Los planes de
-          pago se podrán contratar pronto; mientras tanto el plan Gratis está disponible y alcanza
-          para el diagnóstico, el mapa y tu plan armado.
-        </p>
+  
       </section>
 
       {/*

@@ -15,6 +15,8 @@ import {
   type TimeSaved,
 } from '@/lib/progress';
 import { LEVELS, PATHS, stepDetail, type LevelId, type PathId } from '@/lib/curriculum';
+import { subscriptionFor, type Subscription } from '@/lib/billing';
+import { BillingLink } from '@/components/BillingLink';
 import { saveEvidence, setCommitmentDone } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -35,14 +37,20 @@ export const metadata = {
  * to server actions, so this page ships no client JavaScript of its own: the
  * whole thing is readable on a phone on a bus, which is where it will be read.
  */
-export default async function ProgresoPage() {
+export default async function ProgresoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ pago?: string }>;
+}) {
   const user = await currentUser();
   if (!user) redirect(signInPath('/progreso'));
 
-  const [profile, steps, history] = await Promise.all([
+  const [profile, steps, history, subscription, params] = await Promise.all([
     careerProfile(user.id),
     planSteps(user.id),
     sessionHistory(user.id),
+    subscriptionFor(user.id),
+    searchParams,
   ]);
 
   const current = currentStep(steps);
@@ -77,7 +85,13 @@ export default async function ProgresoPage() {
         </Link>
       </header>
 
+      {params.pago === 'listo' && <PagoListo />}
+
       {saved.perWeek > 0 && <Recuperado saved={saved} />}
+
+      {subscription && subscription.planId !== 'free' && (
+        <Suscripcion subscription={subscription} />
+      )}
 
       {!profile && <FirstVisit />}
 
@@ -89,6 +103,59 @@ export default async function ProgresoPage() {
 
       {history.length > 0 && <Historial history={history} />}
     </div>
+  );
+}
+
+/**
+ * Just came back from Stripe.
+ *
+ * Says the plan may take a moment on purpose. The redirect and the webhook race,
+ * and the redirect usually wins, so a page that promised an upgraded account here
+ * would look broken at the exact moment somebody has handed over a card.
+ */
+function PagoListo() {
+  return (
+    <section className="rounded-lg border border-success/30 bg-success-soft/40 px-5 py-4">
+      <h2 className="text-[15px] font-semibold text-success">Pago recibido. Gracias.</h2>
+      <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-ink/85">
+        Tu plan puede tardar unos segundos en aparecer acá: lo activamos cuando el pago queda
+        confirmado, no cuando vuelves de la pasarela. Si en un minuto sigue igual, recarga.
+      </p>
+    </section>
+  );
+}
+
+/** What they are paying for, and the one click that changes it. */
+function Suscripcion({ subscription }: { subscription: Subscription }) {
+  const lapsed =
+    subscription.status !== null &&
+    !['active', 'trialing'].includes(subscription.status);
+
+  return (
+    <section className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 rounded-lg border border-line bg-surface-alt/50 px-5 py-4">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-soft">Tu plan</p>
+        <p className="mt-1 text-[15px] text-ink/85">
+          {subscription.planId === 'founder' ? 'Fundador' : 'Estándar'}
+          {subscription.endsAt && (
+            <span className="text-muted">
+              {' '}
+              · {lapsed ? 'termina' : 'se renueva'} el{' '}
+              {new Date(subscription.endsAt).toLocaleDateString('es-CL', {
+                day: 'numeric',
+                month: 'long',
+              })}
+            </span>
+          )}
+        </p>
+        {lapsed && (
+          <p className="mt-1 text-[13px] text-warning">
+            Hay un problema con el cobro. Revisa tu tarjeta para no perder los minutos.
+          </p>
+        )}
+      </div>
+      <BillingLink />
+    </section>
   );
 }
 

@@ -9,6 +9,7 @@
  *
  *   ElevenLabs   key, scope, the agent, and whether it carries only its corpus
  *   Supabase     sign-in, the ledger, and the three memory tables
+ *   Billing      whether anybody can actually pay, and for which plans
  *   Curriculum   4 levels, lessons with objectives and proofs, a buildable plan
  *   Persona      the honesty rule, the session shape, the size budget, and
  *                parity with every promise on the marketing page
@@ -24,6 +25,7 @@ import { PROMISE_MARKERS, teacherSystemPrompt } from '../src/lib/agent';
 import { PROMISES } from '../src/lib/site';
 import { buildPlan, LESSONS, LEVELS, lessonsForLevel, PATHS } from '../src/lib/curriculum';
 import { supabaseAdmin } from '../src/lib/supabase/admin';
+import { billingConfigured } from '../src/lib/billing';
 
 const ok = (m: string) => console.log(`  ok    ${m}`);
 const bad = (m: string) => console.log(`  FAIL  ${m}`);
@@ -240,6 +242,73 @@ async function main() {
     }
   }
 
+  // ---------------------------------------------------------------- Billing
+  /*
+   * A half-configured checkout is worse than no checkout: the button appears, the
+   * payment goes through, and the webhook that would grant the plan is missing, so
+   * somebody has paid and got nothing. Every failure in this group describes that
+   * state or a step toward it.
+   */
+  console.log('\nBilling\n');
+  let billingFailures = 0;
+
+  if (!billingConfigured()) {
+    note('STRIPE_SECRET_KEY not set. Paid plans show "conversemos" instead of a checkout.');
+  } else {
+    ok('STRIPE_SECRET_KEY is set');
+
+    if (process.env.STRIPE_WEBHOOK_SECRET?.trim()) {
+      ok('STRIPE_WEBHOOK_SECRET is set, so a completed payment can grant the plan');
+    } else {
+      bad('STRIPE_WEBHOOK_SECRET missing while checkout is live. Payments would grant nothing.');
+      note('Stripe -> Developers -> Webhooks -> add /api/webhooks/stripe, then copy the secret.');
+      billingFailures++;
+    }
+
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() && missingAuth.length === 0) {
+      // The idempotency ledger. Without it a retried subscription event can apply
+      // out of order and leave a paying learner on the free plan.
+      const events = await supabaseAdmin()
+        .from('billing_events')
+        .select('id', { count: 'exact', head: true });
+      if (events.error) {
+        bad(`billing_events is not queryable: ${events.error.message}`);
+        note('Run supabase/migrations/20260813000000_billing.sql.');
+        billingFailures++;
+      } else {
+        ok('billing_events exists, so a redelivered webhook is applied once');
+      }
+
+      /*
+       * Which paid plans can be bought. A public paid plan with no price id is the
+       * common half-configured state: the page falls back to writing to a person,
+       * which is safe, but it is almost never what the operator intended.
+       */
+      const paid = await supabaseAdmin()
+        .from('plans')
+        .select('id, name, stripe_price_id')
+        .eq('is_public', true)
+        .gt('price_minor', 0);
+
+      if (paid.error) {
+        bad(`Could not read plans: ${paid.error.message}`);
+        billingFailures++;
+      } else {
+        const rows = (paid.data ?? []) as Array<{ id: string; stripe_price_id: string | null }>;
+        const missingPrice = rows.filter((r) => !r.stripe_price_id).map((r) => r.id);
+        if (rows.length === 0) {
+          note('No public paid plans in the database, so there is nothing to buy.');
+        } else if (missingPrice.length === 0) {
+          ok(`${rows.length} paid plan(s) have a Stripe price and can be bought`);
+        } else {
+          bad(`No Stripe price on: ${missingPrice.join(', ')}. Those plans cannot be bought.`);
+          note("update public.plans set stripe_price_id = 'price_...' where id = '<plan>';");
+          billingFailures++;
+        }
+      }
+    }
+  }
+
   // ------------------------------------------------------------- Curriculum
   console.log('\nCurriculum\n');
 
@@ -410,6 +479,10 @@ async function main() {
   }
   if (supabaseFailures > 0) {
     console.error('\nElevenLabs is ready, but learners cannot use the teacher yet.\n');
+    process.exit(1);
+  }
+  if (billingFailures > 0) {
+    console.error('\nThe teacher works, but the checkout would take money and grant nothing.\n');
     process.exit(1);
   }
   console.log('\nReady.\n');
