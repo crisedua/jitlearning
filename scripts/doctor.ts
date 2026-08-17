@@ -197,6 +197,23 @@ async function main() {
       { auth: { persistSession: false } },
     );
 
+    /*
+     * The two columns the value claim rests on. Without them the teacher still
+     * asks for both numbers and the progress page still renders, silently
+     * dropping every measurement — which is worse than an empty page, because the
+     * learner is answering a question whose answer goes nowhere.
+     */
+    const measured = await supabaseAdmin()
+      .from('plan_steps')
+      .select('minutes_before, minutes_after', { count: 'exact', head: true });
+    if (measured.error) {
+      bad(`plan_steps has no minutes columns: ${measured.error.message}`);
+      note('Run supabase/migrations/20260812000000_hours_saved.sql.');
+      supabaseFailures++;
+    } else {
+      ok('plan_steps records the before and after minutes');
+    }
+
     for (const table of MEMORY_TABLES) {
       const probe = await supabaseAdmin().from(table).select('*', { count: 'exact', head: true });
       if (probe.error) {
@@ -301,16 +318,21 @@ async function main() {
   }
 
   const shape: Array<[string, string]> = [
-    ['the map', PROMISE_MARKERS.map],
-    ['the curriculum', PROMISE_MARKERS.plan],
-    ['the diagnostic', '### Primera sesión'],
+    ['the map', '## El mapa'],
+    ['the curriculum', '## El plan y el currículum'],
+    ['the first task, resolved in session', PROMISE_MARKERS.resolver],
+    ['the privacy guardrail before real data', 'los dos minutos de privacidad'],
+    ['the before number', 'pregúntale cuánto tarda normalmente'],
+    ['the subtraction, said out loud', PROMISE_MARKERS.medir],
     ['the lesson structure', '### Sesiones siguientes'],
     ['the computer-or-walking switch', '## Dónde está la persona'],
     ['the commitment', '## Termina con un compromiso'],
     ['continuity', PROMISE_MARKERS.memory],
   ];
   const missingShape = shape.filter(([, marker]) => !persona.includes(marker));
-  if (missingShape.length === 0) ok('Session shape complete: diagnostic, map, lesson, commitment');
+  if (missingShape.length === 0) {
+    ok(`Session shape complete, all ${shape.length} parts`);
+  }
   else {
     bad(`Session shape incomplete, missing: ${missingShape.map(([label]) => label).join(', ')}`);
     failures++;

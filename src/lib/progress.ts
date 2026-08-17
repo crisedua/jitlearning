@@ -32,6 +32,7 @@
 import type { ConversationDetail } from './elevenlabs';
 import {
   buildPlan,
+  isWeeklyTask,
   lessonById,
   type LevelId,
   type PathId,
@@ -79,6 +80,28 @@ export interface PlanStep {
   commitment: string | null;
   commitmentDate: string | null;
   position: number;
+  /** Minutes this weekly task took before, as the learner reported it. */
+  minutesBefore: number | null;
+  /** Minutes the same task took with what they built. */
+  minutesAfter: number | null;
+}
+
+/**
+ * What the learner's own numbers add up to.
+ *
+ * `perWeek` is the sum over finished weekly tasks of before minus after. It is not
+ * an average, not a benchmark, and not ours: it is their measurement of their own
+ * week, which is the only reason it is worth showing.
+ *
+ * There is deliberately no cumulative "hours saved since you started". It would
+ * be the weekly figure multiplied by weeks elapsed — an estimate stacked on a
+ * self-report, and by far the most impressive number here, which is exactly why
+ * it is the one to leave out. The recurring figure is already enough to make the
+ * price an arithmetic problem, and it is defensible line by line.
+ */
+export interface TimeSaved {
+  perWeek: number;
+  tasksMeasured: number;
 }
 
 export interface SessionRecord {
@@ -121,6 +144,23 @@ function list(analysis: CallAnalysis, name: string): string[] {
     .map((s) => s.trim())
     .filter(Boolean)
     .slice(0, 8);
+}
+
+/**
+ * A minute count the extractor produced, or null.
+ *
+ * Bounded at 40 hours, matching the column's own check: a single weekly task that
+ * eats a whole working week is the largest figure that can be true, and past that
+ * it is a misheard number rather than a very slow task. One bad transcription
+ * would otherwise put hundreds of saved hours on the progress page, which is the
+ * kind of error that destroys the credibility of every other number on it.
+ */
+function minutes(analysis: CallAnalysis, name: string): number | null {
+  const raw = field(analysis, name);
+  if (!raw) return null;
+  const value = Number(raw.replace(/[^0-9]/g, ''));
+  if (!Number.isFinite(value) || value < 0 || value > 2_400) return null;
+  return Math.round(value);
 }
 
 /** An ISO date, or null. The spoken deadline ("antes del viernes") is not one. */
@@ -173,7 +213,9 @@ export async function planSteps(userId: string): Promise<PlanStep[]> {
 
   const { data, error } = await supabaseAdmin()
     .from('plan_steps')
-    .select('id, lesson_id, level, title, linked_task, status, evidence, commitment, commitment_date, position')
+    .select(
+      'id, lesson_id, level, title, linked_task, status, evidence, commitment, commitment_date, position, minutes_before, minutes_after',
+    )
     .eq('user_id', userId)
     .order('position', { ascending: true });
 
@@ -195,8 +237,38 @@ export async function planSteps(userId: string): Promise<PlanStep[]> {
       commitment: (row.commitment as string) ?? null,
       commitmentDate: (row.commitment_date as string) ?? null,
       position: (row.position as number) ?? 0,
+      minutesBefore: (row.minutes_before as number) ?? null,
+      minutesAfter: (row.minutes_after as number) ?? null,
     };
   });
+}
+
+/**
+ * The saving, computed from the steps already in hand.
+ *
+ * Deliberately a pure function over `planSteps` rather than a read of the
+ * `weekly_minutes_saved` view: the progress page has the steps anyway, and one
+ * source of arithmetic means the headline can never disagree with the rows
+ * underneath it. The view exists for the same sum without loading every step.
+ *
+ * Only finished steps count. A task measured and left pending is a measurement of
+ * an experiment, not of a change to somebody's week.
+ */
+export function timeSaved(steps: readonly PlanStep[]): TimeSaved {
+  const measured = steps.filter(
+    (s) =>
+      s.level === 'semana' &&
+      s.status === 'done' &&
+      s.minutesBefore !== null &&
+      s.minutesAfter !== null,
+  );
+
+  const perWeek = measured.reduce(
+    (total, s) => total + Math.max((s.minutesBefore ?? 0) - (s.minutesAfter ?? 0), 0),
+    0,
+  );
+
+  return { perWeek, tasksMeasured: measured.length };
 }
 
 export async function sessionHistory(userId: string, limit = 20): Promise<SessionRecord[]> {
@@ -271,6 +343,7 @@ export async function learnerRecord(userId: string): Promise<LearnerRecord> {
 
   const current = currentStep(steps);
   const lastCommitment = history.find((h) => h.commitment);
+  const saved = timeSaved(steps);
 
   const blocks: string[] = [];
 
@@ -288,6 +361,17 @@ export async function learnerRecord(userId: string): Promise<LearnerRecord> {
     blocks.push(`Sus tareas: ${profile.weeklyTasks.slice(0, 5).join(', ')}.`);
   }
   if (profile.tools.length > 0) blocks.push(`Ya usa: ${profile.tools.slice(0, 5).join(', ')}.`);
+  /*
+   * The saving goes near the front of the record, because it is the best thing
+   * the teacher can open on: a person who hears "ya recuperas tres horas a la
+   * semana" is being told what they got, in their own numbers, before being
+   * asked for anything.
+   */
+  if (saved.perWeek > 0) {
+    blocks.push(
+      `Ya recupera ${saved.perWeek} minutos por semana, medidos por ella en ${saved.tasksMeasured} tarea(s). Puedes abrir con eso.`,
+    );
+  }
   if (current) {
     blocks.push(`Plan: paso ${current.number} de ${steps.length}, "${current.step.title}".`);
   } else if (steps.length > 0) {
@@ -308,7 +392,7 @@ export async function learnerRecord(userId: string): Promise<LearnerRecord> {
   }
 
   return {
-    apertura: opening(profile, current, lastCommitment ?? null),
+    apertura: opening(profile, current, lastCommitment ?? null, saved.perWeek),
     registro: (blocks.join(' ') || 'Tiene perfil pero todavía no hay plan.').slice(0, RECORD_CHARS),
     primera_sesion: 'no',
   };
@@ -331,11 +415,26 @@ function opening(
   profile: CareerProfile,
   current: { step: PlanStep; number: number } | null,
   lastCommitment: SessionRecord | null,
+  savedPerWeek = 0,
 ): string {
   const parts: string[] = [];
 
+  /*
+   * When there is a saving, it opens the session. This is the one sentence in the
+   * product that answers "what did I get for my money", and it is said before
+   * anything is asked of the learner.
+   */
+  if (savedPerWeek >= 30) {
+    const hours = Math.floor(savedPerWeek / 60);
+    const rest = savedPerWeek % 60;
+    const said = hours > 0 ? `${hours} hora${hours > 1 ? 's' : ''}${rest ? ` y ${rest} minutos` : ''}` : `${rest} minutos`;
+    parts.push(`Retomemos. Con lo que ya montaste recuperas ${said} cada semana.`);
+  }
+
   const who = profile.role ?? profile.field;
-  if (who && current) {
+  if (parts.length > 0) {
+    // The number already opened; go straight to what is owed or where they are.
+  } else if (who && current) {
     parts.push(`Retomemos. Eres ${who} y vas en el paso ${current.number}: ${current.step.title}.`);
   } else if (current) {
     parts.push(`Retomemos. Vas en el paso ${current.number}: ${current.step.title}.`);
@@ -501,19 +600,32 @@ async function advanceStep(userId: string, analysis: CallAnalysis): Promise<stri
   const commitment = field(analysis, 'commitment');
   const due = field(analysis, 'commitment_due');
 
+  const minutesBefore = minutes(analysis, 'task_minutes_before');
+  const minutesAfter = minutes(analysis, 'task_minutes_after');
+
   const target = taught ? matchStep(steps, taught) : null;
   const step = target ?? currentStep(steps)?.step ?? null;
   if (!step) return null;
   // Nothing happened to a step this session: no lesson named, nothing shown,
   // no status. Advancing on a commitment alone would mark lessons done for
   // somebody who only ever promised.
-  if (!taught && !evidence && !statusRaw) return null;
+  if (!taught && !evidence && !statusRaw && minutesAfter === null) return null;
 
   const status =
     statusRaw === 'hecho' ? 'done' : statusRaw === 'en_progreso' ? 'in_progress' : step.status;
 
   const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
   if (evidence) patch.evidence = evidence;
+
+  /*
+   * The numbers only attach to a weekly task. Writing them onto a fundamentals
+   * step would put minutes on a lesson that saves none, and the weekly sum would
+   * start counting things that are not part of anyone's week.
+   */
+  if (isWeeklyTask(step.lessonId)) {
+    if (minutesBefore !== null) patch.minutes_before = minutesBefore;
+    if (minutesAfter !== null) patch.minutes_after = minutesAfter;
+  }
   if (commitment) {
     patch.commitment = commitment;
     // The spoken deadline is usually a phrase, not a date. It is kept verbatim on

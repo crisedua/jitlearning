@@ -53,8 +53,8 @@ export const hasContact = Boolean(PROFILE.email || PROFILE.bookingUrl);
 export const TAGLINE = 'Profesor de IA por voz, en español, para tu trabajo.';
 
 export const HERO = {
-  title: 'Aprende a trabajar con IA antes de que trabajen sin ti.',
-  sub: 'Un profesor por voz que te pregunta qué haces, te muestra qué es posible para alguien como tú, arma tu plan y te enseña paso a paso con tus propias tareas. En español. Cada sesión termina con algo que puedes mostrar.',
+  title: 'La primera clase termina con una tarea de tu trabajo ya hecha.',
+  sub: 'Un profesor de IA por voz, en español. Te pregunta qué haces, elige la tarea que más te pesa y la resuelven juntos en la sesión, hoy. Al final mides cuánto tardabas antes y cuánto tardas ahora: ese número es tuyo y se repite cada semana.',
 } as const;
 
 /**
@@ -71,14 +71,14 @@ export const PROMISES: readonly {
   body: string;
 }[] = [
   {
-    key: 'map',
-    title: 'Parte por ti.',
-    body: 'Te entrevista sobre tu trabajo y te muestra el mapa: qué herramientas existen y qué te permiten hacer con lo que ya sabes.',
+    key: 'resolver',
+    title: 'Empiezas resolviendo, no escuchando.',
+    body: 'La primera sesión no es teoría ni un diagnóstico largo: es tu tarea más pesada, hecha contigo, con tus datos, hoy.',
   },
   {
-    key: 'plan',
-    title: 'Plan visible.',
-    body: 'Un currículum de 4 niveles, de fundamentos a portafolio, adaptado a tus tareas de cada semana. Lo ves completo en tu página de progreso.',
+    key: 'medir',
+    title: 'Mides lo que ahorras.',
+    body: 'Cada tarea de tu semana queda con dos números tuyos: lo que tardabas y lo que tardas ahora. La suma está en tu página de progreso y puedes revisarla tarea por tarea.',
   },
   {
     key: 'memory',
@@ -95,24 +95,24 @@ export const PROMISES: readonly {
 /** How the whole thing goes, for the "cómo funciona" band. */
 export const STEPS = [
   {
-    title: 'Te entrevista',
-    body: 'La primera clase parte por ti: qué haces, en qué se te va la semana, qué herramientas usas y qué buscas. Una pregunta a la vez.',
+    title: '4 preguntas, no un cuestionario',
+    body: 'Qué haces, en qué se te va la semana, cuál de esas tareas te pesa más, y qué tienes a mano. Nada más: lo demás se pregunta después.',
   },
   {
-    title: 'Te muestra el mapa',
-    body: 'Qué es posible para alguien con tu experiencia: dónde gana valor lo que ya sabes, qué categorías de herramientas existen y 3 caminos para aplicarlo.',
+    title: '2 minutos de privacidad',
+    body: 'Qué no se pega nunca en un chat y cómo dejar anónimo lo que vas a usar. Antes de tocar un documento de tu trabajo, no después.',
   },
   {
-    title: 'Arma tu plan',
-    body: 'Los 4 niveles, con un paso por cada tarea de tu semana. Queda escrito en tu página de progreso y no lo pierdes de vista.',
+    title: 'Hacen la tarea, ahora',
+    body: 'Tú ejecutas y te va guiando: qué abrir, qué escribir, qué revisar. Un paso a la vez. Si vas caminando, la dictan y la terminas después.',
   },
   {
-    title: 'Te enseña, clase por clase',
-    body: 'El concepto en 2 frases, los pasos exactos a ritmo de voz, cómo verificar lo que devuelve, y un ejercicio sobre tu propia tarea corregido ahí mismo.',
+    title: 'Mides los dos números',
+    body: 'Cuánto tardabas y cuánto tardaste. La resta es lo que recuperas cada semana, y queda anotada en tu página de progreso.',
   },
   {
-    title: 'Sales con 1 compromiso',
-    body: '1 acción, 1 fecha y la señal que confirma que funcionó. La próxima clase empieza preguntándote por ella.',
+    title: 'Recién ahí, tu plan',
+    body: 'El mapa de qué más es posible y las clases que siguen, una por cada tarea tuya. Cuesta menos creerlo cuando ya viste funcionar algo tuyo.',
   },
 ] as const;
 
@@ -145,11 +145,11 @@ export const FEEDBACK_DEAL = `El trato: lo pruebas, dejas tu feedback en esta p�
  */
 export const DIFFERENCES = [
   {
-    title: 'Te pregunta a ti',
+    title: 'Terminas con trabajo hecho',
     generic:
-      'Responde lo que le preguntas. Si no sabes qué preguntar, la conversación no avanza.',
+      'Responde lo que le preguntas. Si no sabes qué preguntar, la conversación no avanza y no queda nada hecho.',
     teacher:
-      'Empieza por entrevistarte y te enseña sobre tus tareas reales, no sobre un ejemplo.',
+      'La primera sesión termina con una tarea real de tu semana resuelta y el tiempo que ahorras medido.',
   },
   {
     title: 'Tiene un currículum',

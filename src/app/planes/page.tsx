@@ -337,11 +337,12 @@ export default async function PlanesPage() {
       <section className="mx-auto max-w-[96rem] px-6 py-20 lg:py-24">
         <div className="reveal rounded-xl bg-accent-hover px-8 py-14 sm:px-14 sm:py-16">
           <h2 className="max-w-[20ch] font-serif text-[clamp(1.875rem,4vw,2.75rem)] font-normal leading-[1.06] tracking-[-0.02em] text-bg">
-Haz la primera clase antes de elegir
+            Haz la primera clase antes de elegir
           </h2>
           <p className="mt-5 max-w-[52ch] text-[17px] leading-relaxed text-bg/75">
-            Veinte minutos gratis, sin tarjeta. Alcanza para el diagnóstico, el mapa y tu plan
-            armado, que es lo que necesitas ver antes de pagar.
+            Veinte minutos gratis, sin tarjeta, y alcanzan para resolver una tarea de tu semana y
+            medir cuánto te ahorra. Compara ese número con el precio antes de pagar nada: nosotros
+            no lo inventamos, lo mides tú.
           </p>
           <Link
             href="/coach"

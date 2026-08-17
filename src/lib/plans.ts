@@ -110,7 +110,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     setupMinor: null,
     isPublic: true,
     sortOrder: 10,
-    blurb: '20 minutos para hacer el diagnóstico y ver tu plan.',
+    blurb: '20 minutos para resolver una tarea de tu semana y medir lo que ahorra.',
   },
   {
     id: 'founder',
@@ -150,21 +150,22 @@ export const FALLBACK_PLANS: readonly Plan[] = [
  */
 export const PLAN_FEATURES: Record<string, readonly string[]> = {
   free: [
-    'El diagnóstico, el mapa y tu plan armado',
+    'Una tarea real de tu semana, resuelta en la sesión',
+    'Los 2 números: lo que tardabas y lo que tardas ahora',
     '20 minutos en total, no al mes',
     'Se detiene al llegar al límite: nunca genera un cobro',
     'Sin tarjeta. Para estudiantes y para probar',
   ],
   founder: [
     '300 minutos al mes',
-    'El currículum completo, de fundamentos a portafolio',
-    'Memoria entre sesiones: retoma donde quedaste',
+    'Las 3 a 5 tareas de tu semana, una por una',
+    'El currículum completo, hasta el portafolio',
     'El precio no sube mientras mantengas el plan',
   ],
   standard: [
     '300 minutos al mes',
-    'El currículum completo y tu página de progreso',
-    'Memoria entre sesiones y seguimiento de tu plan',
+    'Las 3 a 5 tareas de tu semana, una por una',
+    'El currículum completo y las horas que recuperas, sumadas',
   ],
 };
 

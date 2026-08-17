@@ -59,8 +59,18 @@ import type { UsageMode } from './types';
  * marker here, which means putting the behaviour in the prompt.
  */
 export const PROMISE_MARKERS = {
-  map: '## El mapa',
-  plan: '## El plan y el currículum',
+  /*
+   * Behaviours, not section headings.
+   *
+   * These used to be `'## El mapa'` and `'## El plan y el currículum'`, and that
+   * was a check with a hole in it: the page's promises changed to "you finish a
+   * real task" and "you measure what you save" while both headings stayed put,
+   * so parity passed on copy the persona no longer backed. A marker has to be the
+   * sentence that makes the promise true, so that deleting the behaviour breaks
+   * the check.
+   */
+  resolver: '### Primera sesión: una tarea suya, resuelta hoy',
+  medir: 'dile la resta en una frase',
   memory: '## Continuidad entre sesiones',
   honesty: 'Nunca cifras sin fuente',
 } as const;
@@ -360,6 +370,14 @@ export function dataCollection(): DataCollectionConfig {
     ),
     evidence: text(
       'Lo que la persona describió haber hecho o construido, en sus propios términos, en una o dos frases. Cadena vacía si no mostró evidencia de nada. No cuentes como evidencia un "sí, lo hice" sin descripción.',
+    ),
+
+    // ---- the two numbers, which are the product's only honest ROI claim ----
+    task_minutes_before: text(
+      'Cuántos minutos decía tardar la persona en esa tarea ANTES, solo el número en minutos ("90"). Si lo dijo en horas, conviértelo a minutos. Cadena vacía si no lo dijo. No lo estimes ni lo deduzcas: este número tiene que salir de su boca.',
+    ),
+    task_minutes_after: text(
+      'Cuántos minutos tardó la persona en esa misma tarea AHORA, haciéndola con el asistente, solo el número en minutos ("25"). Cadena vacía si no alcanzó a terminarla o no lo dijo. No lo estimes.',
     ),
   };
 }

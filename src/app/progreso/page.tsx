@@ -8,9 +8,11 @@ import {
   currentStep,
   planSteps,
   sessionHistory,
+  timeSaved,
   type CareerProfile,
   type PlanStep,
   type SessionRecord,
+  type TimeSaved,
 } from '@/lib/progress';
 import { LEVELS, PATHS, stepDetail, type LevelId, type PathId } from '@/lib/curriculum';
 import { saveEvidence, setCommitmentDone } from './actions';
@@ -44,6 +46,7 @@ export default async function ProgresoPage() {
   ]);
 
   const current = currentStep(steps);
+  const saved = timeSaved(steps);
 
   return (
     <div className="mx-auto max-w-4xl space-y-12 px-6 py-10">
@@ -74,6 +77,8 @@ export default async function ProgresoPage() {
         </Link>
       </header>
 
+      {saved.perWeek > 0 && <Recuperado saved={saved} />}
+
       {!profile && <FirstVisit />}
 
       {profile && <Mapa profile={profile} />}
@@ -84,6 +89,46 @@ export default async function ProgresoPage() {
 
       {history.length > 0 && <Historial history={history} />}
     </div>
+  );
+}
+
+/** Minutes into something a person says out loud: "3 horas y 20 minutos". */
+function spellMinutes(total: number): string {
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  if (hours === 0) return `${minutes} minutos`;
+  const h = `${hours} hora${hours > 1 ? 's' : ''}`;
+  return minutes === 0 ? h : `${h} y ${minutes} minutos`;
+}
+
+/**
+ * The headline number, and the only claim this product makes about its own value.
+ *
+ * It is the learner's own arithmetic: for each weekly task they finished, the
+ * minutes they said it used to take minus the minutes they said it took with what
+ * they built. Not an average, not a benchmark, not ours. The per-task rows are
+ * shown underneath precisely so the total can be checked rather than believed —
+ * a number you cannot audit is a number nobody trusts twice.
+ *
+ * There is deliberately no cumulative total. Weekly saving times weeks elapsed
+ * would be the biggest number on the page and the least defensible one.
+ */
+function Recuperado({ saved }: { saved: TimeSaved }) {
+  return (
+    <section className="rounded-lg border border-success/30 bg-success-soft/40 p-6">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-success">
+        Lo que recuperas cada semana
+      </p>
+      <p className="mt-2 font-serif text-[clamp(2rem,5vw,3rem)] font-normal leading-none tracking-[-0.02em]">
+        {spellMinutes(saved.perWeek)}
+      </p>
+      <p className="mt-3 max-w-[52ch] text-[15px] leading-relaxed text-ink/85">
+        Medido por ti en {saved.tasksMeasured}{' '}
+        {saved.tasksMeasured === 1 ? 'tarea' : 'tareas'} de tu semana: lo que tardabas antes menos
+        lo que tardas ahora. Cada tarea de abajo muestra sus dos números, para que puedas revisar
+        la cuenta.
+      </p>
+    </section>
   );
 }
 
@@ -330,6 +375,26 @@ function Step({
       {detail && (
         <p className="mt-3 text-[13px] leading-relaxed text-soft">
           <span className="font-semibold text-muted">La prueba:</span> {detail.proof}
+        </p>
+      )}
+
+      {/*
+        The two numbers, shown on the step they came from. This is what makes the
+        headline auditable: the learner can see which task contributed what, and
+        correct the teacher next session if a number is wrong.
+      */}
+      {step.minutesBefore !== null && step.minutesAfter !== null && (
+        <p className="mt-3 inline-flex flex-wrap items-baseline gap-x-2 rounded-md bg-success-soft/50 px-3 py-2 text-[14px] text-ink/85">
+          <span className="text-soft line-through">{step.minutesBefore} min</span>
+          <span aria-hidden className="text-soft">
+            →
+          </span>
+          <span className="font-semibold">{step.minutesAfter} min</span>
+          {step.minutesBefore > step.minutesAfter && (
+            <span className="text-success">
+              ahorras {step.minutesBefore - step.minutesAfter} min cada semana
+            </span>
+          )}
         </p>
       )}
 
