@@ -1,8 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { topicsFor } from '@/lib/topics';
-import type { Coach } from '@/lib/coaches';
+import { TOPICS } from '@/lib/topics';
 
 /**
  * What the coach can do, as something you use rather than something you read.
@@ -21,66 +20,52 @@ import type { Coach } from '@/lib/coaches';
  * with the transcript for the same attention, and the sidebar covers the same
  * ground for anyone who needs it mid-session.
  *
- * The audience filter that used to sit at the top is gone: picking a coach on
- * the previous screen already did that separating, and one coach's questions
- * fit on the page without needing to be sampled down to one per topic.
+ * There is one teacher, so there is no filtering left to do here: every question
+ * fits on the page.
  */
 
 /**
- * What the coach does with any answer, whatever the topic.
+ * What the teacher does with any answer, whatever the topic.
  *
  * These are behaviours the persona is instructed to perform and a learner can
- * check in one session — the same claims the landing page makes. If one is
- * removed from the persona it has to come out of here too, or the page starts
- * promising something the coach does not do.
+ * check in one session, which is the same standard the landing page holds itself
+ * to. Removing one from the persona means removing it from here.
  */
-const howItAnswers = (coach: Coach) => [
+const HOW_IT_ANSWERS = [
   {
-    label: 'Te nombra la fuente',
-    // Drawn from the coach so the example names something its corpus actually
-    // contains. A promise illustrated with a source this coach cannot cite is
-    // the one kind of drift this list exists to prevent.
-    detail: `«${coach.citationExample.split(' o ')[0]?.replace(/^"|"$/g, '')}» — mientras responde, no al final.`,
+    label: 'Te dice de dónde viene',
+    detail:
+      'Cuando la respuesta sale de su material lo nombra mientras responde; cuando es criterio general, lo dice.',
   },
   {
-    label: 'No promedia a los autores',
-    detail: 'Cuando dos fuentes se contradicen te lo dice, y te dice cuál encaja con tu caso.',
+    label: 'No promedia a las fuentes',
+    detail: 'Cuando dos posturas se contradicen te dice cuál es cuál y cuál encaja con tu caso.',
   },
   {
     label: 'Cierra con un compromiso',
     detail: 'Una cosa, con fecha, y qué señal contaría como que salió bien.',
   },
   {
-    label: 'Te avisa cuando no sabe',
-    detail: 'Si no tiene material sobre algo, lo dice antes de responder.',
+    label: 'No tiene internet',
+    detail: 'No busca precios ni ofertas de trabajo. Si le pides algo de hoy, te lo dice.',
   },
 ] as const;
 
 export function CoachExplorer({
-  coach,
   onAsk,
   busy,
 }: {
-  coach: Coach;
   /** Starts the session on this question. */
   onAsk: (question: string) => void;
   busy: boolean;
 }) {
-  const topics = useMemo(() => topicsFor(coach.id), [coach.id]);
-
   const questions = useMemo(
     () =>
-      topics.flatMap((topic) =>
-        topic.examples.map((question) => ({
-          question,
-          topic: topic.title,
-          isNew: Boolean(topic.isNew),
-        })),
+      TOPICS.flatMap((topic) =>
+        topic.examples.map((question) => ({ question, topic: topic.title })),
       ),
-    [topics],
+    [],
   );
-
-  const hasNew = topics.some((t) => t.isNew);
 
   return (
     <section className="animate-rise overflow-hidden rounded-lg border border-line bg-surface shadow-sm">
@@ -90,24 +75,14 @@ export function CoachExplorer({
             Empieza por una pregunta real
           </h2>
           <p className="mt-1 text-[13px] leading-relaxed text-muted">
-            Toca cualquiera y la sesión arranca hablando de eso. Todas las preguntas para
-            las que este coach tiene material, o escribe la tuya arriba.
+            Toca cualquiera y la sesión arranca hablando de eso, o escribe la tuya arriba.
           </p>
         </div>
 
-        {hasNew && (
-          <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-gold/40 bg-gold-soft/50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-warning">
-            <span
-              aria-hidden
-              className="h-1.5 w-1.5 rounded-full bg-gold [animation:ring_2.2s_ease-out_infinite]"
-            />
-            Material nuevo
-          </span>
-        )}
       </header>
 
       <ul className="grid gap-2.5 px-5 py-5 sm:grid-cols-2 sm:px-6">
-        {questions.map(({ question, topic, isNew }, i) => (
+        {questions.map(({ question, topic }, i) => (
           <li key={question}>
             <button
               type="button"
@@ -118,11 +93,6 @@ export function CoachExplorer({
             >
               <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-soft">
                 {topic}
-                {isNew && (
-                  <span className="rounded-full bg-gold-soft px-1.5 py-px text-[10px] font-semibold tracking-normal text-warning">
-                    nuevo
-                  </span>
-                )}
               </span>
 
               <span className="text-[15px] font-medium leading-snug text-ink">
@@ -144,7 +114,7 @@ export function CoachExplorer({
           Responda lo que responda
         </p>
         <ul className="mt-3 grid gap-x-6 gap-y-2.5 sm:grid-cols-2">
-          {howItAnswers(coach).map((item) => (
+          {HOW_IT_ANSWERS.map((item) => (
             <li key={item.label} className="flex items-start gap-2.5">
               <span
                 aria-hidden

@@ -9,7 +9,7 @@
  */
 import { getAgent, getRagIndexes, listDocuments } from './elevenlabs';
 import { agentId, embeddingModel, mapWithConcurrency } from './config';
-import { availableCoaches, coachOwnsDocument, type Coach } from './coaches';
+import { ownsDocument } from './teacher';
 import { FAILURE_REASONS } from './knowledge';
 import type { DocumentView, KnowledgeDocument, RagIndexStatus, UsageMode } from './types';
 
@@ -19,29 +19,20 @@ const STATUS_CONCURRENCY = 8;
 /**
  * The agent config doubles as the store for usage mode — it's the only place
  * that information lives now.
- *
- * Read across every coach and merged, because a document belongs to whichever
- * coaches claim it and its mode is a property of the document, not of the
- * agent that happens to carry it. `herramientas/` is attached to all three, so
- * asking any single agent would report `undefined` for two thirds of the
- * corpus and the admin page would show it as unattached.
  */
 export async function attachedUsageModes(): Promise<Map<string, UsageMode>> {
   const modes = new Map<string, UsageMode>();
 
-  await Promise.all(
-    availableCoaches().map(async (coach) => {
-      const id = agentId(coach);
-      if (!id) return;
-      try {
-        const agent = await getAgent(id);
-        const entries = agent.conversation_config?.agent?.prompt?.knowledge_base ?? [];
-        for (const e of entries) modes.set(e.id, e.usage_mode ?? 'auto');
-      } catch {
-        // A missing or unreachable agent shouldn't blank the document list.
-      }
-    }),
-  );
+  const id = agentId();
+  if (!id) return modes;
+
+  try {
+    const agent = await getAgent(id);
+    const entries = agent.conversation_config?.agent?.prompt?.knowledge_base ?? [];
+    for (const e of entries) modes.set(e.id, e.usage_mode ?? 'auto');
+  } catch {
+    // A missing or unreachable agent shouldn't blank the document list.
+  }
 
   return modes;
 }
@@ -105,32 +96,28 @@ export async function listDocumentViews(): Promise<DocumentView[]> {
 }
 
 /**
- * The documents one coach's agent should carry: everything usable *that belongs
- * to it*, keeping whatever usage mode it already had.
+ * The documents the agent should carry: everything usable that belongs to the
+ * live corpus, keeping whatever usage mode it already had.
  *
- * This filter is the corpus boundary. Not a hint to the model, not a prompt
- * instruction it may weigh against something else — a document missing from
- * this list cannot be retrieved by that agent at all. It is why the
- * emprendedores coach cannot produce a chunk about Ley 21.719 even if the
- * question is asked in the words most likely to match it.
+ * This filter is what keeps the retired corpora out, and it is physical rather
+ * than advisory: a document missing from this list cannot be retrieved at all,
+ * whatever the prompt says.
  *
- * Names are matched by prefix (`negocio/`, or one exact file), so this depends
- * on documents being ingested under `<carpeta>/<archivo>`. A document ingested
- * without its folder prefix matches nothing and silently belongs to no coach —
- * which is the failure to look for if a coach starts saying it has no material
- * on its own subject.
+ * Names are matched by prefix (`empleabilidad/`, or one exact file), so this
+ * depends on documents being ingested under `<carpeta>/<archivo>`. A document
+ * ingested without its folder prefix matches nothing and is attached to
+ * nobody — the failure to look for if the teacher never cites its material.
  *
  * `overrides` lets a fresh upload declare its mode before it appears in the
  * agent config.
  */
 export async function attachableEntries(
-  coach: Coach,
   overrides: ReadonlyMap<string, UsageMode> = new Map(),
 ): Promise<Array<{ type: DocumentView['type']; name: string; id: string; usage_mode: UsageMode }>> {
   const views = await listDocumentViews();
 
   return views
-    .filter((v) => coachOwnsDocument(coach, v.name))
+    .filter((v) => ownsDocument(v.name))
     .map((v) => ({ ...v, usageMode: overrides.get(v.id) ?? v.usageMode ?? 'auto' }))
     // Pinned docs need no index; retrieved docs must have finished indexing,
     // otherwise the agent references a document it cannot actually search.

@@ -1,5 +1,5 @@
 /** Environment-derived configuration. No filesystem, no local state. */
-import type { Coach } from './coaches';
+import { TEACHER } from './teacher';
 import type { EmbeddingModel } from './types';
 
 /**
@@ -31,47 +31,38 @@ export function agentLanguage(): string {
 }
 
 /**
- * The agent id is env-only, one variable per coach. `npm run setup:agent`
- * prints them; you set them in Vercel's project settings. Nothing is written
- * back at runtime, which is what lets every instance stay stateless.
+ * The agent id is env-only: `npm run setup:agent` prints it, you set it in
+ * Vercel's project settings. Nothing is written back at runtime, which is what
+ * lets every serverless instance stay stateless.
  *
- * No legacy fallback any more. The old one pointed `ELEVENLABS_AGENT_ID` at the
- * strategy coach, and that coach is retired: inheriting its agent would give a
- * PMP learner an agent still carrying another subject's persona and attachment
- * list, which is worse than a clear error saying the variable is unset.
+ * One product, one agent, so one variable. The per-coach variables that used to
+ * live here are gone; if `ELEVENLABS_AGENT_ID` still points at an agent from an
+ * earlier product, set it to the new one rather than trusting the name.
  */
-export function agentId(coach: Coach): string | undefined {
-  return process.env[coach.envKey]?.trim() || undefined;
+export function agentId(): string | undefined {
+  return process.env[TEACHER.envKey]?.trim() || undefined;
 }
 
 /**
- * Retrieval strictness, per coach.
+ * Retrieval strictness.
  *
- * One number decides whether a chunk counts as relevant, and the right value
- * is not the same for both corpora. PMP material is terminology-dense and
- * internally similar, so a loose gate drags competency prose into a question
- * about integrated change control. Employability answers lean mostly on
- * general knowledge over a small, varied corpus, where a tight gate returns
- * nothing at all and the supplement never fires.
- *
- * The failure when this is too tight is the dangerous one: the agent retrieves
- * nothing, answers from general knowledge, and sounds exactly as confident. The
- * honesty rule in the persona is what keeps that honest, but a coach that never
- * retrieves is a coach whose corpus is decorative.
+ * One number decides whether a chunk counts as relevant. The failure when it is
+ * too tight is the quiet one: the agent retrieves nothing, answers from general
+ * knowledge, and sounds exactly as confident. The honesty rule in the persona is
+ * what keeps that honest, but a teacher that never retrieves is a teacher whose
+ * corpus is decorative. Overridable without a deploy while tuning.
  */
-const DEFAULT_MAX_VECTOR_DISTANCE = 0.8;
-
-export function maxVectorDistance(coach: Coach): number {
-  const override = Number(process.env[`${coach.envKey}_MAX_VECTOR_DISTANCE`]);
+export function maxVectorDistance(): number {
+  const override = Number(process.env.ELEVENLABS_MAX_VECTOR_DISTANCE);
   if (Number.isFinite(override) && override > 0) return override;
-  return coach.maxVectorDistance ?? DEFAULT_MAX_VECTOR_DISTANCE;
+  return TEACHER.maxVectorDistance;
 }
 
-export function requireAgentId(coach: Coach): string {
-  const id = agentId(coach);
+export function requireAgentId(): string {
+  const id = agentId();
   if (!id) {
     throw new Error(
-      `${coach.envKey} is not set. Run \`npm run setup:agent -- ${coach.id}\` and add the printed id to your environment.`,
+      `${TEACHER.envKey} is not set. Run \`npm run setup:agent\` and add the printed id to your environment.`,
     );
   }
   return id;

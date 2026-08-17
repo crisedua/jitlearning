@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConversationProvider, useConversation } from '@elevenlabs/react';
 import { KnownTopics } from './KnownTopics';
 import { CoachExplorer } from './CoachExplorer';
-import type { Coach } from '@/lib/coaches';
 
 interface Turn {
   role: 'user' | 'agent';
@@ -48,15 +47,15 @@ const STATUS_ES: Record<string, string> = {
  * The SDK's `useConversation` must live under a `ConversationProvider`, so the
  * exported component is just that wrapper around the real one.
  */
-export function VoiceTutor({ coach }: { coach: Coach }) {
+export function VoiceTutor() {
   return (
     <ConversationProvider>
-      <VoiceTutorInner coach={coach} />
+      <VoiceTutorInner />
     </ConversationProvider>
   );
 }
 
-function VoiceTutorInner({ coach }: { coach: Coach }) {
+function VoiceTutorInner() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [objective, setObjective] = useState('');
@@ -227,14 +226,12 @@ function VoiceTutorInner({ coach }: { coach: Coach }) {
       // Must originate from a user gesture, or the browser rejects it.
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // The coach decides which agent is minted, so it is part of the request
-      // rather than something the session is steered into afterwards.
-      const res = await fetch(`/api/signed-url?coach=${encodeURIComponent(coach.id)}`);
+      const res = await fetch('/api/signed-url');
       // The session expired while the page stayed open. Nothing here can
       // recover it, so send them back through Google rather than showing an
       // error about a credential they cannot renew from this screen.
       if (res.status === 401) {
-        window.location.href = `/auth/login?next=${encodeURIComponent(`/coach/${coach.id}`)}`;
+        window.location.href = `/auth/login?next=${encodeURIComponent('/coach')}`;
         return;
       }
 
@@ -243,14 +240,10 @@ function VoiceTutorInner({ coach }: { coach: Coach }) {
         sessionId?: string | null;
         /** Memory of previous sessions, composed server-side. Null on a first visit. */
         context?: string | null;
-        /** Structured study record: countdown, weak areas, plan step. */
-        study?: string | null;
-        /** True when this coach has never met this learner. */
-        firstSession?: boolean;
         error?: string;
       };
       if (!res.ok || !data.signedUrl) {
-        throw new Error(data.error ?? 'No se pudo conectar con el coach.');
+        throw new Error(data.error ?? 'No se pudo conectar con el profesor.');
       }
 
       setTurns([]);
@@ -280,10 +273,6 @@ function VoiceTutorInner({ coach }: { coach: Coach }) {
       pendingContextRef.current = [
         `Hoy es ${todayInSpanish()}. Úsalo para fijar plazos y para contar los días que faltan.`,
         goal && `Objetivo declarado para esta sesión: ${goal}`,
-        // The structured record first: it is what the coach opens on, and a
-        // long free-text summary underneath must not crowd out the countdown.
-        data.study && `Registro de estudio de esta persona: ${data.study}`,
-        data.firstSession && 'Es su primera sesión con este coach: no tienes perfil ni plan previo.',
         data.context,
       ]
         .filter(Boolean)
@@ -297,7 +286,7 @@ function VoiceTutorInner({ coach }: { coach: Coach }) {
       setStarting(false);
     }
     },
-    [startSession, objective, coach.id],
+    [startSession, objective],
   );
 
   /**
@@ -389,7 +378,7 @@ function VoiceTutorInner({ coach }: { coach: Coach }) {
                 disabled={starting || status === 'connecting'}
                 className="inline-flex items-center gap-2.5 rounded-full bg-accent px-6 py-2.5 text-[15px] font-medium text-white shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md disabled:translate-y-0 disabled:opacity-55 disabled:shadow-sm"
               >
-                {starting || status === 'connecting' ? 'Conectando…' : 'Hablar con el coach'}
+                {starting || status === 'connecting' ? 'Conectando…' : 'Empezar la clase'}
                 <span
                   aria-hidden
                   className="h-[7px] w-[7px] rounded-full bg-gold [animation:ring_2.2s_ease-out_infinite]"
@@ -414,11 +403,7 @@ function VoiceTutorInner({ coach }: { coach: Coach }) {
           same ground for anyone who needs a prompt mid-conversation.
         */}
         {!connected && (
-          <CoachExplorer
-            coach={coach}
-            onAsk={askAndStart}
-            busy={starting || status === 'connecting'}
-          />
+          <CoachExplorer onAsk={askAndStart} busy={starting || status === 'connecting'} />
         )}
 
         {error && (
@@ -438,7 +423,7 @@ function VoiceTutorInner({ coach }: { coach: Coach }) {
         {connected && <TextFallback onSend={sendTyped} />}
       </div>
 
-      <KnownTopics coach={coach} onPick={pickExample} connected={connected} />
+      <KnownTopics onPick={pickExample} connected={connected} />
     </div>
   );
 }
@@ -547,7 +532,7 @@ function Transcript({
                     turn.role === 'user' ? 'text-white/75' : 'text-accent'
                   }`}
                 >
-                  {turn.role === 'user' ? 'Tú' : 'Coach'}
+                  {turn.role === 'user' ? 'Tú' : 'Profesor'}
                 </span>
                 {turn.text}
               </div>

@@ -210,6 +210,17 @@ export interface AgentConfig {
     agent: {
       first_message?: string;
       language?: string;
+      /**
+       * Defaults for the `{{variables}}` the prompt and first message reference.
+       *
+       * Not decoration: a conversation started without supplying a referenced
+       * variable fails outright, and the error surfaces to the learner as a
+       * connection failure with no clue what caused it. These are what let the
+       * agent be tested from the ElevenLabs dashboard, which supplies nothing.
+       */
+      dynamic_variables?: {
+        dynamic_variable_placeholders?: Record<string, string>;
+      };
       prompt: AgentPromptConfig;
     };
     tts?: {

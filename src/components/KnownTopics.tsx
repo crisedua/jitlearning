@@ -1,10 +1,9 @@
 'use client';
 
-import { topicsFor } from '@/lib/topics';
-import type { Coach } from '@/lib/coaches';
+import { TOPICS } from '@/lib/topics';
 
 /**
- * Sidebar listing what the coach has material for.
+ * Sidebar listing what the teacher can be asked.
  *
  * Discoverability is the point: a voice interface gives no hint of its own
  * scope, so without this the learner has to guess, and a wrong guess costs a
@@ -20,15 +19,13 @@ import type { Coach } from '@/lib/coaches';
  * billable minute by surprise, so the hint text says which of the two it is.
  */
 export function KnownTopics({
-  coach,
   onPick,
   connected,
 }: {
-  coach: Coach;
   onPick: (question: string) => void;
   connected: boolean;
 }) {
-  const topics = topicsFor(coach.id);
+  const topics = TOPICS;
 
   return (
     <aside className="overflow-hidden rounded-lg border border-line bg-surface shadow-sm lg:sticky lg:top-20">
@@ -71,7 +68,8 @@ export function KnownTopics({
       </ul>
 
       <p className="border-t border-line bg-surface-alt/60 px-5 py-3.5 text-xs leading-relaxed text-muted">
-        {coach.outOfScopeNote}
+        Puedes preguntarle lo que quieras de tu trabajo y la IA. Lo que no tiene es internet:
+        precios, ofertas y noticias de hoy no las puede ver.
       </p>
     </aside>
   );

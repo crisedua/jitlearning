@@ -21,8 +21,6 @@
 import { ElevenLabsError, getConversation } from './elevenlabs';
 import { mapWithConcurrency } from './config';
 import { commitmentContext, openCommitment, storeCommitment } from './commitments';
-import { storeSessionSummary } from './study';
-import type { CoachId } from './coaches';
 import { serviceConfigured, supabaseAdmin } from './supabase/admin';
 
 /** Rows considered per start. Only the newest of them are ever replayed. */
@@ -44,8 +42,6 @@ interface SessionRow {
   started_at: string;
   summary: string | null;
   summary_synced_at: string | null;
-  /** Null on rows written before the study_memory migration. */
-  coach?: string | null;
   user_id?: string | null;
 }
 
@@ -76,14 +72,9 @@ async function backfillRow(row: SessionRow, persist: boolean): Promise<string | 
     summary = conversation.analysis?.transcript_summary?.trim() || null;
     title = conversation.analysis?.call_summary_title?.trim() || null;
 
-    // Same fetch, same pass. Each write is on its own so a deployment missing
-    // one migration still gets everything the others can give it.
-    if (persist) {
-      await storeCommitment(row.id, conversation);
-      if (row.user_id && row.coach) {
-        await storeSessionSummary(row.user_id, row.coach as CoachId, conversation);
-      }
-    }
+    // Same fetch, same pass, and on its own write so a deployment missing one
+    // migration still gets everything the others can give it.
+    if (persist) await storeCommitment(row.id, conversation);
   } catch (err) {
     // Gone from ElevenLabs (retention, manual deletion): stamp it so the
     // backfill stops asking. Anything else — network, auth — retries later.
@@ -113,7 +104,7 @@ async function recentSessions(
 
   const { data, error } = await admin
     .from('coach_sessions')
-    .select('id, user_id, coach, conversation_id, started_at, summary, summary_synced_at')
+    .select('id, user_id, conversation_id, started_at, summary, summary_synced_at')
     .eq('user_id', userId)
     .not('conversation_id', 'is', null)
     .order('started_at', { ascending: false })

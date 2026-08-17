@@ -1,7 +1,7 @@
 /** Per-document operations: index status, retry indexing, delete. */
 import { NextResponse } from 'next/server';
 import { indexStatus, purge, reindex } from '@/lib/knowledge';
-import { syncAllCoaches } from '@/lib/agent';
+import { syncAgentKnowledge } from '@/lib/agent';
 import { requireSecret, UnauthorizedError } from '@/lib/auth';
 
 export const runtime = 'nodejs';
@@ -52,8 +52,7 @@ export async function DELETE(req: Request, { params }: Params) {
     // coach, because a deleted document may have been attached to several.
     let syncError: string | undefined;
     try {
-      const { errors } = await syncAllCoaches();
-      if (errors.length > 0) syncError = errors.join('; ');
+      await syncAgentKnowledge();
     } catch (err) {
       syncError = err instanceof Error ? err.message : 'Sync failed';
     }

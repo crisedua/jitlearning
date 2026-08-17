@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { SessionPreview } from '@/components/SessionPreview';
-import { availableCoaches } from '@/lib/coaches';
 import { DIFFERENCES, ENTRY_CARDS, HERO, PROMISES, STEPS, TAGLINE } from '@/lib/site';
 
 export const metadata = {
@@ -8,9 +7,6 @@ export const metadata = {
   description:
     'Te hace preguntas por voz, escucha tu respuesta y te dice dónde fallaste y qué repasar. 2 coaches: preparación para el examen PMP y empleabilidad con IA.',
 };
-
-/** The two coaches, so a card never links to a slug that does not exist. */
-const OPEN_COACHES = new Set(availableCoaches().map((c) => c.id));
 
 export default function HomePage() {
   return (
@@ -84,9 +80,9 @@ export default function HomePage() {
                 {card.title}
               </h3>
               <p className="mt-4 text-[15px] leading-relaxed text-muted">{card.body}</p>
-              {OPEN_COACHES.has(card.coach) && (
+              {card.coach && (
                 <Link
-                  href={`/coach/${card.coach}`}
+                  href="/coach"
                   className="mt-6 inline-flex items-center gap-2 text-[15px] font-medium text-accent hover:text-accent-hover"
                 >
                   Estudiar con este coach

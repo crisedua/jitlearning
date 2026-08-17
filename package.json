@@ -15,8 +15,7 @@
     "sync:usage": "tsx scripts/sync-usage.ts",
     "ingest": "tsx scripts/ingest.ts",
     "scrape:pains": "tsx scripts/scrape-pains.ts",
-    "radar": "tsx scripts/radar-llm.ts",
-    "setup:tools": "tsx scripts/setup-tools.ts"
+    "radar": "tsx scripts/radar-llm.ts"
   },
   "dependencies": {
     "@elevenlabs/react": "^1.12.0",

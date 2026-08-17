@@ -14,8 +14,8 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { ingest, waitForIndexing } from '../src/lib/knowledge';
 import { deleteDocument, listDocuments } from '../src/lib/elevenlabs';
-import { syncAllCoaches } from '../src/lib/agent';
-import { availableCoaches, coachOwnsDocument } from '../src/lib/coaches';
+import { syncAgentKnowledge } from '../src/lib/agent';
+import { ownsDocument, TEACHER } from '../src/lib/teacher';
 
 /**
  * ElevenLabs validates the upload's MIME type and rejects
@@ -174,30 +174,31 @@ async function main() {
   }
 
   /*
-   * A document nobody claims is invisible.
+   * A document outside the live corpus is invisible.
    *
    * It uploads and indexes without complaint, then matches no prefix in
-   * `coaches.ts` and is attached to no agent — so the only symptom is a coach
-   * saying it has no material on its own subject, discovered by a learner. Say
-   * it here, where the name that caused it is still on screen.
+   * `TEACHER.sources` and is attached to nothing — so the only symptom is a
+   * teacher that never cites its material. Say it here, where the name that
+   * caused it is still on screen.
    */
-  const orphans = names.filter(
-    (name) => !availableCoaches().some((coach) => coachOwnsDocument(coach, name)),
-  );
+  const orphans = names.filter((name) => !ownsDocument(name));
   if (orphans.length > 0) {
-    console.warn('\n! No coach claims these documents, so none will be attached:\n');
+    console.warn('\n! These documents are outside the live corpus and will not be attached:\n');
     for (const name of orphans) console.warn(`    ${name}`);
-    console.warn('\n  Add the prefix to a coach\'s `sources` in src/lib/coaches.ts.');
+    console.warn(
+      `\n  Move them under knowledge/${TEACHER.sources[0]} or add the prefix to\n` +
+        '  TEACHER.sources in src/lib/teacher.ts.',
+    );
   }
 
   /*
    * Leftovers from before names carried their folder.
    *
-   * Replacement is keyed on the full name, so re-ingesting `negocio/01-x.md`
-   * does not touch an older document called plain `01-x.md`. The old copy is
-   * detached from every agent by the sync below — it matches no coach prefix —
-   * so it is inert, but it still occupies workspace RAG storage and shows up in
-   * the knowledge admin list looking current. Named here rather than deleted:
+   * Replacement is keyed on the full name, so re-ingesting
+   * `empleabilidad/01-x.md` does not touch an older document called plain
+   * `01-x.md`. The old copy is detached by the sync below, since it matches no
+   * prefix, so it is inert. It still occupies workspace RAG storage and shows up
+   * in the knowledge admin list looking current. Named here rather than deleted:
    * removing documents nobody asked us to remove is not this script's call.
    */
   const superseded = names
@@ -209,21 +210,19 @@ async function main() {
     );
     for (const bare of superseded) console.warn(`    ${bare}`);
     console.warn(
-      '\n  They are attached to no coach and are safe to leave, but they take up\n' +
+      '\n  They are attached to nothing and are safe to leave, but they take up\n' +
         '  RAG storage. Delete them from /knowledge once the new copies read correctly.',
     );
   }
 
-  /*
-   * Sync every coach, not just the one whose folder was ingested: a document
-   * may belong to several (`herramientas/` belongs to all of them), and each
-   * agent holds its own copy of the attachment list.
-   */
+  // The agent holds its own copy of the attachment list, so nothing ingested
+  // above is retrievable until this runs.
   console.log('');
-  const { perCoach } = await syncAllCoaches();
-  for (const { coach, attached, error } of perCoach) {
-    if (error) console.error(`! ${error}`);
-    else console.log(`✓ ${coach.label}: ${attached} document(s) attached.`);
+  try {
+    const { attached } = await syncAgentKnowledge();
+    console.log(`✓ ${attached} document(s) attached to the agent.`);
+  } catch (err) {
+    console.error(`! ${err instanceof Error ? err.message : 'sync failed'}`);
   }
 }
 

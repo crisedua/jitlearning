@@ -14,8 +14,8 @@
 import './env';
 import { getAgent, listDocuments } from '../src/lib/elevenlabs';
 import { agentId, embeddingModel } from '../src/lib/config';
-import { availableCoaches, coachOwnsDocument } from '../src/lib/coaches';
-import { tutorSystemPrompt } from '../src/lib/agent';
+import { ownsDocument, TEACHER } from '../src/lib/teacher';
+import { teacherSystemPrompt } from '../src/lib/agent';
 import { PROMISES } from '../src/lib/site';
 import { supabaseAdmin } from '../src/lib/supabase/admin';
 
@@ -60,51 +60,35 @@ async function main() {
     }
   }
 
-  /*
-   * One agent per coach, each checked for existence *and* for carrying only its
-   * own material. A coach attached to another's documents fails silently — it
-   * answers in scope, confidently, citing sources it should not have — so the
-   * cross-corpus check is the one worth printing.
-   */
-  for (const coach of availableCoaches()) {
-    const id = agentId(coach);
-
-    if (!id) {
-      bad(`${coach.envKey} is not set. Run \`npm run setup:agent -- ${coach.id}\`.`);
-      failures++;
-      continue;
-    }
-    if (!scopeOk) {
-      console.log(`  --    ${coach.label}: ${id} configured, unverifiable without API access`);
-      continue;
-    }
-
+  const id = agentId();
+  if (!id) {
+    bad(`${TEACHER.envKey} is not set. Run \`npm run setup:agent\`.`);
+    failures++;
+  } else if (!scopeOk) {
+    console.log(`  --    ${id} configured, unverifiable without API access`);
+  } else {
     try {
       const agent = await getAgent(id);
       const prompt = agent.conversation_config?.agent?.prompt;
       const attached = prompt?.knowledge_base ?? [];
-      const foreign = attached.filter((d) => !coachOwnsDocument(coach, d.name));
+      const foreign = attached.filter((d) => !ownsDocument(d.name));
 
       if (foreign.length > 0) {
         bad(
-          `${coach.label}: ${foreign.length} document(s) outside its corpus — ${foreign
+          `${foreign.length} document(s) outside the live corpus — ${foreign
             .map((d) => d.name)
             .join(', ')}. Check they were ingested with their folder prefix.`,
         );
         failures++;
       } else {
         ok(
-          `${coach.label}: agent ${id} — ${attached.length} document(s) attached, RAG ${
+          `Agent ${id} — ${attached.length} document(s) attached, RAG ${
             prompt?.rag?.enabled ? 'enabled' : 'disabled'
           }`,
         );
       }
     } catch (err) {
-      bad(
-        `${coach.label}: agent ${id} could not be fetched: ${
-          err instanceof Error ? err.message : err
-        }`,
-      );
+      bad(`Agent ${id} could not be fetched: ${err instanceof Error ? err.message : err}`);
       failures++;
     }
   }
@@ -171,56 +155,29 @@ async function main() {
    * which for a product whose central claim is "no inventa" is the worst kind
    * of drift. Both are mechanical to check, so they are checked.
    */
-  console.log('\nPersonas\n');
+  console.log('\nPersona\n');
 
-  for (const coach of availableCoaches()) {
-    const persona = tutorSystemPrompt(coach);
+  const persona = teacherSystemPrompt();
 
-    const honesty = [
-      'Nunca cifras sin fuente',
-      'Nunca inventes nombres',
-      'criterio general',
-    ].filter((phrase) => !persona.includes(phrase));
-
-    if (honesty.length === 0) {
-      ok(`${coach.label}: honesty rule complete`);
-    } else {
-      bad(`${coach.label}: honesty rule incomplete, missing: ${honesty.join(', ')}`);
-      failures++;
-    }
-
-    if (persona.includes('## Cómo va la sesión') && coach.sessionSpine.trim().length > 200) {
-      ok(`${coach.label}: session spine present`);
-    } else {
-      bad(`${coach.label}: no usable session spine`);
-      failures++;
-    }
-
-    // Voice is the whole premise: a persona over budget gets truncated or
-    // ignored, and the first thing to go is whatever was said last.
-    const size = persona.length;
-    if (size <= 15_000) {
-      ok(`${coach.label}: persona is ${size} chars`);
-    } else {
-      bad(`${coach.label}: persona is ${size} chars, over the 15,000 budget`);
-      failures++;
-    }
+  const honesty = ['Nunca cifras sin fuente', 'criterio general', 'No tienes internet'].filter(
+    (phrase) => !persona.includes(phrase),
+  );
+  if (honesty.length === 0) ok('honesty rule complete');
+  else {
+    bad(`honesty rule incomplete, missing: ${honesty.join(', ')}`);
+    failures++;
   }
 
-  console.log('\nSite promises against persona behaviour\n');
+  if (persona.length <= 15_000) ok(`persona is ${persona.length} chars`);
+  else {
+    bad(`persona is ${persona.length} chars, over the 15,000 budget`);
+    failures++;
+  }
 
   for (const promise of PROMISES) {
-    const missing = availableCoaches().filter(
-      (coach) => !tutorSystemPrompt(coach).includes(promise.personaMarker),
-    );
-    if (missing.length === 0) {
-      ok(`"${promise.key}" is honoured by all ${availableCoaches().length} personas`);
-    } else {
-      bad(
-        `"${promise.key}" is promised in site.ts but missing from: ${missing
-          .map((c) => c.label)
-          .join(', ')}`,
-      );
+    if (persona.includes(promise.personaMarker)) ok(`"${promise.key}" is honoured by the persona`);
+    else {
+      bad(`"${promise.key}" is promised in site.ts but missing from the persona`);
       failures++;
     }
   }

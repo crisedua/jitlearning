@@ -11,7 +11,7 @@
 import { NextResponse } from 'next/server';
 import { ingest } from '@/lib/knowledge';
 import { listDocumentViews } from '@/lib/catalog';
-import { syncAllCoaches } from '@/lib/agent';
+import { syncAgentKnowledge } from '@/lib/agent';
 import { requireSecret, UnauthorizedError } from '@/lib/auth';
 import type { IngestSource } from '@/lib/knowledge';
 import type { UsageMode } from '@/lib/types';
@@ -85,9 +85,8 @@ export async function POST(req: Request) {
     let syncError: string | undefined;
     if (usageMode === 'prompt') {
       try {
-        const result = await syncAllCoaches(new Map([[document.id, usageMode]]));
+        const result = await syncAgentKnowledge(new Map([[document.id, usageMode]]));
         attached = result.attached;
-        if (result.errors.length > 0) syncError = result.errors.join('; ');
       } catch (err) {
         syncError = err instanceof Error ? err.message : 'Sync failed';
       }

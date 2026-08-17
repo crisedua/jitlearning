@@ -7,24 +7,19 @@
  * credential that starts a billable conversation, so an unauthenticated GET
  * here would make the sign-in gate on /coach purely decorative.
  */
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getSignedUrl } from '@/lib/elevenlabs';
 import { agentId } from '@/lib/config';
-import { findCoach } from '@/lib/coaches';
+import { TEACHER } from '@/lib/teacher';
 import { currentUser } from '@/lib/supabase/server';
-import {
-  checkPlanAllowance,
-  rememberCoachChoice,
-  startCoachSession,
-} from '@/lib/account';
+import { checkPlanAllowance, startCoachSession } from '@/lib/account';
 import { learnerContext } from '@/lib/memory';
-import { isFirstSession, studyContext } from '@/lib/study';
 
 export const runtime = 'nodejs';
 // The URL is short-lived; caching it would hand stale credentials to new sessions.
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const user = await currentUser();
     if (!user) {
@@ -34,26 +29,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    /*
-     * Which coach, resolved against the registry rather than trusted.
-     *
-     * The slug arrives in a query string, so it is learner-supplied, and it
-     * selects the agent that a billable conversation runs against. An
-     * unavailable coach is refused here too: it has no corpus, so it has no
-     * agent, and minting against a missing env var would surface as a 500 in
-     * the middle of someone pressing the microphone button.
-     */
-    const coach = findCoach(request.nextUrl.searchParams.get('coach') ?? undefined);
-    if (!coach || !coach.available) {
-      return NextResponse.json({ error: 'Ese coach no existe.' }, { status: 404 });
-    }
-
-    const id = agentId(coach);
+    const id = agentId();
     if (!id) {
-      return NextResponse.json(
-        { error: `${coach.envKey} is not configured.` },
-        { status: 409 },
-      );
+      return NextResponse.json({ error: `${TEACHER.envKey} is not configured.` }, { status: 409 });
     }
 
     /*
@@ -79,29 +57,12 @@ export async function GET(request: NextRequest) {
      * learner's session into a continuation, and it degrades to null (a cold
      * start) rather than ever failing the mint.
      */
-    const [sessionId, context, study, firstSession, lastCoachSaved] = await Promise.all([
-      startCoachSession(user.id, id, coach.id),
+    const [sessionId, context] = await Promise.all([
+      startCoachSession(user.id, id),
       learnerContext(user.id),
-      studyContext(user.id, coach.id),
-      isFirstSession(user.id, coach.id),
-      rememberCoachChoice(user.id, coach.id),
     ]);
-    void lastCoachSaved;
 
-    /*
-     * Two context blocks, kept apart on purpose. `context` is the free-text
-     * memory of what was discussed; `study` is the structured record the
-     * coaches actually open on — days to the exam, weak domains, the plan step.
-     * Merging them would let a rambling summary crowd out the countdown.
-     */
-    return NextResponse.json({
-      signedUrl,
-      agentId: id,
-      sessionId,
-      context,
-      study,
-      firstSession,
-    });
+    return NextResponse.json({ signedUrl, agentId: id, sessionId, context });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Could not get signed URL' },

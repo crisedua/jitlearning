@@ -14,7 +14,7 @@
 import { NextResponse } from 'next/server';
 import { getAgent, listDocuments } from '@/lib/elevenlabs';
 import { agentId, embeddingModel } from '@/lib/config';
-import { availableCoaches, coachOwnsDocument } from '@/lib/coaches';
+import { ownsDocument, TEACHER } from '@/lib/teacher';
 import { requireSecret, UnauthorizedError } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
@@ -69,56 +69,49 @@ export async function GET(req: Request) {
   }
 
   /*
-   * 3. One check per coach: is its agent configured, does it exist, and does it
-   *    carry only its own material?
+   * 3. Is the agent configured, does it exist, and is it carrying only the live
+   *    corpus?
    *
-   * That last part is the one worth having here. A coach attached to another
-   * coach's documents is not a visible failure — it answers confidently, in
-   * scope, citing sources it was never meant to have — so nothing surfaces it
-   * except a check that compares the attachment list against `coach.sources`.
-   * The usual cause is a document ingested without its folder prefix.
+   * That last part is the one worth having here. An agent still attached to a
+   * retired corpus is not a visible failure — it answers confidently, citing
+   * material nobody maintains — so nothing surfaces it except a check that
+   * compares the attachment list against `TEACHER.sources`. The usual cause is a
+   * document ingested without its folder prefix.
    */
-  for (const coach of availableCoaches()) {
-    const key = `agent:${coach.id}`;
-    const id = agentId(coach);
-
-    if (!id) {
-      checks[key] = {
-        state: 'fail',
-        detail: `${coach.envKey} is not set. POST /api/agent/provision?coach=${coach.id} to create one.`,
-      };
-      continue;
-    }
-    if (checks.convaiAccess.state !== 'ok') {
-      checks[key] = {
-        state: 'skipped',
-        detail: `Set to ${id}, but cannot verify without API access`,
-      };
-      continue;
-    }
-
+  const id = agentId();
+  if (!id) {
+    checks.agent = {
+      state: 'fail',
+      detail: `${TEACHER.envKey} is not set. POST /api/agent/provision to create one.`,
+    };
+  } else if (checks.convaiAccess.state !== 'ok') {
+    checks.agent = {
+      state: 'skipped',
+      detail: `Set to ${id}, but cannot verify without API access`,
+    };
+  } else {
     try {
       const agent = await getAgent(id);
       const prompt = agent.conversation_config?.agent?.prompt;
       const attached = prompt?.knowledge_base ?? [];
-      const foreign = attached.filter((d) => !coachOwnsDocument(coach, d.name));
+      const foreign = attached.filter((d) => !ownsDocument(d.name));
 
-      checks[key] =
+      checks.agent =
         foreign.length > 0
           ? {
               state: 'fail',
-              detail: `Agent ${id} carries ${foreign.length} document(s) outside its corpus: ${foreign
+              detail: `Agent ${id} carries ${foreign.length} document(s) outside the live corpus: ${foreign
                 .map((d) => d.name)
                 .join(', ')}. Re-run the sync, and check they were ingested with their folder prefix.`,
             }
           : {
               state: 'ok',
-              detail: `Agent ${id} exists · ${attached.length} document(s) attached, all within ${coach.sources.join(', ')} · RAG ${prompt?.rag?.enabled ? 'enabled' : 'disabled'}`,
+              detail: `Agent ${id} exists · ${attached.length} document(s) attached, all within ${TEACHER.sources.join(', ')} · RAG ${prompt?.rag?.enabled ? 'enabled' : 'disabled'}`,
             };
     } catch (err) {
-      checks[key] = {
+      checks.agent = {
         state: 'fail',
-        detail: `${coach.envKey}=${id} is set but the agent could not be fetched: ${
+        detail: `${TEACHER.envKey}=${id} is set but the agent could not be fetched: ${
           err instanceof Error ? err.message : String(err)
         }`,
       };

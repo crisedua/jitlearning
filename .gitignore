@@ -21,11 +21,10 @@ next-env.d.ts
 # directory, so the negation below would never be reached.
 knowledge/*
 
-# Exception: the two live corpora are original prose written for this repo —
-# syntheses of publicly published frameworks and standards, each document
-# naming its sources. No book or manual text is reproduced. Tracked so the
-# corpus can be rebuilt, since ElevenLabs holds only a copy taken at upload.
-!knowledge/pmp/
+# Exception: the live corpus is original prose written for this repo, a synthesis
+# of publicly published material with each document naming its sources. No book
+# or manual text is reproduced. Tracked so the corpus can be rebuilt, since
+# ElevenLabs holds only a copy taken at upload.
 !knowledge/empleabilidad/
 
 # Retired corpora stay on disk and out of git: they are no longer ingested,
