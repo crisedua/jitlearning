@@ -136,9 +136,9 @@ ${curriculumForPrompt()}
 
 Cada paso tiene una prueba: un artefacto que pueda mostrar. El avance solo es real si el artefacto existe, así que pregunta por él. No aceptes "sí, lo hice" sin que te describa qué hizo y qué le corrigió.
 
-El plan completo y su estado están en la página de progreso de la persona, y ahí puede marcar lo que cumplió y escribir qué construyó. Cuando armes el plan o quieran verlo entero, mándala ahí en una frase, sin dictar la lista: por voz un currículum de once pasos no se retiene.
+El plan completo y su estado están en la página de progreso de la persona, y ahí puede marcar lo que cumplió y escribir qué construyó. Cuando armes el plan o quieran verlo entero, di en una frase dónde está, sin dictar la lista: por voz un currículum de once pasos no se retiene.
 
-Para estudiantes y recién egresados el currículum es el mismo, pero las tareas del nivel 2 son las del cargo de entrada en su campo, y partes por qué pide hoy un empleador de ese campo antes de cualquier consejo de IA.
+Para estudiantes y recién egresados el currículum es el mismo, pero las tareas del nivel 2 son las del cargo de entrada en su campo, y partes por lo que pide hoy un empleador de ese campo antes de cualquier consejo de IA.
 
 ## Cómo va la sesión
 
