@@ -3,11 +3,31 @@
 A voice teacher, in Spanish, for people who need to learn to work with AI before
 it works without them.
 
-It interviews you about what you do, shows you *el mapa* (what AI makes possible
-for someone with your expertise, said concretely for your field), builds a plan
-from a fixed curriculum crossed with your own weekly tasks, teaches one lesson
-per session on those tasks, remembers everything between sessions, and closes
-each session on 1 action with 1 date and 1 signal.
+**The first session ends with a real task from your week finished, and the time it
+saves measured.** Four questions, two minutes on what never goes in a chat, then
+the task itself, done with you on your own data. Before starting, the teacher asks
+how long it usually takes; when you finish, how long it took. The difference is
+the product's only claim about its own value, and it recurs every week because the
+task does.
+
+The map and the plan come after that, because they cost far less to believe once
+something of yours has visibly worked. From there it teaches one lesson per
+session on your own tasks, remembers everything between sessions, and closes each
+one on 1 action with 1 date and 1 signal.
+
+### Why that order
+
+The obvious order is the wrong one. This opened with six lessons of fundamentals
+and reached the learner's own work at step 7 of 11, so a first session ended with
+a plan, the free tier ran out somewhere around the diagnostic, and the only thing
+a trial could deliver was a promise of future value. That is a vitamin. The
+retired `negocio` corpus in this repo has a whole document on *dolores no
+vitaminas*; the product was on the wrong side of it.
+
+One fixed lesson stays in front of the work, and it is a safety constraint rather
+than a preference: the next thing that happens is a learner pasting a real work
+document into a chat window, so the two minutes on what never goes in there is
+worth nothing afterwards.
 
 **Voice is the classroom; the site is the notebook.** Most people listen while
 they walk or drive, so every design decision keeps turns short and pushes
@@ -25,14 +45,40 @@ they get.
 
 | Level | What | Personalised |
 |---|---|---|
-| 1 Fundamentos | 6 fixed lessons: what these systems do and cannot do, context, asking well, verifying, privacy, the tool landscape | No |
-| 2 Aplicado | 1 lesson per weekly task, 3 to 5 of them | Entirely: does not exist before the diagnostic |
-| 3 Avanzado | 5 written lessons (chaining, automation, agents, data, building), of which the learner does the ones matching their chosen path | Selection |
+| 1 Tu semana | The privacy guardrail, then 1 lesson per weekly task, 3 to 5 of them, each ending in the finished output and the two numbers | The tasks do not exist before the diagnostic |
+| 2 Por qué funcionó | 5 fixed lessons on the criterion behind what already worked: context, asking well, verifying, what not to delegate, the landscape | No |
+| 3 De tarea a flujo | 5 written lessons (chaining, automation, agents, data, building), of which the learner does the ones matching their chosen path | Selection |
 | 4 Portafolio | Assemble the proofs, then rehearse telling it in 90 seconds | Entirely |
 
 Every lesson names a proof: an artifact the learner can show. That is this
 product's definition of progress. A step marked done with no evidence is a step
-to ask about again.
+to ask about again. Level 1 steps name two more things, the minutes before and
+after, which is where the value claim comes from.
+
+### The number
+
+`timeSaved()` in [`progress.ts`](src/lib/progress.ts) sums before minus after over
+*finished* weekly tasks. It leads the next session out loud, headlines
+[`/progreso`](src/app/progreso/page.tsx), and is what the pricing page points at
+instead of making a claim of its own.
+
+Three things keep it honest:
+
+- **Both numbers come from the learner.** The extractor is told not to estimate
+  either one, and each is bounded at 40 hours in the schema and again in the
+  parser. One misheard number would otherwise put hundreds of saved hours on the
+  page, and that costs you every other number on it.
+- **Only finished tasks count.** A task measured and left pending is a measurement
+  of an experiment, not of a change to somebody's week.
+- **There is no cumulative total.** Weekly saving times weeks elapsed would be the
+  biggest number on the page and the least defensible. The page shows the
+  recurring figure with every contributing task listed under it, so the total can
+  be audited rather than believed.
+
+Run [20260812000000_hours_saved.sql](supabase/migrations/20260812000000_hours_saved.sql)
+for the two columns and the `weekly_minutes_saved` view. `npm run doctor` fails
+without them, because the teacher asks for both numbers whether or not there is
+anywhere to put them.
 
 ## The knowledge model
 
