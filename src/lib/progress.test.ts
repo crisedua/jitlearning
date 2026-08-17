@@ -10,7 +10,15 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { currentStep, matchStep, timeSaved, type PlanStep } from './progress';
+import {
+  currentStep,
+  matchStep,
+  opening,
+  timeSaved,
+  type CareerProfile,
+  type PlanStep,
+  type SessionRecord,
+} from './progress';
 import { buildPlan, LEVELS, WEEKLY_MAX } from './curriculum';
 
 let seq = 0;
@@ -189,5 +197,104 @@ describe('matching the lesson the teacher says it taught', () => {
   it('ignores a lesson id that is not in the curriculum', () => {
     const bogus = [step({ id: 'x', lessonId: 'inventado-99', title: 'Algo' })];
     assert.equal(matchStep(bogus, 'hicimos inventado-99'), null);
+  });
+});
+
+/**
+ * The first sentence of every returning session.
+ *
+ * Said before the learner has had a chance to say anything, so there is no
+ * recovery from getting it wrong and nothing in the logs when it happens. Every
+ * piece of it is learner text that arrived through an extraction capped at 400
+ * characters, which is far more than the opening has room for.
+ */
+describe('the spoken opening for a returning learner', () => {
+  const profile = (over: Partial<CareerProfile> = {}): CareerProfile => ({
+    role: 'analista de operaciones',
+    field: null,
+    sector: null,
+    experienceYears: null,
+    weeklyTasks: [],
+    tools: [],
+    aiUsage: null,
+    goal: null,
+    chosenPath: null,
+    map: {},
+    updatedAt: null,
+    ...over,
+  });
+
+  const session = (over: Partial<SessionRecord> = {}): SessionRecord => ({
+    id: 'c1',
+    createdAt: '2026-08-01T10:00:00Z',
+    lessonId: null,
+    taught: null,
+    commitment: null,
+    commitmentDate: null,
+    commitmentDone: null,
+    ...over,
+  });
+
+  const at = (title: string) => ({ step: step({ title }), number: 4 });
+
+  /** The 400-character kind the extractor is allowed to produce. */
+  const LONG_COMMITMENT =
+    'Armar el resumen semanal de operaciones con un asistente, revisarlo contra la ' +
+    'planilla de pedidos, anotar qué tuve que corregir a mano y mandárselo al equipo ' +
+    'comercial antes del viernes al mediodía, y de paso dejar anotado cuánto me demoré ' +
+    'para poder compararlo con la semana pasada sin tener que acordarme de memoria.';
+
+  it('keeps the question when the commitment is as long as the extractor allows', () => {
+    // The bug this guards: a flat slice(0, 320) over the joined string cut the
+    // opening mid-word and dropped "¿Lo hiciste?" entirely, so the teacher
+    // greeted the learner, trailed off, and asked nothing.
+    const said = opening(
+      profile(),
+      at('Responder los correos de proveedores que llegan fuera de horario'),
+      session({ commitment: LONG_COMMITMENT }),
+    );
+    assert.ok(said.includes('¿Lo hiciste?'), said);
+    assert.ok(said.length <= 320, `${said.length} chars: ${said}`);
+  });
+
+  it('never stops mid-word, whatever the input length', () => {
+    for (const len of [80, 160, 240, 320, 400]) {
+      const said = opening(
+        profile({ role: 'a'.repeat(len % 120 || 40) }),
+        at('t'.repeat(20) + ' ' + 'u'.repeat(len % 90 || 30)),
+        session({ commitment: LONG_COMMITMENT.slice(0, len) }),
+      );
+      assert.ok(said.length <= 320, `${len}: ${said.length} chars`);
+      // Ends on punctuation, not on a severed word.
+      assert.match(said, /[.?]$/, `${len}: ${said}`);
+    }
+  });
+
+  it('leads with the saving when there is one, and still closes on a question', () => {
+    const said = opening(profile(), at('Una tarea'), session({ commitment: LONG_COMMITMENT }), 135);
+    assert.ok(said.startsWith('Retomemos. Con lo que ya montaste recuperas 2 horas y 15 minutos'), said);
+    assert.ok(said.includes('¿Lo hiciste?'), said);
+  });
+
+  it('asks anyway when the commitment is punctuation the extractor let through', () => {
+    const said = opening(profile(), at('Una tarea'), session({ commitment: '...' }));
+    assert.ok(!said.includes('Quedaste en .'), said);
+    assert.match(said, /\?$/);
+  });
+
+  it('does not ask about a commitment the learner already reported done', () => {
+    const said = opening(
+      profile(),
+      at('Una tarea'),
+      session({ commitment: 'mandar el resumen', commitmentDone: true }),
+    );
+    assert.ok(!said.includes('Quedaste en'), said);
+    assert.ok(said.includes('¿Estás frente al computador'), said);
+  });
+
+  it('still says something when there is no profile, no step and no commitment', () => {
+    const said = opening(profile({ role: null }), null, null);
+    assert.ok(said.length > 0);
+    assert.match(said, /\?$/);
   });
 });

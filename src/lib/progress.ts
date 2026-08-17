@@ -55,6 +55,55 @@ const RECORD_CHARS = 800;
 /** Per-field cap, so a runaway extraction stays a sentence. */
 const FIELD_CHARS = 400;
 
+/** Longest the whole spoken opening may run. Roughly twenty seconds aloud. */
+const OPENING_CHARS = 320;
+
+/**
+ * Longest stretch of the learner's own words the opening reads back.
+ *
+ * Roles, step titles and commitments all arrive from extractions capped at
+ * `FIELD_CHARS`, and a commitment near that length is most of a minute of the
+ * teacher reciting the learner's own sentence back at them before asking
+ * anything. These are the budgets that keep the opening two sentences.
+ */
+const ECHO_WHO = 60;
+const ECHO_TITLE = 90;
+const ECHO_COMMITMENT = 140;
+
+/**
+ * Words that cannot end a spoken phrase. Trimming at a word boundary is not
+ * enough: "en una distribuidora de" stops on a preposition still waiting for its
+ * object, which sounds like the teacher lost its train of thought rather than
+ * like a sentence. Cheap and worth it, since every one of these is heard.
+ */
+const DANGLING =
+  /(?:^|\s)(?:de|del|a|al|en|con|por|para|sin|sobre|y|e|o|u|que|el|la|los|las|un|una|unos|unas|su|sus|mi|mis|lo|le|se|es|más|muy|desde|hasta|entre|tras|como|cuando|donde)$/i;
+
+/**
+ * Trim to the last whole word that fits, with no dangling punctuation or
+ * connective.
+ *
+ * Mid-word truncation is invisible in a text field and unmissable when spoken:
+ * the teacher stops on half a syllable. Falls back to a hard cut only when the
+ * text has no space in its second half, which in practice means one long token.
+ */
+function toWord(text: string, max: number): string {
+  const clean = text.trim();
+  let out = clean;
+  if (clean.length > max) {
+    const cut = clean.slice(0, max);
+    const space = cut.lastIndexOf(' ');
+    out = space > max / 2 ? cut.slice(0, space) : cut;
+  }
+  out = out.replace(/[\s.,;:]+$/, '');
+  // Loop: trimming "a mano y" leaves "a mano", and "de la" leaves nothing twice.
+  while (DANGLING.test(out)) {
+    out = out.slice(0, out.search(/\s\S+$/)).replace(/[\s.,;:]+$/, '');
+    if (!out.includes(' ')) break;
+  }
+  return DANGLING.test(out) && !out.includes(' ') ? '' : out;
+}
+
 export interface CareerProfile {
   role: string | null;
   field: string | null;
@@ -410,8 +459,27 @@ function daysSince(iso: string): number {
  * The spoken opening for a returning learner: who they are, where they are, and
  * what they owe. Kept to two sentences, because it is said before anyone has had
  * a chance to interrupt.
+ *
+ * ## Why the length handling is this careful
+ *
+ * Every ingredient here is learner text that arrived through an extraction, so
+ * each one can be up to `FIELD_CHARS` long: the role, the step title when the
+ * step is one of their own weekly tasks, and above all the commitment. This used
+ * to end in a flat `.slice(0, 320)` over the joined string, which meant a long
+ * commitment produced an opening that stopped mid-word and dropped `¿Lo hiciste?`
+ * off the end. The teacher would greet a returning learner, trail off on half a
+ * word, and go quiet having asked nothing. Silence at the start of a voice
+ * session reads as the product being broken, and there is no second first
+ * impression.
+ *
+ * So: each echoed piece is trimmed to a whole word inside its own budget, and if
+ * the total still runs long the lead is what gives way. The closing question is
+ * the only part the learner has to answer, and it always survives.
+ *
+ * Exported for `progress.test.ts`. Nothing else calls it, and the test seam is
+ * worth it because every failure it guards is a first sentence nobody logs.
  */
-function opening(
+export function opening(
   profile: CareerProfile,
   current: { step: PlanStep; number: number } | null,
   lastCommitment: SessionRecord | null,
@@ -431,24 +499,41 @@ function opening(
     parts.push(`Retomemos. Con lo que ya montaste recuperas ${said} cada semana.`);
   }
 
-  const who = profile.role ?? profile.field;
+  const who = toWord(profile.role ?? profile.field ?? '', ECHO_WHO);
+  const title = current ? toWord(current.step.title, ECHO_TITLE) : '';
   if (parts.length > 0) {
     // The number already opened; go straight to what is owed or where they are.
   } else if (who && current) {
-    parts.push(`Retomemos. Eres ${who} y vas en el paso ${current.number}: ${current.step.title}.`);
+    parts.push(`Retomemos. Eres ${who} y vas en el paso ${current.number}: ${title}.`);
   } else if (current) {
-    parts.push(`Retomemos. Vas en el paso ${current.number}: ${current.step.title}.`);
+    parts.push(`Retomemos. Vas en el paso ${current.number}: ${title}.`);
   } else {
     parts.push('Retomemos donde quedamos.');
   }
 
   if (lastCommitment?.commitment && lastCommitment.commitmentDone !== true) {
-    parts.push(`Quedaste en ${lowerFirst(lastCommitment.commitment)}. ¿Lo hiciste?`);
+    const echo = toWord(lowerFirst(lastCommitment.commitment), ECHO_COMMITMENT);
+    /*
+     * An extraction that is all punctuation leaves nothing to read back, and
+     * "Quedaste en ." is worse than not naming it. Ask anyway: the commitment
+     * exists, the learner knows what it was, and the answer is what matters.
+     */
+    parts.push(echo ? `Quedaste en ${echo}. ¿Lo hiciste?` : '¿Hiciste lo que quedaste la vez pasada?');
   } else {
     parts.push('¿Estás frente al computador o caminando?');
   }
 
-  return parts.join(' ').slice(0, 320) || OPENING_RETURN_FALLBACK;
+  const said = parts.join(' ');
+  if (said.length <= OPENING_CHARS) return said || OPENING_RETURN_FALLBACK;
+
+  /*
+   * Over budget even after trimming each piece. Shed the lead, not the question:
+   * the lead is context the learner already has, the question is the turn.
+   */
+  const closer = parts[parts.length - 1]!;
+  const room = OPENING_CHARS - closer.length - 2;
+  const lead = room > 24 ? toWord(parts.slice(0, -1).join(' '), room) : '';
+  return lead ? `${lead}. ${closer}` : closer;
 }
 
 function lowerFirst(text: string): string {
