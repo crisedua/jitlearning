@@ -68,8 +68,8 @@ export function KnownTopics({
       </ul>
 
       <p className="border-t border-line bg-surface-alt/60 px-5 py-3.5 text-xs leading-relaxed text-muted">
-        Puedes preguntarle lo que quieras de tu trabajo y la IA. Lo que no tiene es internet:
-        precios, ofertas y noticias de hoy no las puede ver.
+        Puedes preguntarle lo que quieras de tu trabajo y la IA. Si la respuesta depende de algo de
+        hoy, un precio o un aviso de trabajo, lo busca y te dice de dónde lo sacó.
       </p>
     </aside>
   );

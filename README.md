@@ -53,11 +53,47 @@ What replaces the fence is the honesty rule in the persona, and
   Gemini, Copilot, Excel, Power BI, Python, Claude Code). Course titles, prices
   and durations only if retrieved.
 - Never promise a job.
-- **No internet, and this is deliberate.** No search tool is attached, and
-  `syncAgentKnowledge` clears `tool_ids` on every push so a reused agent id
-  cannot smuggle one in. The persona must never claim to have looked something
-  up; asked for a price or a job posting, it says it cannot see that and tells
-  the learner where to look.
+- **It looks things up rather than guessing.** Anything that depends on the
+  present — a price, what a field's job ads are asking for, whether a product
+  still works the way it was described — goes through the lookup tool rather
+  than through the model's memory. Asked for something current, the teacher
+  announces the search, runs it, and cites what came back.
+
+## The lookup
+
+[`/api/ask`](src/app/api/ask/route.ts) is an ElevenLabs server tool backed by
+Claude Opus 5 with the `web_search` tool ([`consulta.ts`](src/lib/consulta.ts)).
+The agent calls it mid-conversation; it returns at most 3 sentences plus the
+sources.
+
+**The sources cannot be fabricated.** They are read out of the response's
+`web_search_tool_result` blocks — what the search engine returned — not out of
+the model's prose. The one thing a language model is worst at, remembering a URL,
+is the one thing this never asks it for. URLs are not even handed back to the
+agent, only titles: a URL read aloud is noise.
+
+Three things this costs, all of them deliberate:
+
+- **Latency.** A search-backed answer takes several seconds, which in a voice
+  call is a long silence. The tool's `response_timeout_secs` is 30, the route's
+  `maxDuration` clears it, and the persona announces the lookup before calling so
+  the wait reads as a teacher checking rather than a bug. `effort` is `low`,
+  which on Opus 5 is the difference between an 8-second answer and a 30-second
+  one at little cost in quality.
+- **Money.** Every call is an Opus 5 turn plus up to 4 billed searches, which is
+  why this route is gated by `INGEST_SECRET` (sent by ElevenLabs as a static
+  header) while the older public read-only tool was not.
+- **Thinking stays on.** Disabling it on Opus 5 can put a tool call into the
+  visible text instead of a tool block, and for a search tool that means the
+  search silently never runs and the turn still looks successful.
+
+```bash
+npm run setup:tools            # report what would change
+npm run setup:tools -- --push  # register the tool and attach it to the agent
+```
+
+`npm run doctor` fails when no tool is attached, because the persona promises a
+search it would otherwise be unable to run.
 
 Built on the [ElevenLabs Agents Platform](https://elevenlabs.io/docs/eleven-agents):
 ElevenLabs handles speech-to-text, the LLM turn, text-to-speech, chunking,

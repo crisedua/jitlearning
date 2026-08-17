@@ -46,8 +46,9 @@ const HOW_IT_ANSWERS = [
     detail: 'Una cosa, con fecha, y qué señal contaría como que salió bien.',
   },
   {
-    label: 'No tiene internet',
-    detail: 'No busca precios ni ofertas de trabajo. Si le pides algo de hoy, te lo dice.',
+    label: 'Busca cuando hace falta',
+    detail:
+      'Si la respuesta depende de un precio o de qué piden hoy los avisos, lo busca y te nombra la fuente.',
   },
 ] as const;
 
