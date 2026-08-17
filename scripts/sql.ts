@@ -16,7 +16,15 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-/** Where the product changed shape. Everything from here is worth re-running. */
+/**
+ * Where the product changed shape. Everything from here is worth re-running.
+ *
+ * Migrations *before* this are assumed already applied, which is true for a
+ * deployment that has been running, and is a trap for a fresh one: nothing in the
+ * bundle creates `profiles`, `plans`, `coach_sessions` or `feedback`. `npm run
+ * doctor` probes for each of those and names the file, which is the safety net.
+ * Pass an earlier prefix to widen the bundle.
+ */
 const DEFAULT_FROM = '20260808';
 
 async function main() {
@@ -40,6 +48,11 @@ async function main() {
     '--',
     '-- Safe to run more than once. Safe to run on a database where some of these',
     '-- have already been applied.',
+    '--',
+    '-- It does NOT include the migrations that create profiles, plans, coach_sessions',
+    '-- or feedback: those predate this set and are assumed applied. On a fresh',
+    '-- database run `npm run sql -- 20260730` instead, or let `npm run doctor` tell',
+    '-- you which one is missing.',
     '',
   ].join('\n');
 

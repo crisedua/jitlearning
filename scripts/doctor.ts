@@ -37,6 +37,24 @@ const note = (m: string) => console.log(`        ${m}`);
 const MEMORY_TABLES = ['career_profiles', 'plan_steps', 'session_summaries'] as const;
 const MEMORY_MIGRATION = 'supabase/migrations/20260810000000_teacher_memory.sql';
 
+/**
+ * Tables that predate the current shape of the product, checked because
+ * `npm run sql` does not bundle their migrations.
+ *
+ * `feedback` is the one that matters. It backs the deal on /feedback, which is how
+ * the first ten people are recruited, and its route returns 500 and logs when the
+ * table is missing — a failure the operator only sees if they happen to read the
+ * function logs. Losing the mechanism that recruits your first users, silently, is
+ * about the worst way for a migration to go unrun.
+ */
+const OLDER_TABLES: ReadonlyArray<{ table: string; migration: string; why: string }> = [
+  {
+    table: 'feedback',
+    migration: 'supabase/migrations/20260806000000_feedback.sql',
+    why: 'the /feedback deal, which is how the first people get recruited',
+  },
+];
+
 async function main() {
   let failures = 0;
   let supabaseFailures = 0;
@@ -216,6 +234,19 @@ async function main() {
       supabaseFailures++;
     } else {
       ok('plan_steps records the before and after minutes');
+    }
+
+    for (const older of OLDER_TABLES) {
+      const probe = await supabaseAdmin()
+        .from(older.table)
+        .select('*', { count: 'exact', head: true });
+      if (probe.error) {
+        bad(`${older.table} is not queryable: ${probe.error.message}`);
+        note(`Backs ${older.why}. Run ${older.migration} (not in \`npm run sql\`).`);
+        supabaseFailures++;
+      } else {
+        ok(`${older.table} exists`);
+      }
     }
 
     for (const table of MEMORY_TABLES) {
