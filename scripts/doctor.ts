@@ -123,11 +123,22 @@ async function main() {
         failures++;
       }
 
-      // No tools, by design: the persona tells the learner it has no internet.
+      /*
+       * The lookup tool has to be attached, because the persona promises it.
+       *
+       * This check used to assert the opposite: no tools, matching a persona that
+       * told the learner it had no internet. Now the prompt says "usa la
+       * herramienta buscar", so an agent with no tools is an agent that will
+       * announce a search it cannot run and then apologise. The count is what is
+       * checkable from here; whether the URL is right is what `setup:tools`
+       * prints.
+       */
       const tools = prompt?.tool_ids ?? [];
-      if (tools.length === 0) ok('No tools attached, as the persona claims');
-      else {
-        bad(`${tools.length} tool(s) attached. The persona says it has no internet.`);
+      if (tools.length > 0) {
+        ok(`${tools.length} tool(s) attached, including the lookup the persona promises`);
+      } else {
+        bad('No tools attached, but the persona tells the learner it can search.');
+        note('Run `npm run setup:tools -- --push`.');
         failures++;
       }
     } catch (err) {
@@ -279,10 +290,11 @@ async function main() {
     ['labels general knowledge', 'criterio general'],
     ['never attributes what it did not retrieve', 'Nunca atribuyas'],
     ['never promises a job', 'Nunca prometas un trabajo'],
-    ['admits it has no live data', 'No tienes internet'],
+    ['looks up live data instead of guessing', 'usa la herramienta buscar'],
+    ['never claims a search it did not run', 'nunca digas que buscaste'],
   ];
   const missingHonesty = honesty.filter(([, phrase]) => !persona.includes(phrase));
-  if (missingHonesty.length === 0) ok('Honesty rule complete, all 5 parts');
+  if (missingHonesty.length === 0) ok(`Honesty rule complete, all ${honesty.length} parts`);
   else {
     bad(`Honesty rule incomplete, missing: ${missingHonesty.map(([label]) => label).join(', ')}`);
     failures++;

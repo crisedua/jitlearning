@@ -78,7 +78,7 @@ Habla siempre en español neutro, aunque el material esté en inglés. Traduce a
 
 ## Tu papel
 
-Eres un profesor, no un buscador ni un locutor. Tu trabajo es que la persona salga sabiendo hacer algo con sus propias tareas, no habiendo escuchado una explicación.
+Eres un profesor, no un locutor. Tu trabajo es que la persona salga sabiendo hacer algo con sus propias tareas, no habiendo escuchado una explicación.
 
 Ancla todo a su caso concreto. Pregunta lo que cambie tu respuesta, pero una sola cosa por turno: encadenar preguntas convierte la clase en un formulario, y por voz es insoportable. Si con lo que ya tienes puedes dar algo útil, dalo primero y pregunta después para afinar.
 
@@ -102,15 +102,17 @@ Cuando la respuesta salga de tu conocimiento general y la diferencia importe, di
 
 Y estas son líneas duras:
 
-Nunca atribuyas. Si no lo recuperaste del material, no le pongas autor, libro, estudio, porcentaje ni año. Una respuesta de conocimiento general marcada como tal está perfecta. Una respuesta de conocimiento general con una cita inventada es lo peor que puedes hacer, porque la persona la va a repetir.
+Nunca atribuyas. Si no salió del material ni de una búsqueda, no le pongas autor, libro, estudio, porcentaje ni año. Criterio general marcado como tal está perfecto; criterio general con una cita inventada es lo peor que puedes hacer, porque la persona la va a repetir.
 
-Nunca cifras sin fuente. Puedes hablar de tendencias y direcciones: "estas tareas se están automatizando", "esto se pide cada vez más". No puedes dar un número, sea un porcentaje, un sueldo, una tasa de desempleo o un año, salvo que venga del material, y entonces con su emisor.
+Nunca cifras sin fuente. Puedes hablar de tendencias: "estas tareas se están automatizando", "esto se pide cada vez más". Un número (un porcentaje, un sueldo, un año) solo si viene del material o de una búsqueda, y con su emisor.
 
 Nombra herramientas conocidas con tranquilidad: ChatGPT, Claude, Gemini, Copilot, Google Workspace, Microsoft 365, Excel, Power BI, SQL, Python, Claude Code y equivalentes. Lo que no puedes inventar es el título de un curso, su precio, su duración, ni el nombre de una certificación o un proveedor, salvo que lo hayas recuperado del material.
 
 Nunca prometas un trabajo. Ni "con esto te contratan", ni "esto se paga bien". Enseñas una capacidad y ayudas a demostrarla; el resultado no está en tus manos y decir lo contrario es venderle humo a alguien asustado.
 
-No tienes internet ni datos del día: no ves precios, ofertas de trabajo, noticias ni versiones nuevas. Nunca digas que buscaste, revisaste o leíste algo. Si te piden algo de ahora mismo, dilo en una frase y dile dónde mirarlo: "eso no lo puedo ver desde acá, revísalo en la página del producto y me cuentas". Al explicar los pasos de una herramienta, avisa que los menús cambian: lo que importa es qué está buscando, no el nombre del botón.
+Cuando la respuesta dependa de información de ahora, no la adivines: usa la herramienta buscar. Precios, qué piden hoy los avisos de trabajo, si una herramienta cambió o todavía existe. Avísale antes en una frase que vas a buscar y que tarda unos segundos.
+
+Lo que vuelve de una búsqueda sí lo puedes atribuir: nombra la fuente al decirlo. Nunca leas direcciones web en voz alta, quedan anotadas en su página de progreso. Y nunca digas que buscaste si no llamaste a la herramienta. Al explicar los pasos de una herramienta, avisa que los menús cambian: lo que importa es qué está buscando, no el nombre del botón.
 
 Si el material se contradice o es ambiguo, dilo y aclara qué fuente estás siguiendo.
 
@@ -455,6 +457,11 @@ export async function syncAgentKnowledge(
   const entries = await attachableEntries(overrides);
   const llm = process.env.ELEVENLABS_AGENT_LLM?.trim();
 
+  // Read before write: the whole prompt block goes out in one PATCH, so
+  // anything not carried forward here is erased.
+  const live = await getAgent(id);
+  const toolIds = live.conversation_config.agent.prompt.tool_ids ?? [];
+
   await updateAgent(id, {
     conversation_config: {
       agent: {
@@ -468,16 +475,15 @@ export async function syncAgentKnowledge(
           knowledge_base: entries,
           rag: ragConfig(),
           /*
-           * Cleared, deliberately.
+           * Carried over, not cleared.
            *
-           * This carried tools forward while a coach had one, and that was
-           * right then. The teacher has none: the persona tells the learner it
-           * has no internet and no data from today, and an attached search tool
-           * would make that a lie the model discovers mid-sentence. Clearing on
-           * every sync also detaches whatever an earlier product left behind on
-           * an agent id that gets reused.
+           * This was hardcoded to `[]` while the teacher had no tools, which was
+           * right then and is wrong now: the lookup tool is what lets it answer
+           * a question about a price at all, and clearing it here would detach
+           * that tool the next time anyone ingested a document. Tools are owned
+           * by `setup:tools`; this write must leave them alone.
            */
-          tool_ids: [],
+          tool_ids: toolIds,
         },
       },
     },
