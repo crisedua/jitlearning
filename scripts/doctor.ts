@@ -23,9 +23,11 @@ import { agentId, embeddingModel } from '../src/lib/config';
 import { ownsDocument, TEACHER } from '../src/lib/teacher';
 import { PROMISE_MARKERS, teacherSystemPrompt } from '../src/lib/agent';
 import { PROMISES } from '../src/lib/site';
+import { FALLBACK_PLANS, formatMoney } from '../src/lib/plans';
 import { buildPlan, LESSONS, LEVELS, lessonsForLevel, PATHS } from '../src/lib/curriculum';
 import { supabaseAdmin } from '../src/lib/supabase/admin';
 import { billingConfigured } from '../src/lib/billing';
+import { breakEven, DEFAULT_INPUTS } from '../src/lib/costs';
 
 const ok = (m: string) => console.log(`  ok    ${m}`);
 const bad = (m: string) => console.log(`  FAIL  ${m}`);
@@ -289,6 +291,48 @@ async function main() {
         .select('id, name, stripe_price_id')
         .eq('is_public', true)
         .gt('price_minor', 0);
+
+      /*
+       * Margin against real usage, not against the model's assumption.
+       *
+       * `docs/pricing.md` works out that the paid tiers cover far fewer minutes
+       * than they advertise, which is survivable only while average use stays well
+       * under the allowance. That is a fact about behaviour, so it belongs in a
+       * check that reads behaviour rather than in a document. It runs every time
+       * anybody runs doctor, which is the point: the risk grows quietly, as the
+       * product gets better at bringing people back.
+       */
+      const usage = await supabaseAdmin()
+        .from('plan_usage')
+        .select('plan_id, minutes');
+
+      if (!usage.error && usage.data) {
+        const rows = (usage.data ?? []) as Array<{ plan_id: string; minutes: number }>;
+        const limits = breakEven(DEFAULT_INPUTS, [...FALLBACK_PLANS]);
+
+        for (const limit of limits) {
+          const mine = rows.filter((r) => r.plan_id === limit.planId);
+          if (mine.length === 0) continue;
+
+          const average = mine.reduce((t, r) => t + (Number(r.minutes) || 0), 0) / mine.length;
+          const covers = Math.round(limit.minutes);
+
+          if (average > limit.minutes) {
+            bad(
+              `${limit.planName}: ${mine.length} subscriber(s) averaging ${Math.round(average)} min this month, above the ${covers} min that ${formatMoney(limit.price * 100, 'USD')} covers. Each one loses money.`,
+            );
+            note('See the break-even table on /admin/costos and docs/pricing.md §1b.');
+            billingFailures++;
+          } else if (average > limit.minutes * 0.7) {
+            ok(`${limit.planName}: averaging ${Math.round(average)} of ${covers} covered min`);
+            note('Within 30% of break-even. Worth watching before it crosses.');
+          } else {
+            ok(
+              `${limit.planName}: ${mine.length} subscriber(s) averaging ${Math.round(average)} min, break-even is ${covers}`,
+            );
+          }
+        }
+      }
 
       if (paid.error) {
         bad(`Could not read plans: ${paid.error.message}`);
