@@ -14,6 +14,7 @@ import { TEACHER } from '@/lib/teacher';
 import { currentUser } from '@/lib/supabase/server';
 import { checkPlanAllowance, startCoachSession } from '@/lib/account';
 import { learnerContext } from '@/lib/memory';
+import { learnerRecord } from '@/lib/progress';
 
 export const runtime = 'nodejs';
 // The URL is short-lived; caching it would hand stale credentials to new sessions.
@@ -57,12 +58,29 @@ export async function GET() {
      * learner's session into a continuation, and it degrades to null (a cold
      * start) rather than ever failing the mint.
      */
-    const [sessionId, context] = await Promise.all([
+    const [sessionId, context, record] = await Promise.all([
       startCoachSession(user.id, id),
       learnerContext(user.id),
+      learnerRecord(user.id),
     ]);
 
-    return NextResponse.json({ signedUrl, agentId: id, sessionId, context });
+    /*
+     * Two kinds of memory, kept apart on purpose.
+     *
+     * `record` is the structured state the teacher opens on, and it goes in as
+     * dynamic variables: substituted into the prompt and the first message before
+     * a word is spoken, which is the only way an opening line can name the step
+     * and the commitment. `context` is the free-text summary of what was
+     * discussed, sent as a contextual update after the socket opens. Merging them
+     * would let a rambling summary crowd out the plan.
+     */
+    return NextResponse.json({
+      signedUrl,
+      agentId: id,
+      sessionId,
+      context,
+      dynamicVariables: record,
+    });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Could not get signed URL' },

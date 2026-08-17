@@ -240,6 +240,12 @@ function VoiceTutorInner() {
         sessionId?: string | null;
         /** Memory of previous sessions, composed server-side. Null on a first visit. */
         context?: string | null;
+        /**
+         * The agent's `{{apertura}}`, `{{registro}}` and `{{primera_sesion}}`.
+         * The prompt references all three, so a session started without them
+         * fails outright: this is not optional decoration.
+         */
+        dynamicVariables?: Record<string, string>;
         error?: string;
       };
       if (!res.ok || !data.signedUrl) {
@@ -280,7 +286,11 @@ function VoiceTutorInner() {
 
       // Fire-and-forget in the new SDK: success arrives as status 'connected',
       // failure through onError — `starting` is cleared by the status effect.
-      startSession({ signedUrl: data.signedUrl, connectionType: 'websocket' });
+      startSession({
+        signedUrl: data.signedUrl,
+        connectionType: 'websocket',
+        dynamicVariables: data.dynamicVariables,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo iniciar la sesión.');
       setStarting(false);
