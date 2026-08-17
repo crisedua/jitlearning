@@ -66,9 +66,21 @@ export async function POST(request: NextRequest) {
       client_reference_id: user.id,
       subscription_data: { metadata: { user_id: user.id, plan_id: plan.id } },
       allow_promotion_codes: true,
-      // Chile bills IVA on digital services, and getting that wrong is the kind of
-      // mistake that surfaces a year later. Stripe Tax computes it per country.
+      /*
+       * Chile bills IVA on digital services, and getting that wrong is the kind of
+       * mistake that surfaces a year later. Stripe Tax computes it per country.
+       *
+       * `customer_update` is not optional decoration next to it. Stripe refuses to
+       * create a session with automatic tax against an existing customer that has
+       * no address, and `customerFor` creates customers with an email and nothing
+       * else, so without this line every checkout for every new customer fails at
+       * `sessions.create`, gets caught below, and returns "No pudimos abrir el
+       * pago." The learner sees a payment that will not open, retries, sees it
+       * again, and leaves. `auto` lets Checkout collect the address and save it
+       * back, which is also what makes the tax calculation right.
+       */
       automatic_tax: { enabled: true },
+      customer_update: { address: 'auto' },
       /*
        * The success page says the plan may take a moment, because it can: the
        * redirect and the webhook race, and the redirect usually wins. Promising

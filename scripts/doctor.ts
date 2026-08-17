@@ -26,7 +26,7 @@ import { PROMISES } from '../src/lib/site';
 import { FALLBACK_PLANS, formatMoney } from '../src/lib/plans';
 import { buildPlan, LESSONS, LEVELS, lessonsForLevel, PATHS } from '../src/lib/curriculum';
 import { supabaseAdmin } from '../src/lib/supabase/admin';
-import { billingConfigured } from '../src/lib/billing';
+import { billingConfigured, stripe as stripeClient } from '../src/lib/billing';
 import { breakEven, DEFAULT_INPUTS } from '../src/lib/costs';
 
 const ok = (m: string) => console.log(`  ok    ${m}`);
@@ -304,6 +304,35 @@ async function main() {
     } else {
       bad('STRIPE_WEBHOOK_SECRET missing while checkout is live. Payments would grant nothing.');
       note('Stripe -> Developers -> Webhooks -> add /api/webhooks/stripe, then copy the secret.');
+      billingFailures++;
+    }
+
+    /*
+     * Stripe Tax has to be switched on in the dashboard, and nothing in this repo
+     * could tell you that.
+     *
+     * `/api/checkout` creates every session with `automatic_tax: { enabled: true }`
+     * because Chile bills IVA on digital services. If Tax is not active on the
+     * account, Stripe rejects the session outright, the route catches it and
+     * returns "No pudimos abrir el pago", and the learner meets a payment button
+     * that never opens a payment. It looks like a bug in the app and it is a
+     * setting in somebody else's dashboard, which is the worst combination to
+     * debug at the moment somebody is trying to give you money.
+     */
+    try {
+      const tax = await stripeClient().tax.settings.retrieve();
+      if (tax.status === 'active') {
+        ok('Stripe Tax is active, so checkout sessions with automatic tax can be created');
+      } else {
+        bad(`Stripe Tax is "${tax.status}", and every checkout enables automatic tax.`);
+        note('Stripe -> More -> Tax -> finish setup, or checkout fails for everyone.');
+        const missing = tax.status_details?.pending?.missing_fields ?? [];
+        if (missing.length > 0) note(`Missing: ${missing.join(', ')}`);
+        billingFailures++;
+      }
+    } catch (err) {
+      bad(`Could not read Stripe Tax settings: ${err instanceof Error ? err.message : err}`);
+      note('Checkout enables automatic tax, so this has to work before anybody can pay.');
       billingFailures++;
     }
 

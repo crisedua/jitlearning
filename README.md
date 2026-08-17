@@ -57,6 +57,14 @@ npm run setup:tools -- --push
 curl -X POST https://<app>.vercel.app/api/billing/setup \
   -H "x-ingest-secret: $INGEST_SECRET"
 
+# 4b. In the Stripe dashboard: More -> Tax -> finish setup.
+#     Not optional. Every checkout session is created with automatic tax
+#     because Chile bills IVA on digital services, and Stripe refuses to
+#     create one on an account where Tax is not active. Skip this and the
+#     pay button opens nothing, for everybody, and it looks like a bug in
+#     this app rather than a setting in someone else's dashboard.
+#     `npm run doctor` checks it.
+
 # 5. Confirm.
 npm run doctor
 npm test
