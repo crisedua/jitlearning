@@ -161,6 +161,26 @@ export async function firstDelivery(event: Stripe.Event): Promise<boolean> {
 }
 
 /**
+ * Which plan a subscription entitles somebody to.
+ *
+ * Pulled out of `applySubscription` so the decision can be tested without a
+ * database, because it is the decision that decides whether a paying customer
+ * gets what they paid for. Two rules, both deliberate:
+ *
+ * `past_due` still pays. A card that failed a retry is a dunning problem, not a
+ * reason to cut off somebody mid-month; Stripe cancels on its own once retries run
+ * out, and that arrives as a `deleted` event.
+ *
+ * Anything else returns `free`, never null. `plan_id` is a non-null foreign key
+ * and the gate reads it on every mint, so "no plan" is not a state this schema can
+ * represent, and `free` is the honest meaning: they keep their history, the minutes
+ * stop.
+ */
+export function planFor(status: string, planId: string | null): string {
+  return PAYING.has(status) && planId ? planId : 'free';
+}
+
+/**
  * Put the learner on the plan their subscription pays for.
  *
  * The one function in the app that writes `plan_id`. Everything about which plan
@@ -176,15 +196,7 @@ export async function applySubscription(subscription: Stripe.Subscription): Prom
 
   const priceId = subscription.items.data[0]?.price?.id;
   const planId = priceId ? await planForPrice(priceId) : null;
-  const paying = PAYING.has(subscription.status);
-
-  /*
-   * A subscription that has lapsed goes back to `free` rather than to nothing.
-   * `plan_id` is a non-null foreign key and the gate reads it on every mint, so
-   * "no plan" is not a state this schema can represent, and `free` is the honest
-   * meaning: they keep their history and their plan, and the minutes stop.
-   */
-  const nextPlan = paying && planId ? planId : 'free';
+  const nextPlan = planFor(subscription.status, planId);
 
   const endsAtSeconds = (subscription as unknown as { current_period_end?: number })
     .current_period_end;

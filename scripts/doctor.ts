@@ -302,7 +302,7 @@ async function main() {
           ok(`${rows.length} paid plan(s) have a Stripe price and can be bought`);
         } else {
           bad(`No Stripe price on: ${missingPrice.join(', ')}. Those plans cannot be bought.`);
-          note("update public.plans set stripe_price_id = 'price_...' where id = '<plan>';");
+          note('curl -X POST <app>/api/billing/setup -H "x-ingest-secret: $INGEST_SECRET"');
           billingFailures++;
         }
       }

@@ -16,7 +16,9 @@
     "ingest": "tsx scripts/ingest.ts",
     "scrape:pains": "tsx scripts/scrape-pains.ts",
     "radar": "tsx scripts/radar-llm.ts",
-    "setup:tools": "tsx scripts/setup-tools.ts"
+    "setup:tools": "tsx scripts/setup-tools.ts",
+    "sql": "tsx scripts/sql.ts",
+    "test": "tsx --test scripts/*.test.ts src/**/*.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

@@ -35,6 +35,55 @@ anything visual or persistent to [`/progreso`](src/app/progreso/page.tsx): the
 map, the plan by level, the evidence, the history. Eleven steps read aloud is
 nothing anyone retains.
 
+## Going live
+
+Everything below is idempotent and safe to re-run. `npm run doctor` is the check
+after each step and names what is still missing.
+
+```bash
+# 1. The database, as one paste. Six migrations, all idempotent.
+npm run sql | pbcopy        # then run it in the Supabase SQL editor
+
+# 2. The agent: persona, curriculum, extraction fields, attachment list.
+npm run sync:agent -- --push
+
+# 3. The lookup tool (needs ANTHROPIC_API_KEY deployed first).
+npm run setup:tools -- --push
+
+# 4. Stripe prices, created from price_minor so the two never disagree.
+curl -X POST https://<app>.vercel.app/api/billing/setup \
+  -H "x-ingest-secret: $INGEST_SECRET"
+
+# 5. Confirm.
+npm run doctor
+npm test
+curl https://<app>.vercel.app/api/health -H "x-ingest-secret: $INGEST_SECRET"
+```
+
+Environment variables, all in Vercel (see [`.env.example`](.env.example) for what
+each one does):
+
+| Variable | Without it |
+|---|---|
+| `ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_ID` | No teacher at all |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Nobody can sign in |
+| `SUPABASE_SERVICE_ROLE_KEY` | Sessions unrecorded, no memory, no billing |
+| `INGEST_SECRET` | Every privileged route refuses, including the lookup tool |
+| `ELEVENLABS_WEBHOOK_SECRET` | Sessions work; the plan and the hours never advance |
+| `ANTHROPIC_API_KEY` | The teacher cannot look anything up, and says so |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Paid plans fall back to "conversemos" |
+
+Two webhooks are registered outside this repo, and each has its own consequence
+when missing: ElevenLabs → `/api/webhooks/elevenlabs` (`post_call_transcription`),
+Stripe → `/api/webhooks/stripe` (`checkout.session.completed` plus the three
+`customer.subscription.*` events).
+
+**The one path not covered by `npm test` or `npm run doctor` is a real card.** The
+signature verification and the plan decision are tested locally
+([`billing.test.ts`](src/lib/billing.test.ts)); the round trip through Stripe is
+not, and cannot be without an account. Walk it once with a test key and
+`4242 4242 4242 4242`, and watch the plan land on `/progreso`.
+
 ## The curriculum
 
 Defined once, as data, in [`src/lib/curriculum.ts`](src/lib/curriculum.ts). The
