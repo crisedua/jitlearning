@@ -78,6 +78,12 @@ when missing: ElevenLabs → `/api/webhooks/elevenlabs` (`post_call_transcriptio
 Stripe → `/api/webhooks/stripe` (`checkout.session.completed` plus the three
 `customer.subscription.*` events).
 
+Once it is live, `/admin/embudo` is the instrument for the only question this
+repository cannot answer about itself: signed up → talked → finished a task →
+measured what it saves → came back → paid. The drop between any two steps says
+more than any opinion about the product. If people measure and never pay, the
+offer or the price is wrong, not the teaching.
+
 **The one path not covered by `npm test` or `npm run doctor` is a real card.** The
 signature verification and the plan decision are tested locally
 ([`billing.test.ts`](src/lib/billing.test.ts)); the round trip through Stripe is

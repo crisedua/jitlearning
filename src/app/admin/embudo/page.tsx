@@ -1,0 +1,243 @@
+/**
+ * The funnel: what people actually did.
+ *
+ * The one question this product cannot answer from its own code is whether
+ * anybody will pay for it, and until now there was no instrument to find out. The
+ * cost dashboard says what running it costs; nothing said what it produced.
+ *
+ * Six numbers, each one a step somebody either took or did not:
+ *
+ *   signed up          created a profile
+ *   talked             held at least one conversation
+ *   finished a task    has a level 1 step marked done
+ *   measured           that step carries both minutes
+ *   still coming back  talked in more than one calendar day
+ *   paying             on a plan that costs money
+ *
+ * The drop between any two of them is worth more than any opinion about the
+ * product, including mine. If people talk and never finish a task, the session is
+ * too long or the teacher is not closing. If they finish and never measure, the
+ * subtraction is not happening and the value claim has no evidence behind it. If
+ * they measure and never pay, the offer is wrong or the price is.
+ *
+ * Not linked from anywhere, gated on identity, `noindex`. The gate is the
+ * protection, not the obscurity.
+ */
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { checkAdmin } from '@/lib/admin';
+import { signInPath } from '@/lib/paths';
+import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export const metadata: Metadata = {
+  title: 'Embudo · ModoJIT',
+  robots: { index: false, follow: false },
+};
+
+/** One page load's worth of rows. Past this the numbers are a floor, and say so. */
+const MAX_ROWS = 5_000;
+
+interface Funnel {
+  signedUp: number;
+  talked: number;
+  finishedTask: number;
+  measured: number;
+  returned: number;
+  paying: number;
+  /** Total weekly minutes recovered across every learner who measured one. */
+  minutesRecovered: number;
+  capped: boolean;
+}
+
+async function loadFunnel(): Promise<Funnel | null> {
+  if (!serviceConfigured()) return null;
+  const db = supabaseAdmin();
+
+  const [profiles, sessions, steps] = await Promise.all([
+    db.from('profiles').select('id, plan_id').limit(MAX_ROWS),
+    db.from('coach_sessions').select('user_id, started_at').limit(MAX_ROWS),
+    db
+      .from('plan_steps')
+      .select('user_id, level, status, minutes_before, minutes_after')
+      .limit(MAX_ROWS),
+  ]);
+
+  if (profiles.error) return null;
+
+  const people = (profiles.data ?? []) as Array<{ id: string; plan_id: string }>;
+  const rows = (sessions.data ?? []) as Array<{ user_id: string; started_at: string }>;
+
+  /*
+   * "Came back" is measured in calendar days, not sessions. Two conversations in
+   * one sitting is one visit; the thing worth counting is somebody choosing to
+   * return on a different day, which is the only honest signal of a habit.
+   */
+  const daysByUser = new Map<string, Set<string>>();
+  for (const r of rows) {
+    if (!r.user_id) continue;
+    const day = new Date(r.started_at).toISOString().slice(0, 10);
+    const set = daysByUser.get(r.user_id) ?? new Set<string>();
+    set.add(day);
+    daysByUser.set(r.user_id, set);
+  }
+
+  const planSteps = (steps.error ? [] : (steps.data ?? [])) as Array<{
+    user_id: string;
+    level: string;
+    status: string;
+    minutes_before: number | null;
+    minutes_after: number | null;
+  }>;
+
+  const finished = new Set<string>();
+  const measured = new Set<string>();
+  let minutesRecovered = 0;
+
+  for (const s of planSteps) {
+    if (s.level !== 'semana' || s.status !== 'done') continue;
+    finished.add(s.user_id);
+    if (s.minutes_before === null || s.minutes_after === null) continue;
+    measured.add(s.user_id);
+    minutesRecovered += Math.max(s.minutes_before - s.minutes_after, 0);
+  }
+
+  return {
+    signedUp: people.length,
+    talked: daysByUser.size,
+    finishedTask: finished.size,
+    measured: measured.size,
+    returned: [...daysByUser.values()].filter((days) => days.size > 1).length,
+    paying: people.filter((p) => p.plan_id !== 'free').length,
+    minutesRecovered,
+    capped: people.length >= MAX_ROWS || rows.length >= MAX_ROWS,
+  };
+}
+
+export default async function EmbudoPage() {
+  const gate = await checkAdmin();
+  if (!gate.ok) {
+    if (gate.reason === 'anonymous') redirect(signInPath('/admin/embudo'));
+    redirect('/');
+  }
+
+  const funnel = await loadFunnel();
+
+  return (
+    <section className="mx-auto max-w-[70rem] px-6 py-16">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Operación</p>
+      <h1 className="mt-4 max-w-[22ch] font-serif text-[clamp(2rem,4.5vw,3rem)] font-normal leading-[1.06] tracking-[-0.02em]">
+        Qué hizo la gente
+      </h1>
+      <p className="mt-5 max-w-[62ch] text-[17px] leading-relaxed text-muted">
+        Seis pasos. Lo que importa no es ningún número por separado, sino dónde se cae la gente
+        entre uno y el siguiente: ahí está lo que hay que arreglar, y no en una opinión sobre el
+        producto.
+      </p>
+
+      {!funnel ? (
+        <p className="mt-10 rounded-lg border border-warning/35 bg-warning-soft/50 px-4 py-3 text-[15px] leading-relaxed text-ink/80">
+          Falta <code className="font-mono text-[13px]">SUPABASE_SERVICE_ROLE_KEY</code>, así que no
+          hay nada que leer.
+        </p>
+      ) : (
+        <>
+          <ol className="mt-10 space-y-2">
+            <Step label="Se registró" value={funnel.signedUp} of={funnel.signedUp} />
+            <Step label="Habló al menos una vez" value={funnel.talked} of={funnel.signedUp} />
+            <Step
+              label="Terminó una tarea de su semana"
+              value={funnel.finishedTask}
+              of={funnel.signedUp}
+              note="El momento en que el producto cumple lo que promete."
+            />
+            <Step
+              label="Midió lo que ahorra"
+              value={funnel.measured}
+              of={funnel.signedUp}
+              note="Sin este número no hay argumento de venta."
+            />
+            <Step label="Volvió otro día" value={funnel.returned} of={funnel.signedUp} />
+            <Step
+              label="Está pagando"
+              value={funnel.paying}
+              of={funnel.signedUp}
+              note="La única respuesta que zanja si esto se vende."
+            />
+          </ol>
+
+          {funnel.measured > 0 && (
+            <p className="mt-8 rounded-lg border border-success/30 bg-success-soft/40 px-5 py-4 text-[15px] leading-relaxed text-ink/85">
+              Entre todos recuperaron{' '}
+              <span className="font-semibold">
+                {Math.round(funnel.minutesRecovered / 60)} horas
+              </span>{' '}
+              a la semana, medidas por ellos. Es la cifra que puedes citar, porque no la pusiste tú.
+            </p>
+          )}
+
+          {funnel.measured > 0 && funnel.paying === 0 && (
+            <p className="mt-4 max-w-[70ch] rounded-lg border border-warning/35 bg-warning-soft/50 px-5 py-4 text-[15px] leading-relaxed text-ink/80">
+              Hay gente que midió lo que ahorra y nadie ha pagado todavía. Si eso se sostiene con
+              diez personas, el problema no es el producto: es el precio, la oferta, o que nunca se
+              les pidió. Pregúntaselo a una de ellas antes de cambiar nada.
+            </p>
+          )}
+
+          {funnel.capped && (
+            <p className="mt-4 text-[13px] leading-relaxed text-soft">
+              Se leyeron {MAX_ROWS.toLocaleString('es-CL')} filas como máximo: estos números son un
+              piso, no el total.
+            </p>
+          )}
+        </>
+      )}
+
+      <p className="mt-14 max-w-[75ch] border-t border-line pt-6 text-[13px] leading-relaxed text-soft">
+        Lo que cuesta atender a esta gente está en{' '}
+        <Link href="/admin/costos" className="text-accent underline underline-offset-2">
+          /admin/costos
+        </Link>
+        , junto con los minutos que cubre cada plan.
+      </p>
+    </section>
+  );
+}
+
+/** One step, with the share of signups that reached it. */
+function Step({
+  label,
+  value,
+  of,
+  note,
+}: {
+  label: string;
+  value: number;
+  of: number;
+  note?: string;
+}) {
+  const share = of > 0 ? Math.round((value / of) * 100) : 0;
+
+  return (
+    <li className="rounded-lg border border-line bg-surface px-5 py-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <span className="text-[15px] font-medium">{label}</span>
+        <span className="flex items-baseline gap-2">
+          <span className="font-mono text-[22px] leading-none">{value}</span>
+          <span className="text-[13px] text-soft">{share}%</span>
+        </span>
+      </div>
+      {/* The bar is the point: a column of numbers hides the drop between two rows. */}
+      <div aria-hidden className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-surface-alt">
+        <div
+          className="h-full rounded-full bg-accent"
+          style={{ width: `${Math.max(share, value > 0 ? 2 : 0)}%` }}
+        />
+      </div>
+      {note && <p className="mt-2 text-[13px] leading-relaxed text-muted">{note}</p>}
+    </li>
+  );
+}
