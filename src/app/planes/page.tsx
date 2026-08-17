@@ -36,7 +36,7 @@ import {
 export const metadata: Metadata = {
   title: 'Planes · ModoJIT',
   description:
-    'Planes de ModoJIT por minutos de clase: 20 minutos gratis para el diagnóstico y tu plan, y 2 planes mensuales para el currículum completo.',
+    'Planes de ModoJIT por minutos de clase: 20 minutos gratis para resolver una tarea de tu semana y medir lo que ahorra, y 2 planes mensuales para el currículum completo.',
 };
 
 /** Prices change without a deploy, so the page must not be cached forever. */
@@ -276,20 +276,31 @@ export default async function PlanesPage() {
     <>
       <section className="mx-auto max-w-[96rem] px-6 pb-16 pt-20 lg:pt-24">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Planes</p>
-        <h1 className="mt-4 max-w-[20ch] font-serif text-[clamp(2.25rem,5vw,3.75rem)] font-normal leading-[1.04] tracking-[-0.02em]">
-          Se paga por{' '}
+        <h1 className="mt-4 max-w-[22ch] font-serif text-[clamp(2.25rem,5vw,3.75rem)] font-normal leading-[1.04] tracking-[-0.02em]">
+          Primero mides lo que ahorras.{' '}
           <span className="relative inline-block">
-            minuto
+            Después
             <span
               aria-hidden
               className="absolute inset-x-0 bottom-[0.1em] -z-10 h-[0.32em] bg-gold-soft"
             />
           </span>{' '}
-          hablado
+          decides.
         </h1>
+        {/*
+          A value frame, not a metering frame.
+          
+          This page used to open with "se paga por minuto hablado", which is a true
+          and completely uninteresting fact about how the counter works. Somebody
+          reading a pricing page is deciding whether this is worth money, and the
+          honest answer to that is a number they produce themselves in the free
+          tier. The metering explanation is still on the page, further down, where
+          it belongs: it answers a question people ask second.
+        */}
         <p className="mt-6 max-w-[58ch] text-[17px] leading-relaxed text-muted">
-          No por clase ni por asiento. Una clase de diez minutos cuesta diez minutos, y un plan que
-          te queda grande se nota en la factura del mes siguiente en vez de al año.
+          Los 20 minutos gratis alcanzan para resolver una tarea real de tu semana y medir cuánto
+          tiempo te ahorra cada vez que la vuelves a hacer. Ese número lo pones tú. Compáralo con
+          estos precios y la decisión se toma sola.
         </p>
       </section>
 

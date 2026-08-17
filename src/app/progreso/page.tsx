@@ -17,6 +17,8 @@ import {
 import { LEVELS, PATHS, stepDetail, type LevelId, type PathId } from '@/lib/curriculum';
 import { subscriptionFor, type Subscription } from '@/lib/billing';
 import { getUsageBalance } from '@/lib/account';
+import { formatMinutes, formatMoney, type Plan } from '@/lib/plans';
+import { recommendedPlan } from '@/lib/offer';
 import { BillingLink } from '@/components/BillingLink';
 import { saveEvidence, setCommitmentDone } from './actions';
 
@@ -46,12 +48,13 @@ export default async function ProgresoPage({
   const user = await currentUser();
   if (!user) redirect(signInPath('/progreso'));
 
-  const [profile, steps, history, subscription, balance, params] = await Promise.all([
+  const [profile, steps, history, subscription, balance, offer, params] = await Promise.all([
     careerProfile(user.id),
     planSteps(user.id),
     sessionHistory(user.id),
     subscriptionFor(user.id),
     getUsageBalance(user.id, user.email),
+    recommendedPlan(),
     searchParams,
   ]);
 
@@ -97,8 +100,8 @@ export default async function ProgresoPage({
         are theirs and measured, the price is small and next to it. Anywhere else
         on the page it would be an ad; here it is arithmetic the reader can do.
       */}
-      {subscription?.planId === 'free' && saved.perWeek > 0 && (
-        <Ofrecer saved={saved} minutesLeft={freeMinutesLeft(balance)} />
+      {subscription?.planId === 'free' && saved.perWeek > 0 && offer && (
+        <Ofrecer saved={saved} minutesLeft={freeMinutesLeft(balance)} plan={offer} />
       )}
 
       {subscription && subscription.planId !== 'free' && (
@@ -132,11 +135,24 @@ function freeMinutesLeft(balance: Awaited<ReturnType<typeof getUsageBalance>>): 
  * product does not know and must not invent. Hours against dollars, both real, and
  * the reader closes the gap themselves.
  *
+ * The price and the minutes are read from the database rather than written here.
+ * They were hardcoded for about ten minutes, which would have made this paragraph
+ * lie the first time somebody changed a price — the exact drift the pricing page
+ * has always avoided by reading `plans` at request time.
+ *
  * The button goes to /planes rather than straight to checkout. Somebody deciding
  * wants to see what the tiers are, and skipping that step to shave a click reads as
  * a trick at the moment trust matters most.
  */
-function Ofrecer({ saved, minutesLeft }: { saved: TimeSaved; minutesLeft: number | null }) {
+function Ofrecer({
+  saved,
+  minutesLeft,
+  plan,
+}: {
+  saved: TimeSaved;
+  minutesLeft: number | null;
+  plan: Plan;
+}) {
   const outOfMinutes = minutesLeft !== null && minutesLeft <= 5;
 
   return (
@@ -147,8 +163,9 @@ function Ofrecer({ saved, minutesLeft }: { saved: TimeSaved; minutesLeft: number
       </h2>
       <p className="mt-3 max-w-[58ch] text-[15px] leading-relaxed text-ink/85">
         Con una sola tarea ya recuperas {spellMinutes(saved.perWeek)} cada semana, medidos por ti.
-        El plan Fundador cuesta US$9 al mes y son 300 minutos de clase: alcanza para las 3 a 5
-        tareas de tu semana, el nivel 2 y el portafolio.
+        El plan {plan.name} cuesta {formatMoney(plan.priceMinor, plan.currency)} al mes y son{' '}
+        {formatMinutes(plan.monthlyMinutes)} de clase: alcanza para las 3 a 5 tareas de tu semana,
+        el nivel 2 y el portafolio.
       </p>
       {outOfMinutes && (
         <p className="mt-2 text-[14px] leading-relaxed text-warning">
