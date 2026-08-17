@@ -30,7 +30,16 @@
  *
  * The answer is capped at 3 sentences because it is going to be spoken while
  * somebody walks. Sources are returned separately, never read aloud: a URL in a
- * voice channel is noise. The notebook is where links belong.
+ * voice channel is noise.
+ *
+ * ## What happens to the URLs today
+ *
+ * Nothing, and this comment used to claim otherwise. `/api/ask` passes the
+ * source *titles* to the agent so it can say "según la página de precios de X",
+ * and drops the URLs on the floor. So the learner hears an attribution they
+ * cannot check, which is a weaker version of the honesty this module was built
+ * for. Storing them against the session, and showing them in the notebook beside
+ * the rest of what happened, is the obvious next move and is not built.
  */
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -61,7 +70,11 @@ const MAX_SOURCES = 4;
 export interface Source {
   title: string;
   url: string;
-  /** ISO date the page reports, when the search returns one. */
+  /**
+   * Whatever `page_age` said, verbatim. Prose, not a date: the search returns
+   * things like "April 30, 2025" and "3 days ago", so this is safe to show and
+   * not safe to parse or sort by. Nothing reads it yet.
+   */
   publishedAt: string | null;
 }
 
@@ -105,12 +118,110 @@ Si no encontraste nada útil, dilo claramente en una frase. No rellenes.
 
 Nunca escribas una URL en tu respuesta. Las fuentes viajan por separado.`;
 
+/**
+ * Hard ceiling for an answer with no sentence-ending punctuation at all.
+ *
+ * The sentence split cannot bound a list, a single run-on clause, or a language
+ * the regex does not punctuate, and `max_tokens` allows several thousand
+ * characters. Without this the three-sentence cap silently does not apply and
+ * the teacher reads a wall of text to somebody walking down the street.
+ */
+const MAX_ANSWER_CHARS = 600;
+
 /** Trim to whole sentences, so a cut answer never ends mid-word. */
-function toSentences(text: string, limit: number): string {
+export function toSentences(text: string, limit: number): string {
   const clean = text.replace(/\s+/g, ' ').trim();
   const parts = clean.match(/[^.!?]+[.!?]+/g);
-  if (!parts) return clean;
-  return parts.slice(0, limit).join(' ').trim();
+  // Each match keeps the space that preceded it, so trim before rejoining or
+  // every gap in the spoken answer is a double space.
+  const joined = parts
+    ? parts
+        .slice(0, limit)
+        .map((s) => s.trim())
+        .join(' ')
+    : clean;
+  if (joined.length <= MAX_ANSWER_CHARS) return joined;
+  const cut = joined.slice(0, MAX_ANSWER_CHARS);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > MAX_ANSWER_CHARS / 2 ? cut.slice(0, space) : cut).replace(/[\s.,;:]+$/, '')}.`;
+}
+
+/**
+ * What the response blocks actually contain.
+ *
+ * Split out from `consultar` because it is the part with the judgement in it and
+ * the part no test could otherwise reach: exercising it through `consultar`
+ * means an API key, a billed call, and a non-deterministic answer.
+ *
+ * ## Only the text after the last search is the answer
+ *
+ * A search turn arrives as text, then `server_tool_use`, then
+ * `web_search_tool_result`, then more text. The first text block is the model
+ * narrating what it is about to do: "déjame buscar el precio actual". Joining
+ * every text block glued that announcement onto the front of the answer, where
+ * it did two kinds of damage. It is said after the search has already run, and
+ * the persona has already announced the lookup out loud before calling this
+ * tool, so the learner hears it twice. And it consumed one of the three
+ * sentences, which in practice cost the last one: the qualifier about how recent
+ * the figure is, which is the sentence that makes the rest honest.
+ */
+export function readLookup(blocks: readonly unknown[]): {
+  answer: string;
+  sources: Source[];
+  searches: number;
+} {
+  const sources: Source[] = [];
+  let searches = 0;
+  let text: string[] = [];
+
+  for (const raw of blocks) {
+    const block = raw as { type?: string; text?: string; content?: unknown };
+
+    if (block.type === 'text' && typeof block.text === 'string') {
+      text.push(block.text);
+      continue;
+    }
+
+    if (block.type === 'web_search_tool_result') {
+      /*
+       * Everything said before this point was narration about a search that has
+       * now happened. Drop it and keep only what the model says once it has the
+       * results in hand.
+       */
+      text = [];
+
+      /*
+       * The content of a search result block is either a list of results or a
+       * single error object, and the two are told apart by shape rather than by
+       * a status field. Indexing without checking is how a rate-limited search
+       * turns into a crash. A search that errored did not run, so it is not
+       * counted: `searches: 0` is what tells the caller the answer came from
+       * general knowledge, and a failed search leaves it exactly as unsourced.
+       */
+      const content = block.content;
+      if (!Array.isArray(content)) continue;
+      searches += 1;
+
+      for (const result of content) {
+        const hit = result as { type?: string; title?: string; url?: string; page_age?: string };
+        if (hit.type !== 'web_search_result' || !hit.url) continue;
+        sources.push({
+          title: hit.title?.trim() || hit.url,
+          url: hit.url,
+          publishedAt: hit.page_age?.trim() || null,
+        });
+      }
+    }
+  }
+
+  // Same URL from two searches is one source.
+  const unique = new Map(sources.map((s) => [s.url, s]));
+
+  return {
+    answer: toSentences(text.join(' '), MAX_SENTENCES),
+    sources: [...unique.values()].slice(0, MAX_SOURCES),
+    searches,
+  };
 }
 
 /**
@@ -162,47 +273,8 @@ export async function consultar(question: string, profile?: string): Promise<Con
     };
   }
 
-  const text: string[] = [];
-  const sources: Source[] = [];
-  let searches = 0;
-
-  for (const block of response.content) {
-    if (block.type === 'text') {
-      text.push(block.text);
-      continue;
-    }
-
-    if (block.type === 'web_search_tool_result') {
-      searches += 1;
-
-      /*
-       * The content of a search result block is either a list of results or a
-       * single error object, and the two are told apart by shape rather than by
-       * a status field. Indexing without checking is how a rate-limited search
-       * turns into a crash.
-       */
-      const content = block.content as unknown;
-      if (!Array.isArray(content)) continue;
-
-      for (const result of content) {
-        const hit = result as { type?: string; title?: string; url?: string; page_age?: string };
-        if (hit.type !== 'web_search_result' || !hit.url) continue;
-        sources.push({
-          title: hit.title?.trim() || hit.url,
-          url: hit.url,
-          publishedAt: hit.page_age?.trim() || null,
-        });
-      }
-    }
-  }
-
-  // Same URL from two searches is one source.
-  const unique = new Map(sources.map((s) => [s.url, s]));
-
   return {
-    answer: toSentences(text.join(' '), MAX_SENTENCES),
-    sources: [...unique.values()].slice(0, MAX_SOURCES),
-    searches,
+    ...readLookup(response.content),
     refusal: null,
     usage: {
       inputTokens: response.usage.input_tokens,
