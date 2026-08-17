@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import { FeedbackForm } from '@/components/FeedbackForm';
 import { currentUser } from '@/lib/supabase/server';
+import { FEEDBACK_DEAL, FEEDBACK_REWARD } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'Feedback · ModoJIT',
-  description:
-    'El trato: lo pruebas, dejas tu feedback y te activo 3 meses gratis del plan Esencial. Solo para las primeras 10 personas.',
+  description: FEEDBACK_DEAL,
 };
 
 export const dynamic = 'force-dynamic';
@@ -25,18 +25,15 @@ export default async function FeedbackPage() {
       <h1 className="mt-4 font-serif text-[clamp(2rem,5vw,3rem)] font-normal leading-[1.06] tracking-[-0.02em]">
         Tu feedback vale{' '}
         <span className="relative inline-block">
-          3 meses
+          {FEEDBACK_REWARD.months} meses
           <span
             aria-hidden
             className="absolute inset-x-0 bottom-[0.1em] -z-10 h-[0.32em] bg-gold-soft"
           />
         </span>{' '}
-        del plan Esencial
+        del plan {FEEDBACK_REWARD.plan}
       </h1>
-      <p className="mt-5 max-w-[58ch] text-[17px] leading-relaxed text-muted">
-        El trato: lo pruebas, dejas tu feedback en esta página, lo bueno y lo malo sin filtro,
-        y te activo 3 meses gratis del plan Esencial. Solo para las primeras 10 personas.
-      </p>
+      <p className="mt-5 max-w-[58ch] text-[17px] leading-relaxed text-muted">{FEEDBACK_DEAL}</p>
 
       <div className="mt-10">
         <FeedbackForm defaultEmail={user?.email ?? ''} />

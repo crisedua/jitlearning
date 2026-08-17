@@ -187,9 +187,7 @@ function PlanCard({ plan }: { plan: Plan }) {
         <span className="font-mono text-[34px] font-medium leading-none tracking-[-0.02em] text-ink">
           {formatMoney(plan.priceMinor, plan.currency)}
         </span>
-        <span className="text-[15px] text-soft">
-          {plan.priceMinor === 0 ? '' : plan.seatMinimum ? '/persona al mes' : '/mes'}
-        </span>
+        <span className="text-[15px] text-soft">{plan.priceMinor === 0 ? '' : '/mes'}</span>
       </p>
       {plan.setupMinor !== null && (
         <p className="mt-2 text-[13px] leading-relaxed text-muted">
@@ -199,14 +197,19 @@ function PlanCard({ plan }: { plan: Plan }) {
 
       {plan.blurb && <p className="mt-3 text-[15px] leading-relaxed text-muted">{plan.blurb}</p>}
 
+      {/*
+        "al mes" is a claim, not a label. The free tier is a lifetime 20 minutes
+        and the gate enforces it that way, so saying "al mes" here would promise
+        240 free minutes a year that nobody gets.
+      */}
       <p className="mt-6 border-t border-line pt-5 text-[17px] font-medium text-ink">
-        {plan.seatMinimum
-          ? `${formatMinutes(plan.monthlyMinutes)} por persona al mes`
-          : `${formatMinutes(plan.monthlyMinutes)} de conversación al mes`}
+        {plan.period === 'total'
+          ? `${formatMinutes(plan.monthlyMinutes)} de clase en total`
+          : `${formatMinutes(plan.monthlyMinutes)} de clase al mes`}
       </p>
       {sessions !== null && sessions > 0 && (
         <p className="mt-1 text-[14px] text-soft">
-          unas {sessions} consultas{plan.seatMinimum ? ' cada una' : ''}
+          {sessions === 1 ? 'alcanza para la primera clase' : `unas ${sessions} clases`}
         </p>
       )}
       {plan.seatMinimum && (
@@ -256,8 +259,8 @@ export default async function PlanesPage() {
           hablado
         </h1>
         <p className="mt-6 max-w-[58ch] text-[17px] leading-relaxed text-muted">
-          No por pregunta ni por asiento. Una consulta de dos minutos cuesta dos minutos, y un plan
-          que te queda grande se nota en la factura del mes siguiente en vez de al año.
+          No por clase ni por asiento. Una clase de diez minutos cuesta diez minutos, y un plan que
+          te queda grande se nota en la factura del mes siguiente en vez de al año.
         </p>
       </section>
 
@@ -271,8 +274,8 @@ export default async function PlanesPage() {
 
         <p className="mt-6 text-[13px] text-soft">
           Precios en {currency === 'CLP' ? 'pesos chilenos' : 'dólares'}, sin IVA. Los planes de
-          pago individuales se podrán contratar pronto; mientras tanto, el plan Gratis y el plan
-          Empresa ya están disponibles.
+          pago se podrán contratar pronto; mientras tanto el plan Gratis está disponible y alcanza
+          para el diagnóstico, el mapa y tu plan armado.
         </p>
       </section>
 

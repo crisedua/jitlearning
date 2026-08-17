@@ -108,7 +108,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   aria-hidden
                   className="hidden text-[9.5px] font-semibold uppercase leading-none tracking-[0.13em] text-soft xs:block"
                 >
-                  Estudia por voz
+                  Clases de IA por voz
                 </span>
               </span>
             </Link>

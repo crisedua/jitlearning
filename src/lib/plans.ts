@@ -25,6 +25,13 @@
 export interface Plan {
   id: string;
   name: string;
+  /**
+   * Whether the allowance resets. `total` is a lifetime allowance and belongs to
+   * the free tier: 20 minutes to see the diagnostic and your plan, and no
+   * rollover because there is nothing to roll over. Rendering it as "al mes"
+   * promises 240 free minutes a year, which the gate does not grant.
+   */
+  period: 'month' | 'total';
   /** null = unlimited. */
   monthlyMinutes: number | null;
   monthlySessions: number | null;
@@ -45,12 +52,13 @@ export interface Plan {
 
 /** The columns the pricing page needs, as named in Postgres. */
 export const PLAN_COLUMNS =
-  'id, name, monthly_minutes, monthly_sessions, price_minor, currency, overage_minor_per_min, seat_minimum, setup_minor, is_public, sort_order, blurb';
+  'id, name, period, monthly_minutes, monthly_sessions, price_minor, currency, overage_minor_per_min, seat_minimum, setup_minor, is_public, sort_order, blurb';
 
 /** Shape of a `plans` row as it comes back from Supabase. */
 interface PlanRow {
   id: string;
   name: string;
+  period: string | null;
   monthly_minutes: number | null;
   monthly_sessions: number | null;
   price_minor: number;
@@ -67,6 +75,10 @@ export function rowToPlan(row: PlanRow): Plan {
   return {
     id: row.id,
     name: row.name,
+    // Defaults to monthly: a row written before the `period` column existed is a
+    // monthly plan, and reading a missing value as "lifetime" would silently cap
+    // a paying learner at one month's minutes forever.
+    period: row.period === 'total' ? 'total' : 'month',
     monthlyMinutes: row.monthly_minutes,
     monthlySessions: row.monthly_sessions,
     priceMinor: row.price_minor,
@@ -88,6 +100,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
   {
     id: 'free',
     name: 'Gratis',
+    period: 'total',
     monthlyMinutes: 20,
     monthlySessions: null,
     priceMinor: 0,
@@ -102,6 +115,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
   {
     id: 'founder',
     name: 'Fundador',
+    period: 'month',
     monthlyMinutes: 300,
     monthlySessions: null,
     priceMinor: 900,
@@ -116,6 +130,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
   {
     id: 'standard',
     name: 'Estándar',
+    period: 'month',
     monthlyMinutes: 300,
     monthlySessions: null,
     priceMinor: 1900,
@@ -213,12 +228,16 @@ export function formatOverage(plan: Plan): string {
 }
 
 /**
- * Roughly how many conversations the allowance buys, for readers who think in
- * sessions rather than minutes. Eight minutes is the assumed length of a
- * question-and-answer session; it is an estimate, not a measurement, so the
- * copy that uses it says "unas" and never a precise figure.
+ * Roughly how many classes the allowance buys, for readers who think in sessions
+ * rather than minutes.
+ *
+ * 15 minutes, which is what the landing page tells people a class takes. It was
+ * 8 when a session was one question answered, and leaving it there had the
+ * pricing page promising 37 classes out of an allowance that holds 20. An
+ * estimate, not a measurement, so the copy that uses it says "unas" and never a
+ * precise figure.
  */
-export const ASSUMED_SESSION_MINUTES = 8;
+export const ASSUMED_SESSION_MINUTES = 15;
 
 export function approximateSessions(minutes: number | null): number | null {
   if (minutes === null) return null;

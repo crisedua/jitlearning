@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { FEEDBACK_REWARD } from '@/lib/site';
 
 /**
  * The form that trades feedback for access.
  *
  * Plain controlled inputs, one POST, two terminal states. The success state
- * repeats the submitted email back on purpose: the six months arrive through
+ * repeats the submitted email back on purpose: the free months arrive through
  * that address, so a typo is worth catching while the person is still looking
  * at the screen.
  */
@@ -25,9 +26,9 @@ export function FeedbackForm({ defaultEmail = '' }: { defaultEmail?: string }) {
           Gracias. Tu feedback quedó guardado.
         </p>
         <p className="mt-2 text-[15px] leading-relaxed text-ink/80">
-          Si estás entre las primeras 10 personas, te escribiremos a{' '}
-          <span className="font-medium">{sentTo}</span> para activar tus 3 meses del plan
-          Esencial.
+          Si estás entre las primeras {FEEDBACK_REWARD.seats} personas, te escribiremos a{' '}
+          <span className="font-medium">{sentTo}</span> para activar tus{' '}
+          {FEEDBACK_REWARD.months} meses del plan {FEEDBACK_REWARD.plan}.
         </p>
       </div>
     );

@@ -117,6 +117,25 @@ export const STEPS = [
 ] as const;
 
 /**
+ * The feedback deal, in one place because it was in three.
+ *
+ * It offered "3 meses del plan Esencial" on the page, in the metadata and in the
+ * form's success message, and `esencial` had been unpublished in a migration two
+ * passes earlier. Nobody noticed, because a plan name is exactly the kind of
+ * detail that reads as fine until somebody tries to claim it.
+ *
+ * `plan` must name a row that `is_public` in the `plans` table. Grant it by hand:
+ * this is a promise made by a person, not a coupon the code redeems.
+ */
+export const FEEDBACK_REWARD = {
+  months: 3,
+  plan: 'Fundador',
+  seats: 10,
+} as const;
+
+export const FEEDBACK_DEAL = `El trato: lo pruebas, dejas tu feedback en esta página, lo bueno y lo malo sin filtro, y te activo ${FEEDBACK_REWARD.months} meses gratis del plan ${FEEDBACK_REWARD.plan}. Solo para las primeras ${FEEDBACK_REWARD.seats} personas.`;
+
+/**
  * The comparison every visitor makes silently, answered out loud.
  *
  * Anyone landing here can already open a chat window, so "por qué no ChatGPT" is
