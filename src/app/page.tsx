@@ -72,11 +72,11 @@ export default function HomePage() {
           El currículum
         </p>
         <h2 className="reveal mt-4 max-w-[24ch] font-serif text-[clamp(2rem,4.5vw,3.25rem)] font-normal leading-[1.08] tracking-[-0.02em]">
-          4 niveles, de fundamentos a portafolio
+          4 niveles, y el primero es tu propio trabajo
         </h2>
         <p className="reveal mt-5 max-w-[58ch] text-[17px] leading-relaxed text-muted">
-          Los niveles 1 y 3 son clases escritas. El nivel 2 son tus propias tareas, una por
-          una, y el 4 es juntar las pruebas en algo que puedas mostrar.
+          El nivel 1 son tus tareas, una por una, resueltas contigo. Los niveles 2 y 3 son clases
+          escritas, y el 4 es juntar las pruebas en algo que puedas mostrar.
         </p>
 
         <ul className="mt-12 grid gap-5 lg:grid-cols-2">

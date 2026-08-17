@@ -155,7 +155,7 @@ export const DIFFERENCES = [
     title: 'Tiene un currículum',
     generic: 'Cada chat empieza de cero y termina donde lo dejaste.',
     teacher:
-      '4 niveles en orden, de fundamentos a portafolio, y sabes en qué paso vas de cuántos.',
+      '4 niveles en orden, y el primero son tus propias tareas. Sabes en qué paso vas de cuántos.',
   },
   {
     title: 'Sabe qué te falta',
