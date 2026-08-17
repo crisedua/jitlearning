@@ -209,11 +209,26 @@ function PagoListo() {
   );
 }
 
-/** What they are paying for, and the one click that changes it. */
+/**
+ * What they are paying for, and the one click that changes it.
+ *
+ * ## Comped plans are a real case, not an edge case
+ *
+ * The feedback deal grants 3 months of a paid plan by hand: `plan_id` is set with
+ * no Stripe customer behind it. Those people are the first ten through the door
+ * and the ones whose reaction decides whether any of this sells, so the page they
+ * land on cannot be broken for them. Without this branch they were shown an
+ * "Administrar mi plan" button that 404s, on the plan they were given as a thank
+ * you.
+ *
+ * `hasCustomer` is the discriminator: a plan with no customer was granted, not
+ * bought, so it says so and offers nothing to manage.
+ */
 function Suscripcion({ subscription }: { subscription: Subscription }) {
   const lapsed =
     subscription.status !== null &&
     !['active', 'trialing'].includes(subscription.status);
+  const comped = !subscription.hasCustomer;
 
   return (
     <section className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 rounded-lg border border-line bg-surface-alt/50 px-5 py-4">
@@ -221,6 +236,7 @@ function Suscripcion({ subscription }: { subscription: Subscription }) {
         <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-soft">Tu plan</p>
         <p className="mt-1 text-[15px] text-ink/85">
           {subscription.planId === 'founder' ? 'Fundador' : 'Estándar'}
+          {comped && <span className="text-muted"> · de cortesía</span>}
           {subscription.endsAt && (
             <span className="text-muted">
               {' '}
@@ -237,8 +253,13 @@ function Suscripcion({ subscription }: { subscription: Subscription }) {
             Hay un problema con el cobro. Revisa tu tarjeta para no perder los minutos.
           </p>
         )}
+        {comped && (
+          <p className="mt-1 text-[13px] leading-relaxed text-muted">
+            Te lo activamos nosotros. No hay nada que pagar ni que cancelar.
+          </p>
+        )}
       </div>
-      <BillingLink />
+      {!comped && <BillingLink />}
     </section>
   );
 }

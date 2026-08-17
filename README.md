@@ -417,6 +417,24 @@ Setup, in order:
    price id. Each of those is a state where a button takes money and grants
    nothing.
 
+### Granting a plan by hand
+
+The feedback deal (`/feedback`) promises 3 months of a paid plan to the first ten
+people. There is no code path for it, deliberately: ten grants do not justify an
+admin UI, and every extra way to write `plan_id` is another way to write it wrong.
+
+```sql
+update public.profiles set plan_id = 'founder' where email = 'someone@example.com';
+-- and to take it back after three months:
+update public.profiles set plan_id = 'free'    where email = 'someone@example.com';
+```
+
+A profile with a paid `plan_id` and no `stripe_customer_id` is a comped plan, and
+`/progreso` renders it as one: "Fundador · de cortesía", with no billing portal
+button, because that button would 404 for somebody who never checked out. Those
+ten people are the first through the door and the ones whose reaction decides
+whether any of this sells, so their page has to be right.
+
 Three details worth knowing:
 
 - **`price_minor` and the Stripe price are two records of the same fact**, and
