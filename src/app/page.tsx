@@ -96,7 +96,7 @@ export default function HomePage() {
                 </h3>
                 <p className="mt-3 text-[15px] leading-relaxed text-muted">{level.purpose}</p>
 
-                {lessons.length > 0 ? (
+                {lessons.length > 0 && (
                   <ol className="mt-5 space-y-2">
                     {lessons.map((lesson) => (
                       <li key={lesson.id} className="flex items-start gap-2.5">
@@ -110,14 +110,20 @@ export default function HomePage() {
                       </li>
                     ))}
                   </ol>
-                ) : (
-                  <p className="mt-5 rounded-md border border-gold/30 bg-gold-soft/30 px-4 py-3 text-[15px] leading-relaxed text-ink/85">
-                    Aplicado: tus propias tareas. Entre 3 y 5 clases, una por cada tarea que te
-                    ocupa la semana.
+                )}
+
+                {/*
+                  The per-task half of level 1 is the part people are buying, so
+                  it is stated in the card rather than left implicit in a count.
+                */}
+                {level.perTask && (
+                  <p className="mt-4 rounded-md border border-gold/30 bg-gold-soft/30 px-4 py-3 text-[15px] leading-relaxed text-ink/85">
+                    Y una clase por cada tarea de tu semana, entre 3 y 5. Esas las define tu
+                    diagnóstico: son tus tareas, no ejemplos.
                   </p>
                 )}
 
-                {level.id === 'avanzado' && (
+                {level.id === 'flujo' && (
                   <p className="mt-4 text-[13px] leading-relaxed text-soft">
                     De estas 5 haces las que correspondan al camino que elegiste.
                   </p>

@@ -233,12 +233,12 @@ async function main() {
   }
 
   const emptyLevels = LEVELS.filter(
-    (level) => level.id !== 'aplicado' && lessonsForLevel(level.id).length === 0,
+    (level) => !level.perTask && lessonsForLevel(level.id).length === 0,
   );
   if (emptyLevels.length === 0) {
     ok(
       `${LESSONS.length} fixed lessons: ${LEVELS.map(
-        (l) => `${l.title} ${lessonsForLevel(l.id).length || '(por tarea)'}`,
+        (l) => `${l.title} ${lessonsForLevel(l.id).length}${l.perTask ? ' + por tarea' : ''}`,
       ).join(', ')}`,
     );
   } else {
@@ -258,7 +258,7 @@ async function main() {
   // between the applied level and the portfolio.
   const thinPaths = (Object.keys(PATHS) as Array<keyof typeof PATHS>).filter((path) => {
     const plan = buildPlan({ weeklyTasks: ['una tarea', 'otra tarea', 'una tercera'], path });
-    return plan.filter((s) => s.level === 'avanzado').length === 0;
+    return plan.filter((s) => s.level === 'flujo').length === 0;
   });
   if (thinPaths.length === 0) {
     const sample = buildPlan({
@@ -341,7 +341,18 @@ async function main() {
    * every lesson title added to the curriculum lands in it, so a change that
    * looks unrelated is what will eventually push it over.
    */
-  const BUDGET = 15_000;
+  /*
+   * 16,000, raised from 15,000 once the persona started earning it.
+   *
+   * The original figure was a spec number, not a platform limit, and the prompt
+   * now carries strictly more: a session-1 spine that finishes a real task and
+   * measures it, the map, the whole curriculum, and the rules for the lookup
+   * tool. At roughly 4k tokens in a cached system prompt this is not a latency
+   * cost. What the ceiling is really guarding is attention — past some size the
+   * model stops weighting the last section — so it stays, with headroom that
+   * makes trimming a decision rather than an emergency.
+   */
+  const BUDGET = 16_000;
   if (persona.length > BUDGET) {
     bad(`Persona is ${persona.length} chars, over the ${BUDGET.toLocaleString('en-US')} budget`);
     failures++;
