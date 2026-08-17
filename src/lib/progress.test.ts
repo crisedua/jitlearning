@@ -14,6 +14,8 @@ import {
   currentStep,
   matchStep,
   opening,
+  parseMinutes,
+  readStatus,
   timeSaved,
   type CareerProfile,
   type PlanStep,
@@ -296,5 +298,115 @@ describe('the spoken opening for a returning learner', () => {
     const said = opening(profile({ role: null }), null, null);
     assert.ok(said.length > 0);
     assert.match(said, /\?$/);
+  });
+});
+
+/**
+ * Whether the step counts as finished.
+ *
+ * The most expensive comparison in the product. `timeSaved` only counts steps
+ * that are `done`, so a status that fails to parse means the learner's own
+ * measurement is written to the database and never counted: empty progress page,
+ * no recovered-hours line, and the offer that depends on it never made. Somebody
+ * who did the work and reported the result is never asked to pay, and nothing
+ * logs a problem.
+ */
+describe('reading how the step ended', () => {
+  it('accepts the exact words the extraction prompt asks for', () => {
+    assert.equal(readStatus('hecho'), 'done');
+    assert.equal(readStatus('en_progreso'), 'in_progress');
+  });
+
+  it('survives the full stop a model puts on a one-word answer', () => {
+    // The bug this guards: the comparison was against 'hecho' exactly, so
+    // "Hecho." missed and the step silently stayed pending with the minutes
+    // already written beside it.
+    for (const said of ['Hecho.', 'HECHO!', 'hecho,', ' hecho ', 'Hecho']) {
+      assert.equal(readStatus(said), 'done', said);
+    }
+  });
+
+  it('treats underscore, space and hyphen as the same thing', () => {
+    for (const said of ['en progreso', 'en_progreso', 'en-progreso', 'En Progreso.']) {
+      assert.equal(readStatus(said), 'in_progress', said);
+    }
+  });
+
+  it('accepts the near synonyms a transcript actually produces', () => {
+    for (const said of ['listo', 'terminado', 'completada', 'resuelto']) {
+      assert.equal(readStatus(said), 'done', said);
+    }
+  });
+
+  it('refuses to guess from a word it does not know', () => {
+    // Being too generous runs the other way: marking a step done that is not
+    // inflates the saved-minutes total, the one number that has to be
+    // defensible line by line.
+    for (const said of ['sí', 'ok', 'bien', 'avanzó algo', 'casi hecho', 'no hecho', '?']) {
+      assert.equal(readStatus(said), null, said);
+    }
+  });
+
+  it('returns null for nothing, so the caller leaves the status alone', () => {
+    assert.equal(readStatus(''), null);
+    assert.equal(readStatus('   '), null);
+    assert.equal(readStatus(null), null);
+    assert.equal(readStatus(undefined), null);
+  });
+
+  it('a step that parses as done is one timeSaved will count', () => {
+    // The two halves of the chain, pinned together: parsing 'Hecho.' as done is
+    // only worth anything because done is what timeSaved counts.
+    const status = readStatus('Hecho.');
+    const measured = step({ status: status ?? 'pending', minutesBefore: 90, minutesAfter: 25 });
+    assert.equal(timeSaved([measured]).perWeek, 65);
+  });
+});
+
+/**
+ * The number itself.
+ *
+ * Every recovered-hours figure in the product is a subtraction of two of these,
+ * self-reported by the learner. A misread here does not fail: it produces a
+ * plausible wrong number that gets shown to them as their own measurement.
+ */
+describe('reading minutes out of what the extractor wrote', () => {
+  it('takes a plain number', () => {
+    assert.equal(parseMinutes('90'), 90);
+    assert.equal(parseMinutes('90 minutos'), 90);
+    assert.equal(parseMinutes('~25'), 25);
+    assert.equal(parseMinutes('25 min aprox'), 25);
+  });
+
+  it('does not concatenate the digits of a decimal', () => {
+    // The bug this guards: stripping non-digits turned "45.5" into 455 and
+    // "2,5" into 25. Both passed the range check. On minutes_before that is a
+    // tenfold inflation of the saving, in the flattering direction.
+    assert.equal(parseMinutes('45.5'), 46);
+    assert.equal(parseMinutes('2,5'), 3);
+  });
+
+  it('takes the first number of a range rather than gluing them together', () => {
+    assert.equal(parseMinutes('90-120'), 90);
+  });
+
+  it('understands hours, because that is how the answer gets said out loud', () => {
+    assert.equal(parseMinutes('1 hora 30'), 90);
+    assert.equal(parseMinutes('1h30'), 90);
+    assert.equal(parseMinutes('una hora y media'), 90);
+    assert.equal(parseMinutes('media hora'), 30);
+    assert.equal(parseMinutes('2 horas'), 120);
+  });
+
+  it('keeps zero, which is a real answer', () => {
+    // "Ya no lo hago" is the best possible outcome and must not read as missing.
+    assert.equal(parseMinutes('0'), 0);
+  });
+
+  it('rejects what it cannot read instead of guessing', () => {
+    assert.equal(parseMinutes('abc'), null);
+    assert.equal(parseMinutes(''), null);
+    assert.equal(parseMinutes(null), null);
+    assert.equal(parseMinutes('3000'), null);
   });
 });

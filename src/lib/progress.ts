@@ -205,11 +205,56 @@ function list(analysis: CallAnalysis, name: string): string[] {
  * kind of error that destroys the credibility of every other number on it.
  */
 function minutes(analysis: CallAnalysis, name: string): number | null {
-  const raw = field(analysis, name);
-  if (!raw) return null;
-  const value = Number(raw.replace(/[^0-9]/g, ''));
-  if (!Number.isFinite(value) || value < 0 || value > 2_400) return null;
+  return parseMinutes(field(analysis, name));
+}
+
+/** Nobody's weekly task takes more than forty hours. Past this it is a misread. */
+const MAX_MINUTES = 2_400;
+
+function bound(value: number): number | null {
+  if (!Number.isFinite(value) || value < 0 || value > MAX_MINUTES) return null;
   return Math.round(value);
+}
+
+/**
+ * Minutes, out of whatever the extractor wrote.
+ *
+ * ## Why not strip the non-digits
+ *
+ * That is what this did, and concatenating every digit in the string turns
+ * "45.5" into 455 and "2,5" into 25. Both pass the range check. On
+ * `minutes_before` that is a tenfold inflation of the saving, in the flattering
+ * direction, on the number the product's entire value claim rests on and which
+ * is supposed to be the learner's own. There is no worse place in this codebase
+ * for a silently plausible wrong answer.
+ *
+ * So: the first number in the string, with a decimal part respected rather than
+ * appended, and hours handled because "una hora y media" is how a Spanish
+ * speaker says ninety minutes and the extractor sometimes writes it back that
+ * way despite being asked for minutes.
+ */
+export function parseMinutes(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  const text = raw.toLowerCase();
+
+  // "media hora" is thirty minutes and has no digit in it at all.
+  if (/\bmedia\s+hora/.test(text)) return 30;
+
+  const hours = text.match(/(\d+|una?)\s*(?:h\b|h(?=\d)|horas?)/);
+  if (hours) {
+    const count = /^una?$/.test(hours[1]!) ? 1 : Number(hours[1]);
+    const after = text.slice((hours.index ?? 0) + hours[0].length);
+    const extra = after.match(/\d+/)
+      ? Number(after.match(/\d+/)![0])
+      : /\bmedia\b/.test(after)
+        ? 30
+        : 0;
+    return bound(count * 60 + extra);
+  }
+
+  const first = text.match(/(\d+)(?:[.,](\d+))?/);
+  if (!first) return null;
+  return bound(Number(`${first[1]}.${first[2] ?? '0'}`));
 }
 
 /** An ISO date, or null. The spoken deadline ("antes del viernes") is not one. */
@@ -217,8 +262,17 @@ function isoDate(value: string | null): string | null {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
 }
 
+/**
+ * Which direction the learner chose. Same formatting tolerance as `readStatus`,
+ * and for the same reason: "Mejorar." is not a different answer from "mejorar",
+ * and losing it means the plan is built without the direction they picked.
+ */
 function pathOf(analysis: CallAnalysis): PathId | null {
-  const raw = field(analysis, 'chosen_path')?.toLowerCase();
+  const raw = field(analysis, 'chosen_path')
+    ?.normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z]+/g, '');
   return raw === 'mejorar' || raw === 'moverse' || raw === 'propio' ? raw : null;
 }
 
@@ -696,8 +750,7 @@ async function advanceStep(userId: string, analysis: CallAnalysis): Promise<stri
   // somebody who only ever promised.
   if (!taught && !evidence && !statusRaw && minutesAfter === null) return null;
 
-  const status =
-    statusRaw === 'hecho' ? 'done' : statusRaw === 'en_progreso' ? 'in_progress' : step.status;
+  const status = readStatus(statusRaw) ?? step.status;
 
   const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
   if (evidence) patch.evidence = evidence;
@@ -724,6 +777,64 @@ async function advanceStep(userId: string, analysis: CallAnalysis): Promise<stri
     console.error('[progress] step write failed:', error.message);
   }
   return step.lessonId;
+}
+
+/**
+ * How the step ended, from a word an extractor produced.
+ *
+ * ## Why this is not a pair of equality checks
+ *
+ * It was, and the comparison was against `'hecho'` exactly. The extraction
+ * prompt does say "en una de estas dos palabras exactas", and models mostly
+ * obey it, and the one thing they add to a one-word answer more than anything
+ * else is a full stop. `"Hecho."` lowercases to `"hecho."`, misses, and the step
+ * silently stays pending.
+ *
+ * That is the most expensive miss in the product. `advanceStep` still writes the
+ * minutes, `timeSaved` only counts steps that are `done`, so the learner's own
+ * measurement sits in the database and is never counted: the progress page stays
+ * empty, the recovered-hours line never appears, and the offer that depends on it
+ * is never made. Somebody who did the work, got the result, and reported it is
+ * never asked to pay, and nothing anywhere logs a problem.
+ *
+ * So: generous about formatting, strict about meaning. Punctuation, case,
+ * accents and underscore-versus-space are noise and are normalised away. The
+ * vocabulary is a short closed list, because the failure of being too generous
+ * runs the other way: marking a step done that is not inflates the saved-minutes
+ * total, which is the one number that has to be defensible line by line.
+ *
+ * Anything unrecognised returns null, and the caller leaves the status alone.
+ * Guessing from an unknown word is how a product starts congratulating people
+ * for work they have not finished.
+ */
+const DONE_WORDS = new Set([
+  'hecho', 'hecha', 'hechos', 'hechas',
+  'listo', 'lista', 'completado', 'completada', 'completo', 'completa',
+  'terminado', 'terminada', 'finalizado', 'finalizada', 'resuelto', 'resuelta',
+  'done',
+]);
+
+const PROGRESS_WORDS = new Set([
+  'en progreso', 'progreso', 'en curso', 'parcial', 'a medias', 'incompleto',
+  'incompleta', 'empezado', 'empezada', 'iniciado', 'iniciada', 'avanzando',
+  'in progress',
+]);
+
+export function readStatus(raw: string | null | undefined): PlanStep['status'] | null {
+  if (!raw) return null;
+  const word = raw
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/[^a-z ]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!word) return null;
+  if (DONE_WORDS.has(word)) return 'done';
+  if (PROGRESS_WORDS.has(word)) return 'in_progress';
+  return null;
 }
 
 /**
