@@ -160,7 +160,16 @@ async function main() {
         ok(`${tools.length} tool(s) attached, including the lookup the persona promises`);
       } else {
         bad('No tools attached, but the persona tells the learner it can search.');
-        note('Run `npm run setup:tools -- --push`.');
+        /*
+         * Order matters, and getting it backwards is worse than doing nothing.
+         * The tool points at `/api/ask`, which needs ANTHROPIC_API_KEY in the
+         * deployment. Attach it first and the agent stops being unable to search
+         * and starts announcing a search that errors mid-conversation, in front
+         * of the learner. Not searching is a limitation; searching and failing is
+         * a broken product, so the key goes in first.
+         */
+        note('Set ANTHROPIC_API_KEY in the deployment FIRST, then `npm run setup:tools -- --push`.');
+        note('Backwards, the agent announces a search that errors mid-conversation.');
         failures++;
       }
     } catch (err) {

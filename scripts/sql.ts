@@ -5,9 +5,11 @@
  *   npm run sql -- 20260810  # from that migration onward
  *
  * The migrations are already in the repo and already numbered, so this adds no
- * new source of truth: it concatenates the files. It exists because "run these six
- * files in the SQL editor" is a step people do five sixths of, and a half-migrated
- * database fails in ways that look like application bugs.
+ * new source of truth: it concatenates the files and counts them in the header, so
+ * no prose anywhere has to hold the number. It exists because "run these seven
+ * files in the SQL editor" is a step people do six sevenths of, and a half-migrated
+ * database fails in ways that look like application bugs — the last file in this
+ * set being exactly the one whose absence empties every progress page.
  *
  * Every file this concatenates is written to be idempotent — `create table if not
  * exists`, `add column if not exists`, `drop policy if exists` before create — so

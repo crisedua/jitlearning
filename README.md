@@ -41,7 +41,10 @@ Everything below is idempotent and safe to re-run. `npm run doctor` is the check
 after each step and names what is still missing.
 
 ```bash
-# 1. The database, as one paste. Six migrations, all idempotent.
+# 1. The database, as one paste. Run ALL of it, to the last line: the
+#    final migration fixes a check constraint that otherwise rejects
+#    every plan the app writes, silently. The output header lists and
+#    counts the files, so it stays right when one is added.
 npm run sql | pbcopy        # then run it in the Supabase SQL editor
 
 # 2. The agent: persona, curriculum, extraction fields, attachment list.
