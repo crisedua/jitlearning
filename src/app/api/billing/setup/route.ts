@@ -34,6 +34,37 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+/**
+ * Whether the quoted price already contains the tax.
+ *
+ * ## This has to be set, or nothing can be bought
+ *
+ * A price created without `tax_behavior` is `unspecified`, and Stripe refuses to
+ * put an `unspecified` price into a Checkout Session with automatic tax on.
+ * `/api/checkout` turns automatic tax on for every session, so a price created
+ * without this line cannot be sold at all: the pay button opens nothing and the
+ * failure is a hundred lines away in a different command. Prices are otherwise
+ * immutable, though `tax_behavior` may be set exactly once afterwards, which is
+ * the only reason this is recoverable without new prices.
+ *
+ * ## Why inclusive, and what it costs
+ *
+ * `docs/pricing.md` says a CLP list price is normally quoted with IVA included,
+ * and that the margin figures in its §3 are pre-tax. Both cannot hold at once,
+ * so this is a commercial decision and not a technical one:
+ *
+ *   inclusive   the learner is charged the number on the pricing page, and the
+ *               19% comes out of it, so Chilean revenue lands ~16% under §3
+ *   exclusive   §3's margins hold, and a page quoting US$9 charges US$10.71 at
+ *               the last screen before payment
+ *
+ * Inclusive, because this product's whole argument is that its numbers are
+ * honest, and a price that grows at the checkout screen breaks that at the worst
+ * possible moment. It is one word to change here if the margin matters more,
+ * and it only binds prices created from this point on.
+ */
+const TAX_BEHAVIOUR = 'inclusive' as const;
+
 interface PlanRow {
   id: string;
   name: string;
@@ -102,6 +133,9 @@ export async function POST(req: Request) {
         currency,
         unit_amount: unitAmount,
         recurring: { interval: 'month' },
+        // Not optional. See the note on TAX_BEHAVIOUR: without it the price
+        // cannot be put into a checkout session at all.
+        tax_behavior: TAX_BEHAVIOUR,
         product_data: {
           name: `ModoJIT ${plan.name}`,
           metadata: { plan_id: plan.id },

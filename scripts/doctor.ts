@@ -439,7 +439,45 @@ async function main() {
         if (rows.length === 0) {
           note('No public paid plans in the database, so there is nothing to buy.');
         } else if (missingPrice.length === 0) {
-          ok(`${rows.length} paid plan(s) have a Stripe price and can be bought`);
+          ok(`${rows.length} paid plan(s) have a Stripe price`);
+
+          /*
+           * Having a price is not the same as having a sellable one.
+           *
+           * Stripe refuses to put a price whose `tax_behavior` is `unspecified`
+           * into a Checkout Session with automatic tax enabled, and every session
+           * this app creates enables it. A price created before that was set is a
+           * plan that looks configured everywhere — the page renders, the button
+           * appears, the id is in the database — and cannot be bought by anybody.
+           *
+           * Recoverable without new prices: `tax_behavior` is the one field on an
+           * otherwise immutable object that may be set once, afterwards.
+           */
+          const unspecified: string[] = [];
+          for (const row of rows) {
+            try {
+              const price = await stripeClient().prices.retrieve(row.stripe_price_id!);
+              if (price.tax_behavior === 'unspecified') unspecified.push(row.id);
+            } catch (err) {
+              bad(
+                `Price ${row.stripe_price_id} for ${row.id} could not be read: ${
+                  err instanceof Error ? err.message : err
+                }`,
+              );
+              billingFailures++;
+            }
+          }
+
+          if (unspecified.length === 0) {
+            ok('Every price has a tax behaviour, so checkout can accept them');
+          } else {
+            bad(`tax_behavior is "unspecified" on: ${unspecified.join(', ')}. Checkout rejects those.`);
+            note('Set it once (it is the one editable field on a price):');
+            note(
+              `stripe prices update <price_id> --tax-behavior=inclusive   # ${unspecified.length} price(s)`,
+            );
+            billingFailures++;
+          }
         } else {
           bad(`No Stripe price on: ${missingPrice.join(', ')}. Those plans cannot be bought.`);
           note('curl -X POST <app>/api/billing/setup -H "x-ingest-secret: $INGEST_SECRET"');
