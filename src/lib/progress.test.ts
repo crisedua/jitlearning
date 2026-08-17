@@ -10,7 +10,7 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { currentStep, timeSaved, type PlanStep } from './progress';
+import { currentStep, matchStep, timeSaved, type PlanStep } from './progress';
 import { buildPlan, LEVELS, WEEKLY_MAX } from './curriculum';
 
 let seq = 0;
@@ -129,5 +129,65 @@ describe('the plan built from the diagnostic', () => {
     const order = LEVELS.map((l) => l.id);
     const seen = plan.map((s) => order.indexOf(s.level));
     assert.deepEqual(seen, [...seen].sort((a, b) => a - b), 'levels are out of order');
+  });
+});
+
+describe('matching the lesson the teacher says it taught', () => {
+  const plan: PlanStep[] = [
+    step({ id: 'a', lessonId: 'sem-01', title: 'Cerrar el reporte mensual, resuelta' }),
+    step({ id: 'b', lessonId: 'sem-02', title: 'Responder correos de proveedores, resuelta' }),
+    // Real lesson ids: the id fallback checks them against the curriculum, so a
+    // made-up one is correctly ignored.
+    step({ id: 'c', lessonId: 'cri-01-contexto', title: 'Por qué el contexto cambió la respuesta' }),
+    step({ id: 'd', lessonId: 'cri-02-pedir-bien', title: 'Pedir bien: instrucción, contexto, formato' }),
+  ];
+
+  it('matches the exact title', () => {
+    assert.equal(matchStep(plan, 'Cerrar el reporte mensual, resuelta')?.id, 'a');
+  });
+
+  it('ignores case, accents and punctuation, which the transcript will vary', () => {
+    assert.equal(matchStep(plan, 'POR QUE EL CONTEXTO CAMBIO LA RESPUESTA')?.id, 'c');
+  });
+
+  it('matches a paraphrase that contains the title', () => {
+    assert.equal(
+      matchStep(plan, 'hoy hicimos "Responder correos de proveedores, resuelta" juntos')?.id,
+      'b',
+    );
+  });
+
+  it('refuses an ambiguous word rather than picking the first', () => {
+    // "contexto" appears in two titles. Guessing would mark the wrong lesson done
+    // and attribute the minutes to work the learner never did.
+    assert.equal(matchStep(plan, 'contexto'), null);
+  });
+
+  it('refuses an extraction that normalises to nothing', () => {
+    // The bug this guards: ''.includes('') is true, so these used to match the
+    // first step in the plan and write minutes onto it.
+    for (const junk of ['...', '?', '-', '   ', '1']) {
+      assert.equal(matchStep(plan, junk), null, `'${junk}' matched something`);
+    }
+  });
+
+  it('refuses a needle too short to mean anything', () => {
+    assert.equal(matchStep(plan, 'el'), null);
+    assert.equal(matchStep(plan, 'de'), null);
+  });
+
+  it('returns null when nothing resembles it, so the caller keeps the current step', () => {
+    assert.equal(matchStep(plan, 'algo que no está en el plan'), null);
+  });
+
+  it('falls back to the lesson id when the teacher reads it out', () => {
+    // Both sides are normalised, so the hyphens do not have to survive the
+    // transcript. They did not before, which made this branch unreachable.
+    assert.equal(matchStep(plan, 'terminamos cri-02-pedir-bien hoy')?.id, 'd');
+  });
+
+  it('ignores a lesson id that is not in the curriculum', () => {
+    const bogus = [step({ id: 'x', lessonId: 'inventado-99', title: 'Algo' })];
+    assert.equal(matchStep(bogus, 'hicimos inventado-99'), null);
   });
 });

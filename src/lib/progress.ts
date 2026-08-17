@@ -641,20 +641,58 @@ async function advanceStep(userId: string, analysis: CallAnalysis): Promise<stri
   return step.lessonId;
 }
 
-/** Loose title match: the teacher paraphrases, so exact equality would never hit. */
-function matchStep(steps: readonly PlanStep[], taught: string): PlanStep | null {
+/**
+ * Which step the teacher just taught, from the title as it was said.
+ *
+ * Loose on purpose: the teacher paraphrases, so exact equality would almost never
+ * hit. But a wrong match is worse than no match, because `advanceStep` writes the
+ * minutes onto whatever comes back — so a mismatch marks the wrong task done and
+ * attributes the saving to work the learner never did, silently corrupting the one
+ * number the whole value claim rests on. When in doubt this returns null and the
+ * caller falls back to the step the learner is actually on.
+ *
+ * Two rules earn their place:
+ *
+ * **A needle has to be substantial.** `''.includes('')` is true, so an extraction
+ * that normalises to nothing (`"..."`, `"?"`, a stray number) used to match the
+ * *first* step in the plan unconditionally and write minutes to it.
+ *
+ * **Ambiguity is not a match.** Several step titles share words — "Por qué el
+ * contexto cambió la respuesta" and "Pedir bien: instrucción, contexto, formato"
+ * both contain "contexto" — and picking whichever sorted first was a coin flip
+ * dressed up as a decision.
+ *
+ * Exported for `progress.test.ts`: it encodes real product judgement, and the
+ * failure it guards is invisible in production.
+ */
+export function matchStep(steps: readonly PlanStep[], taught: string): PlanStep | null {
   const needle = normalise(taught);
-  const exact = steps.find((s) => normalise(s.title) === needle);
-  if (exact) return exact;
 
-  const contained = steps.find(
-    (s) => needle.includes(normalise(s.title)) || normalise(s.title).includes(needle),
+  // Shorter than this and a substring match says nothing: "de", "el", "1".
+  if (needle.length < 4) return null;
+
+  const exact = steps.filter((s) => normalise(s.title) === needle);
+  if (exact.length === 1) return exact[0]!;
+  if (exact.length > 1) return null;
+
+  const contained = steps.filter((s) => {
+    const title = normalise(s.title);
+    return title.length >= 4 && (needle.includes(title) || title.includes(needle));
+  });
+  if (contained.length === 1) return contained[0]!;
+  if (contained.length > 1) return null;
+
+  /*
+   * Last resort: the lesson id, in case the teacher read it out.
+   *
+   * Normalised on both sides. It compared the raw id against a normalised needle
+   * before, and `normalise` turns the hyphen in `cri-02` into a space, so this
+   * branch could never match anything.
+   */
+  const byLesson = steps.filter(
+    (s) => lessonById(s.lessonId) && needle.includes(normalise(s.lessonId)),
   );
-  if (contained) return contained;
-
-  // Last resort: the lesson id itself, in case the teacher read it out.
-  const byLesson = steps.find((s) => lessonById(s.lessonId) && needle.includes(s.lessonId));
-  return byLesson ?? null;
+  return byLesson.length === 1 ? byLesson[0]! : null;
 }
 
 function normalise(text: string): string {
