@@ -257,6 +257,13 @@ function PlanCard({ plan, buyable }: { plan: Plan; buyable: boolean }) {
 
 export default async function PlanesPage() {
   const plans = await loadPlans();
+
+  /*
+   * The free tier's allowance, for the metering copy below. Read from the plan
+   * rather than written into the prose: this page's rule is that every number it
+   * states comes from the row it describes.
+   */
+  const freeMinutes = plans.find((p) => p.period === 'total')?.monthlyMinutes ?? null;
   const selfServe = plans.filter((p) => p.isPublic);
   const currency = plans[0]?.currency ?? 'USD';
 
@@ -348,12 +355,29 @@ export default async function PlanesPage() {
               </dd>
             </div>
 
+            {/*
+              Two windows, said as two, because they are not the same and the
+              difference is the whole reason to pay.
+
+              This claimed flatly that the counter resets on the 1st and unused
+              minutes do not carry over. True of every paid plan and false of the
+              free one, which is `period: 'total'`: twenty minutes once, for
+              good. So the page where somebody decides whether to buy told them
+              their free minutes come back every month, which is both untrue and
+              the best possible argument against buying anything. The same
+              sentence was already wrong in the balance meter and was fixed
+              there; it survived here, on the more expensive page.
+            */}
             <div className="reveal">
               <dt className="text-[17px] font-medium text-ink">
-                El contador vuelve a cero el día 1
+                Los planes vuelven a cero el día 1; el gratis no vuelve
               </dt>
               <dd className="mt-2 max-w-[52ch] text-[15px] leading-relaxed text-muted">
-                Mes calendario. Los minutos que no usaste no se acumulan para el mes siguiente.
+                En un plan de pago el contador se reinicia cada mes calendario y los minutos que no
+                usaste no se acumulan.{' '}
+                {freeMinutes !== null
+                  ? `Los ${freeMinutes} minutos gratis son otra cosa: son una sola vez, para que pruebes, y no se renuevan.`
+                  : 'Los minutos gratis son otra cosa: son una sola vez, para que pruebes, y no se renuevan.'}
               </dd>
             </div>
 
