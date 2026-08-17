@@ -1,30 +1,43 @@
 /**
- * Local connectivity check against the ElevenLabs API.
+ * Everything that can be checked without a browser.
  *
  *   npm run doctor
  *
- * Same three questions `/api/health` answers — key present, key carries the
- * Conversational AI scope, agent exists — but run straight from `.env.local`
- * with no server and no ingest secret. That matters during setup: the HTTP
- * route needs INGEST_SECRET to be configured before it will tell you anything,
- * which is unhelpful when what you are trying to fix is the configuration.
+ * Four groups, and they fail independently on purpose: the ElevenLabs half can
+ * be perfect while nobody can sign in, and both can be fine while the persona
+ * has quietly lost the rule that keeps it honest.
+ *
+ *   ElevenLabs   key, scope, the agent, and whether it carries only its corpus
+ *   Supabase     sign-in, the ledger, and the three memory tables
+ *   Curriculum   4 levels, lessons with objectives and proofs, a buildable plan
+ *   Persona      the honesty rule, the session shape, the size budget, and
+ *                parity with every promise on the marketing page
  *
  * Prints only whether things work. Never prints key material.
  */
 import './env';
+import { createClient } from '@supabase/supabase-js';
 import { getAgent, listDocuments } from '../src/lib/elevenlabs';
 import { agentId, embeddingModel } from '../src/lib/config';
 import { ownsDocument, TEACHER } from '../src/lib/teacher';
 import { PROMISE_MARKERS, teacherSystemPrompt } from '../src/lib/agent';
 import { PROMISES } from '../src/lib/site';
+import { buildPlan, LESSONS, LEVELS, lessonsForLevel, PATHS } from '../src/lib/curriculum';
 import { supabaseAdmin } from '../src/lib/supabase/admin';
 
 const ok = (m: string) => console.log(`  ok    ${m}`);
 const bad = (m: string) => console.log(`  FAIL  ${m}`);
+const note = (m: string) => console.log(`        ${m}`);
+
+/** The tables the teacher's memory lives in, and the migration that makes them. */
+const MEMORY_TABLES = ['career_profiles', 'plan_steps', 'session_summaries'] as const;
+const MEMORY_MIGRATION = 'supabase/migrations/20260810000000_teacher_memory.sql';
 
 async function main() {
   let failures = 0;
+  let supabaseFailures = 0;
 
+  // ------------------------------------------------------------- ElevenLabs
   console.log('\nElevenLabs connectivity\n');
 
   const key = process.env.ELEVENLABS_API_KEY?.trim();
@@ -45,7 +58,7 @@ async function main() {
       const { documents } = await listDocuments({ pageSize: 1 });
       scopeOk = true;
       ok(
-        `Conversational AI scope confirmed — knowledge base reachable (${
+        `Conversational AI scope confirmed, knowledge base reachable (${
           documents.length > 0 ? 'has documents' : 'currently empty'
         })`,
       );
@@ -65,27 +78,57 @@ async function main() {
     bad(`${TEACHER.envKey} is not set. Run \`npm run setup:agent\`.`);
     failures++;
   } else if (!scopeOk) {
-    console.log(`  --    ${id} configured, unverifiable without API access`);
+    note(`${id} configured, unverifiable without API access`);
   } else {
     try {
       const agent = await getAgent(id);
       const prompt = agent.conversation_config?.agent?.prompt;
       const attached = prompt?.knowledge_base ?? [];
-      const foreign = attached.filter((d) => !ownsDocument(d.name));
 
+      /*
+       * A document outside the live corpus is the quiet failure: the agent
+       * answers confidently, citing material from a subject this product
+       * retired. Nothing surfaces it except comparing the attachment list
+       * against TEACHER.sources.
+       */
+      const foreign = attached.filter((d) => !ownsDocument(d.name));
       if (foreign.length > 0) {
         bad(
-          `${foreign.length} document(s) outside the live corpus — ${foreign
+          `${foreign.length} document(s) outside the live corpus: ${foreign
             .map((d) => d.name)
-            .join(', ')}. Check they were ingested with their folder prefix.`,
+            .join(', ')}. Re-run the sync, and check they were ingested with their folder prefix.`,
         );
         failures++;
       } else {
         ok(
-          `Agent ${id} — ${attached.length} document(s) attached, RAG ${
+          `Agent ${id}: ${attached.length} document(s) attached, RAG ${
             prompt?.rag?.enabled ? 'enabled' : 'disabled'
           }`,
         );
+      }
+
+      // The prompt references {{registro}} and friends. A conversation started
+      // without them fails outright, and the placeholders are what keep a test
+      // from the ElevenLabs dashboard working.
+      const placeholders =
+        agent.conversation_config?.agent?.dynamic_variables?.dynamic_variable_placeholders ?? {};
+      const missingVars = ['apertura', 'registro', 'primera_sesion'].filter(
+        (name) => !(name in placeholders),
+      );
+      if (missingVars.length === 0) {
+        ok('Dynamic variable placeholders are set on the live agent');
+      } else {
+        bad(`Live agent has no placeholder for: ${missingVars.join(', ')}.`);
+        note('Run `npm run sync:agent -- --push`, or a dashboard test will fail to connect.');
+        failures++;
+      }
+
+      // No tools, by design: the persona tells the learner it has no internet.
+      const tools = prompt?.tool_ids ?? [];
+      if (tools.length === 0) ok('No tools attached, as the persona claims');
+      else {
+        bad(`${tools.length} tool(s) attached. The persona says it has no internet.`);
+        failures++;
       }
     } catch (err) {
       bad(`Agent ${id} could not be fetched: ${err instanceof Error ? err.message : err}`);
@@ -97,101 +140,234 @@ async function main() {
   // printing because changing it later silently orphans every existing index.
   console.log(`\n  Embedding model: ${embeddingModel()}`);
 
-  // Reported separately from the ElevenLabs checks because it fails
-  // separately: ingestion works fine without any of this, and the only visible
-  // symptom is that no learner gets past /acceso — or, worse, that they do and
-  // nothing about the session is ever recorded.
-  console.log('\nSupabase (sign-in, plans, usage)\n');
-  let supabaseFailures = 0;
+  // --------------------------------------------------------------- Supabase
+  console.log('\nSupabase (sign-in, usage, memory)\n');
 
   const missingAuth = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'].filter(
     (name) => !process.env[name]?.trim(),
   );
   if (missingAuth.length === 0) {
-    ok('Project URL and anon key are set — learners can sign in');
+    ok('Project URL and anon key are set, learners can sign in');
   } else {
-    bad(`${missingAuth.join(', ')} missing — nobody can sign in, so /coach is unreachable.`);
-    console.log('        Supabase dashboard -> Project Settings -> API.');
+    bad(`${missingAuth.join(', ')} missing. Nobody can sign in, so /coach is unreachable.`);
+    note('Supabase dashboard -> Project Settings -> API.');
     supabaseFailures++;
   }
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
-    bad('SUPABASE_SERVICE_ROLE_KEY missing — sessions will not be recorded.');
+    bad('SUPABASE_SERVICE_ROLE_KEY missing. Sessions will not be recorded.');
     supabaseFailures++;
   } else if (missingAuth.length === 0) {
     // Reaching the table proves three things at once: the key works, the
     // migration ran, and the app is pointed at the right project.
-    const { error } = await supabaseAdmin()
+    const ledger = await supabaseAdmin()
       .from('coach_sessions')
       .select('id', { count: 'exact', head: true });
-    if (error) {
-      bad(`coach_sessions is not queryable: ${error.message}`);
-      console.log('        Run supabase/migrations/*.sql in the SQL editor.');
+    if (ledger.error) {
+      bad(`coach_sessions is not queryable: ${ledger.error.message}`);
+      note('Run supabase/migrations/*.sql in the SQL editor.');
       supabaseFailures++;
     } else {
-      ok('Schema reachable — profiles, plans and coach_sessions are in place');
+      ok('Schema reachable: profiles, plans and coach_sessions are in place');
     }
 
-    // The study tables carry everything that makes a session a continuation
-    // rather than a first meeting, so their absence is worth naming precisely.
-    for (const table of ['session_summaries', 'career_profiles']) {
+    /*
+     * The memory tables, checked from both sides.
+     *
+     * The service role proves they exist. The anon key proves they are not
+     * readable without a session: it bypasses nothing, so a row coming back
+     * there means row-level security is off and one learner's plan is public.
+     * An empty table cannot prove RLS is on, so that case is reported as
+     * unproven rather than as a pass.
+     */
+    const anon = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!.trim(),
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!.trim(),
+      { auth: { persistSession: false } },
+    );
+
+    for (const table of MEMORY_TABLES) {
       const probe = await supabaseAdmin().from(table).select('*', { count: 'exact', head: true });
-      if (!probe.error) {
-        ok(`${table} exists with row-level security`);
-      } else {
+      if (probe.error) {
         bad(`${table} is not queryable: ${probe.error.message}`);
-        console.log('        Run supabase/migrations/20260808000000_study_memory.sql.');
+        note(`Run ${MEMORY_MIGRATION}.`);
         supabaseFailures++;
+        continue;
+      }
+
+      const rows = probe.count ?? 0;
+      const leak = await anon.from(table).select('user_id').limit(1);
+
+      if (leak.error) {
+        ok(`${table} exists, and the anon key is refused`);
+      } else if ((leak.data ?? []).length > 0) {
+        bad(`${table} returns rows to the anon key. Row-level security is not protecting it.`);
+        note(`Re-run ${MEMORY_MIGRATION}, which enables RLS and the owner-only policies.`);
+        supabaseFailures++;
+      } else if (rows === 0) {
+        ok(`${table} exists (empty, so RLS is declared but not yet demonstrated)`);
+      } else {
+        ok(`${table} exists with ${rows} row(s), and the anon key sees none of them`);
       }
     }
   }
 
-  /*
-   * The persona is the product, so it gets checked like code.
-   *
-   * Two things can rot silently here. A persona can lose the honesty rule in
-   * an edit and keep sounding fine, right up until it invents a citation. And
-   * the marketing copy can promise a behaviour the persona no longer performs,
-   * which for a product whose central claim is "no inventa" is the worst kind
-   * of drift. Both are mechanical to check, so they are checked.
-   */
+  // ------------------------------------------------------------- Curriculum
+  console.log('\nCurriculum\n');
+
+  if (LEVELS.length === 4) ok('4 levels');
+  else {
+    bad(`${LEVELS.length} level(s). The product is sold as 4.`);
+    failures++;
+  }
+
+  const emptyLevels = LEVELS.filter(
+    (level) => level.id !== 'aplicado' && lessonsForLevel(level.id).length === 0,
+  );
+  if (emptyLevels.length === 0) {
+    ok(
+      `${LESSONS.length} fixed lessons: ${LEVELS.map(
+        (l) => `${l.title} ${lessonsForLevel(l.id).length || '(por tarea)'}`,
+      ).join(', ')}`,
+    );
+  } else {
+    bad(`No lessons in: ${emptyLevels.map((l) => l.title).join(', ')}.`);
+    failures++;
+  }
+
+  const incomplete = LESSONS.filter((l) => !l.title || !l.objective || !l.proof);
+  if (incomplete.length === 0) ok('Every lesson names an objective and a proof');
+  else {
+    bad(`Missing objective or proof: ${incomplete.map((l) => l.id).join(', ')}.`);
+    failures++;
+  }
+
+  // Every path has to produce a plan somebody can actually walk, which means at
+  // least one advanced lesson: a path that selects nothing would leave a hole
+  // between the applied level and the portfolio.
+  const thinPaths = (Object.keys(PATHS) as Array<keyof typeof PATHS>).filter((path) => {
+    const plan = buildPlan({ weeklyTasks: ['una tarea', 'otra tarea', 'una tercera'], path });
+    return plan.filter((s) => s.level === 'avanzado').length === 0;
+  });
+  if (thinPaths.length === 0) {
+    const sample = buildPlan({
+      weeklyTasks: ['una tarea', 'otra tarea', 'una tercera'],
+      path: 'mejorar',
+    });
+    ok(`buildPlan works for all 3 paths (mejorar with 3 tasks: ${sample.length} steps)`);
+  } else {
+    bad(`These paths select no advanced lesson: ${thinPaths.join(', ')}.`);
+    failures++;
+  }
+
+  // ---------------------------------------------------------------- Persona
   console.log('\nPersona\n');
 
   const persona = teacherSystemPrompt();
 
-  const honesty = ['Nunca cifras sin fuente', 'criterio general', 'No tienes internet'].filter(
-    (phrase) => !persona.includes(phrase),
-  );
-  if (honesty.length === 0) ok('honesty rule complete');
+  /*
+   * The persona is the product, so it gets checked like code.
+   *
+   * Two things rot silently here. It can lose the honesty rule in an edit and
+   * keep sounding fine, right up until it invents a citation or claims to have
+   * looked up a price. And the marketing page can promise a behaviour the prompt
+   * no longer performs, which for a product whose central claim is "no inventa"
+   * is the worst kind of drift.
+   */
+  const honesty: Array<[string, string]> = [
+    ['no figures without a source', 'Nunca cifras sin fuente'],
+    ['labels general knowledge', 'criterio general'],
+    ['never attributes what it did not retrieve', 'Nunca atribuyas'],
+    ['never promises a job', 'Nunca prometas un trabajo'],
+    ['admits it has no live data', 'No tienes internet'],
+  ];
+  const missingHonesty = honesty.filter(([, phrase]) => !persona.includes(phrase));
+  if (missingHonesty.length === 0) ok('Honesty rule complete, all 5 parts');
   else {
-    bad(`honesty rule incomplete, missing: ${honesty.join(', ')}`);
+    bad(`Honesty rule incomplete, missing: ${missingHonesty.map(([label]) => label).join(', ')}`);
     failures++;
   }
 
-  if (persona.length <= 15_000) ok(`persona is ${persona.length} chars`);
+  const shape: Array<[string, string]> = [
+    ['the map', PROMISE_MARKERS.map],
+    ['the curriculum', PROMISE_MARKERS.plan],
+    ['the diagnostic', '### Primera sesión'],
+    ['the lesson structure', '### Sesiones siguientes'],
+    ['the computer-or-walking switch', '## Dónde está la persona'],
+    ['the commitment', '## Termina con un compromiso'],
+    ['continuity', PROMISE_MARKERS.memory],
+  ];
+  const missingShape = shape.filter(([, marker]) => !persona.includes(marker));
+  if (missingShape.length === 0) ok('Session shape complete: diagnostic, map, lesson, commitment');
   else {
-    bad(`persona is ${persona.length} chars, over the 15,000 budget`);
+    bad(`Session shape incomplete, missing: ${missingShape.map(([label]) => label).join(', ')}`);
     failures++;
   }
+
+  // Every lesson title the teacher is told about has to be one the site and the
+  // plan use, or "paso 4 de 11" means three different things.
+  const missingTitles = LESSONS.filter((lesson) => !persona.includes(lesson.title));
+  if (missingTitles.length === 0) ok('The persona carries every lesson title');
+  else {
+    bad(`Lesson titles missing from the persona: ${missingTitles.map((l) => l.id).join(', ')}`);
+    failures++;
+  }
+
+  // The three variables the prompt cannot run without.
+  const referenced = ['{{registro}}', '{{primera_sesion}}'].filter((v) => !persona.includes(v));
+  if (referenced.length === 0) ok('References its dynamic variables');
+  else {
+    bad(`Persona does not reference: ${referenced.join(', ')}. Memory would never reach it.`);
+    failures++;
+  }
+
+  /*
+   * Voice is the whole premise: a persona over budget gets truncated or ignored,
+   * and the first thing to go is whatever was said last.
+   *
+   * The near-limit warning is worth having because the prompt grows on its own:
+   * every lesson title added to the curriculum lands in it, so a change that
+   * looks unrelated is what will eventually push it over.
+   */
+  const BUDGET = 15_000;
+  if (persona.length > BUDGET) {
+    bad(`Persona is ${persona.length} chars, over the ${BUDGET.toLocaleString('en-US')} budget`);
+    failures++;
+  } else if (persona.length > BUDGET - 500) {
+    ok(`Persona is ${persona.length} chars`);
+    note(`Only ${BUDGET - persona.length} chars of headroom. Adding a lesson will exceed it.`);
+  } else {
+    ok(`Persona is ${persona.length} chars`);
+  }
+
+  console.log('\nSite promises against persona behaviour\n');
 
   for (const promise of PROMISES) {
-    if (persona.includes(PROMISE_MARKERS[promise.key])) {
-      ok(`"${promise.key}" is honoured by the persona`);
-    } else {
-      bad(`"${promise.key}" is promised in site.ts but missing from the persona`);
+    const marker = PROMISE_MARKERS[promise.key];
+    if (persona.includes(marker)) ok(`"${promise.key}" is honoured by the persona`);
+    else {
+      bad(`"${promise.key}" is promised in site.ts but "${marker}" is not in the persona`);
       failures++;
     }
   }
 
+  // The other direction: a marker nobody promises is dead weight, not a failure.
+  const unclaimed = Object.keys(PROMISE_MARKERS).filter(
+    (key) => !PROMISES.some((p) => p.key === key),
+  );
+  if (unclaimed.length > 0) {
+    note(`PROMISE_MARKERS has no card on the page for: ${unclaimed.join(', ')}`);
+  }
+
   if (failures > 0) {
-    console.error(`\n${failures} check(s) failed. Ingestion will not work until they pass.\n`);
+    console.error(`\n${failures} check(s) failed.\n`);
     process.exit(1);
   }
   if (supabaseFailures > 0) {
-    console.error('\nIngestion is ready, but learners cannot use the coach yet.\n');
+    console.error('\nElevenLabs is ready, but learners cannot use the teacher yet.\n');
     process.exit(1);
   }
-  console.log('\nReady to ingest.\n');
+  console.log('\nReady.\n');
 }
 
 main().catch((err) => {

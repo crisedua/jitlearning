@@ -1,34 +1,68 @@
 # ModoJIT
 
-A study partner by voice, in Spanish. It asks you questions, listens to your
-answer, and tells you where you failed and what to review. Most people use it
-while walking or driving, which is the constraint behind every design decision
-here: short turns, nothing to read, no course to sit through.
+A voice teacher, in Spanish, for people who need to learn to work with AI before
+it works without them.
 
-**Two coaches.**
+It interviews you about what you do, shows you *el mapa* (what AI makes possible
+for someone with your expertise, said concretely for your field), builds a plan
+from a fixed curriculum crossed with your own weekly tasks, teaches one lesson
+per session on those tasks, remembers everything between sessions, and closes
+each session on 1 action with 1 date and 1 signal.
 
-| Coach | For | Corpus |
+**Voice is the classroom; the site is the notebook.** Most people listen while
+they walk or drive, so every design decision keeps turns short and pushes
+anything visual or persistent to [`/progreso`](src/app/progreso/page.tsx): the
+map, the plan by level, the evidence, the history. Eleven steps read aloud is
+nothing anyone retains.
+
+## The curriculum
+
+Defined once, as data, in [`src/lib/curriculum.ts`](src/lib/curriculum.ts). The
+persona receives a compact rendering of it, the landing page renders it, the
+progress page renders it, and `buildPlan` turns it into the learner's own steps.
+One source of truth, so the syllabus somebody read before paying is the syllabus
+they get.
+
+| Level | What | Personalised |
 |---|---|---|
-| `pmp` | Preparing for the PMI PMP exam by drilling situational questions out loud | `knowledge/pmp/` |
-| `empleabilidad` | Career orientation for people out of work, afraid of losing the job, or still studying: what to learn next to raise their opportunities as AI changes their field | `knowledge/empleabilidad/` |
+| 1 Fundamentos | 6 fixed lessons: what these systems do and cannot do, context, asking well, verifying, privacy, the tool landscape | No |
+| 2 Aplicado | 1 lesson per weekly task, 3 to 5 of them | Entirely: does not exist before the diagnostic |
+| 3 Avanzado | 5 written lessons (chaining, automation, agents, data, building), of which the learner does the ones matching their chosen path | Selection |
+| 4 Portafolio | Assemble the proofs, then rehearse telling it in 90 seconds | Entirely |
 
-**The corpus is a supplement, not a fence.** Both coaches answer from the
-model's general knowledge and use retrieved material to sharpen specifics. This
-reverses an earlier design in which a coach could not answer outside its
-corpus, and which therefore said "no tengo material sobre eso" to ordinary
-questions. What replaces the fence is the honesty rule in the persona:
-attribute only what was retrieved, say plainly when an answer is general
-criterion, and never attach a figure, author, year or course name to something
-merely recalled. `npm run doctor` checks that rule is still in every persona.
+Every lesson names a proof: an artifact the learner can show. That is this
+product's definition of progress. A step marked done with no evidence is a step
+to ask about again.
+
+## The knowledge model
+
+**The corpus is a supplement, not a fence.** The teacher answers from the
+model's general knowledge; `knowledge/empleabilidad/` sharpens specifics when
+it happens to be relevant, and the product works with that folder empty. This
+reverses an earlier design in which a coach could not answer outside its corpus
+and therefore said "no tengo material sobre eso" to ordinary questions.
+
+What replaces the fence is the honesty rule in the persona, and
+`npm run doctor` fails when any part of it falls out of the prompt:
+
+- Attribute only what was retrieved. Say plainly when an answer is general
+  criterion. Never attach an author, study, percentage or year to something the
+  model merely knows.
+- No figures without a retrieved source. Directions and trends are fine.
+- Well-known tools may be named from general knowledge (ChatGPT, Claude,
+  Gemini, Copilot, Excel, Power BI, Python, Claude Code). Course titles, prices
+  and durations only if retrieved.
+- Never promise a job.
+- **No internet, and this is deliberate.** No search tool is attached, and
+  `syncAgentKnowledge` clears `tool_ids` on every push so a reused agent id
+  cannot smuggle one in. The persona must never claim to have looked something
+  up; asked for a price or a job posting, it says it cannot see that and tells
+  the learner where to look.
 
 Built on the [ElevenLabs Agents Platform](https://elevenlabs.io/docs/eleven-agents):
 ElevenLabs handles speech-to-text, the LLM turn, text-to-speech, chunking,
 embedding and vector retrieval. This repo is the ingestion backend, the agent
-configuration, and the UI around it.
-
-One ElevenLabs agent per coach, so the attachment list is the corpus boundary:
-a PMP question cannot retrieve employability material, because those chunks are
-not attached to that agent.
+configuration, the memory, and the UI around it.
 
 **The knowledge side is stateless.** ElevenLabs holds the documents and their
 indexes; the agent's own config records which documents are attached and in
@@ -39,31 +73,36 @@ session — see [Accounts, plans and usage](#accounts-plans-and-usage). Nothing
 about the corpus lives there, so the two halves fail independently: a Supabase
 outage stops new sign-ins, it does not touch retrieval.
 
-## Ingesting the corpora
+## Ingesting the corpus
 
-Documents are stored as `<folder>/<file>`, and that prefix is what assigns them
-to a coach (`sources` in `src/lib/coaches.ts`). So the folder a file sits in
-decides which coach can retrieve it.
+Optional. The teacher works without any of it. What the corpus buys is that a
+specific claim can be attributed out loud instead of being labelled general
+criterion.
+
+Documents are stored as `<folder>/<file>`, and that prefix is what decides
+whether a document is attachable at all: only names matching `TEACHER.sources`
+(`empleabilidad/`) reach the agent.
 
 ```bash
-# Everything, both coaches
-npm run ingest -- ./knowledge
-
-# One coach at a time
-npm run ingest -- ./knowledge/pmp
-npm run ingest -- ./knowledge/empleabilidad
+npm run ingest -- ./knowledge/empleabilidad   # the live corpus
+npm run ingest -- ./knowledge                 # same thing, skipping _retired/
 ```
 
-`knowledge/_retired/` holds the corpora of the coaches this product no longer
-runs. Those files stay on disk and are skipped by ingestion; nothing there is
-attached to any agent.
+`knowledge/_retired/` holds the corpora of the four subjects this product no
+longer teaches (project management, AI in business, AI in schools, starting a
+business). Those files stay on disk, are skipped by ingestion, and match no
+prefix, so nothing there can be retrieved.
 
-After ingesting, push personas and attachment lists to the live agents:
+**Anything added later must carry its emitter, year and URL inside the
+document.** The persona may only attribute what it retrieved, so a figure in a
+document with no source attached is a figure the teacher can quote and cannot
+justify.
+
+After ingesting, push the persona and the attachment list to the live agent:
 
 ```bash
-npm run sync:agent                    # report drift for every coach
-npm run sync:agent -- --push          # apply
-npm run sync:agent -- pmp --push      # one coach
+npm run sync:agent            # report drift for the agent
+npm run sync:agent -- --push  # apply
 ```
 
 ## Feeding knowledge from your backend
@@ -100,7 +139,7 @@ succeeds, then attach it:
 curl https://<app>.vercel.app/api/knowledge/$DOC_ID \
   -H "x-ingest-secret: $INGEST_SECRET"
 
-# Attach every ready document to the coach
+# Attach every ready document to the agent
 curl -X POST https://<app>.vercel.app/api/agent \
   -H "x-ingest-secret: $INGEST_SECRET"
 ```
@@ -116,12 +155,13 @@ curl -X POST https://<app>.vercel.app/api/agent \
 | `/api/knowledge/[id]` | GET | secret | Index status (poll target) |
 | `/api/knowledge/[id]` | POST | secret | Retry a failed index |
 | `/api/knowledge/[id]` | DELETE | secret | Delete and detach |
-| `/api/agent` | GET | secret | Per-coach status and attached document names (`?coach=` to narrow) |
-| `/api/agent` | POST | secret | Re-attach ready documents to every coach (`?coach=` to narrow) |
-| `/api/agent/provision` | POST | secret | Create one coach's agent — `?coach=` required |
-| `/api/health` | GET | secret | Config diagnostics: key, scope, every agent, sign-in |
-| `/api/signed-url` | GET | learner session | Short-lived WebSocket URL, opens a usage row |
+| `/api/agent` | GET | secret | Agent status and attached document names |
+| `/api/agent` | POST | secret | Re-attach ready documents and push the persona |
+| `/api/agent/provision` | POST | secret | Create the agent |
+| `/api/health` | GET | secret | Config diagnostics: key, scope, agent, corpus, sign-in |
+| `/api/signed-url` | GET | learner session | Short-lived WebSocket URL, the dynamic variables, opens a usage row |
 | `/api/sessions/[id]` | POST | learner session | Closes their own usage row when a call ends |
+| `/api/webhooks/elevenlabs` | POST | HMAC signature | Post-call analysis becomes the profile, the plan and the session row |
 | `/auth/login` | GET | open | Starts the Google handshake (sets the PKCE cookie) |
 | `/auth/callback` | GET | open | Supabase OAuth return: creates the session |
 
@@ -142,26 +182,24 @@ Set these in **Project Settings → Environment Variables**, then redeploy:
 - `SUPABASE_SERVICE_ROLE_KEY` — profiles and usage; see
   [Learners: Supabase Auth with Google](#learners-supabase-auth-with-google)
 
-Create one agent per coach by calling the deployed app:
+Create the agent by calling the deployed app:
 
 ```bash
-for c in pmp empleabilidad; do
-  curl -X POST "https://<app>.vercel.app/api/agent/provision?coach=$c" \
-    -H "x-ingest-secret: $INGEST_SECRET"
-done
-# -> {"coach":"pmp","agentId":"agent_...","created":true}
+curl -X POST https://<app>.vercel.app/api/agent/provision \
+  -H "x-ingest-secret: $INGEST_SECRET"
+# -> {"agentId":"agent_...","created":true}
 ```
 
-Set each returned id as that coach's `ELEVENLABS_AGENT_ID_*`, redeploy once
-more, then confirm the whole deployment is wired correctly:
+Set the returned id as `ELEVENLABS_AGENT_ID`, redeploy once more, then confirm
+the whole deployment is wired correctly:
 
 ```bash
 curl https://<app>.vercel.app/api/health -H "x-ingest-secret: $INGEST_SECRET"
 ```
 
-`{"ready": true}` means the key authenticates, carries the right scope, and
-every coach's agent exists carrying only its own documents. Anything false
-names which check failed and for which coach.
+`{"ready": true}` means the key authenticates, carries the right scope, and the
+agent exists carrying only documents from the live corpus. Anything false names
+which check failed.
 
 ### Local development (optional)
 
@@ -173,10 +211,9 @@ If you'd rather work locally, put the same values in `.env.local` and run
 | Variable | Required | Notes |
 |---|---|---|
 | `ELEVENLABS_API_KEY` | yes | Needs Agents + Knowledge Base read/write |
-| `ELEVENLABS_AGENT_ID_PMP` | yes | From `npm run setup:agent -- pmp` |
-| `ELEVENLABS_AGENT_ID_EMPLEABILIDAD` | yes | One agent per coach: the attachment list is what scopes the corpus |
-| `ELEVENLABS_AGENT_ID_PMP_MAX_VECTOR_DISTANCE` | no | Per-coach retrieval threshold; overrides `maxVectorDistance` in `coaches.ts` |
-| `ELEVENLABS_AGENT_ID_EMPLEABILIDAD_MAX_VECTOR_DISTANCE` | no | Same, for the other coach |
+| `ELEVENLABS_AGENT_ID` | yes | From `npm run setup:agent`. One product, one agent |
+| `ELEVENLABS_WEBHOOK_SECRET` | for memory | Signing secret for the post-call webhook. Without it the plan never advances on its own |
+| `ELEVENLABS_MAX_VECTOR_DISTANCE` | no | Retrieval threshold, overriding `TEACHER.maxVectorDistance` without a deploy |
 | `INGEST_SECRET` | yes | `openssl rand -hex 32` |
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Public key; safe in the browser |
@@ -203,17 +240,17 @@ npm run ingest -- ./docs
 Re-running it on a folder replaces documents rather than duplicating them, so
 editing a file and re-ingesting is the normal loop.
 
-**Documents are stored as `<carpeta>/<archivo>`, and that prefix is the corpus
-boundary.** ElevenLabs keeps no folder of its own — a document is its name and
-nothing else — so the prefix is the only thing telling `attachableEntries()`
-which coach may retrieve a document. `npm run ingest` writes it for you, from
-either `./knowledge` or a single folder inside it.
+**Documents are stored as `<carpeta>/<archivo>`, and that prefix is what makes a
+document attachable.** ElevenLabs keeps no folder of its own: a document is its
+name and nothing else, so the prefix is the only thing telling
+`attachableEntries()` whether a document belongs to the live corpus.
+`npm run ingest` writes it for you.
 
-A document whose name carries no prefix matching some coach's `sources` is
-attached to nobody. It uploads and indexes without complaint, and the only
-symptom is a coach saying it has no material on its own subject. The ingest
-script warns about such orphans by name, and `/api/health` fails the check for
-any agent carrying a document outside its corpus.
+A document whose name matches no prefix in `TEACHER.sources` is attached to
+nobody. It uploads and indexes without complaint, and the only symptom is a
+teacher that never cites its material. The ingest script warns about such
+documents by name, and both `/api/health` and `npm run doctor` fail when the
+agent is carrying one.
 
 ## Auth model
 
@@ -267,20 +304,28 @@ The schema is in [`supabase/migrations/`](supabase/migrations/):
 | `profiles` | One row per `auth.users` id — email, name, avatar, `plan_id`. Created by a trigger on sign-up, refreshed from Google on every sign-in. |
 | `plans` | `free` by default. `monthly_minutes` / `monthly_sessions`, both nullable, where null means unlimited. |
 | `coach_sessions` | One row per signed URL minted: who, which agent, conversation id, duration, message count, credits — plus the conversation's summary, which is what session memory replays. |
+| `career_profiles` | One row per learner: role, field, sector, years, weekly tasks, tools, goal, chosen path, and the map as it was given to them. |
+| `plan_steps` | Their own plan, one row per step: lesson, level, linked task, status, evidence, commitment, position. |
+| `session_summaries` | One row per finished session: which lesson, what was taught, the commitment and whether it was kept. |
 
-RLS is on for all three, and every policy is scoped to `auth.uid()` — a learner
-can read their own profile and their own sessions, and nothing else. There are
-no insert or update policies at all: name and avatar come from Google, plan is a
-billing decision, and minutes must not be writable by the browser that reports
-them. All of those writes go through the service-role client in
+RLS is on for all of them, and every policy is scoped to `auth.uid()`: a learner
+reads their own rows and nothing else. Insert is never granted, and update is
+granted on exactly two things, both of which only the learner can know: whether
+a commitment was kept, and what they built. Step status stays a function of what
+was taught and shown out loud, because a plan you can tick into "done" measures
+nothing. Every other write goes through the service-role client in
 [`src/lib/supabase/admin.ts`](src/lib/supabase/admin.ts).
+
+`npm run doctor` probes the three memory tables from both sides: with the service
+role to prove they exist, and with the anon key to prove they return nothing
+without a session.
 
 **Limits are enforced at mint time.** `checkPlanAllowance()` in
 [`src/lib/account.ts`](src/lib/account.ts) reads the `plan_usage` view inside
 [`/api/signed-url`](src/app/api/signed-url/route.ts), before `getSignedUrl` —
 the single chokepoint through which every billable conversation passes. A
 learner over their plan's minutes or sessions gets a 403 with a plain sentence
-instead of a credential. The check fails open (no view, no Supabase → the coach
+instead of a credential. The check fails open (no view, no Supabase → the teacher
 still answers) and never cuts off a session already running, so the cap is soft
 by about one session's length.
 
@@ -299,11 +344,11 @@ overwrites those numbers with ElevenLabs' own and stamps `usage_synced_at`. A
 row with that stamp is a receipt; a row without one is an estimate. Do not bill
 anyone off an unsynced row.
 
-### Session memory
+### Session memory: the free-text half
 
-A learner can log out, come back days later, and the coach picks up the thread
-— including asking whether they did the thing they committed to, which is the
-difference between coaching and advice.
+A learner can log out, come back days later, and the teacher picks up the thread,
+including asking whether they did the thing they committed to. That follow-up is
+the difference between teaching and advice.
 
 No LLM of ours writes anything: ElevenLabs already summarises every finished
 conversation. When `/api/signed-url` mints a new session,
@@ -312,9 +357,9 @@ conversation. When `/api/signed-url` mints a new session,
 start never waits on more than two), stores them on the rows, and returns the
 last three as a context block. The browser sends that block through
 `sendContextualUpdate` alongside the date and the session objective, and the
-persona's *Continuidad entre sesiones* section says how to use it: follow up
-on the commitment early, never recite the summary, and follow the person if
-they bring a different topic today.
+persona's *Continuidad entre sesiones* section says how to use it: follow up on
+the commitment early, never recite the record, and follow the person if they
+bring a different topic today.
 
 Run [`supabase/migrations/20260802000000_session_memory.sql`](supabase/migrations/20260802000000_session_memory.sql)
 to add the summary columns. Until it has run, memory still works — summaries
@@ -323,35 +368,74 @@ migration is a cost optimisation, not a feature flag. Deleting a conversation
 at ElevenLabs before its summary is cached forgets that session; after, the
 cached copy survives.
 
-### Study memory
+### Structured memory: the profile and the plan
 
-The summaries above are ElevenLabs' free-text paragraphs, which is enough to
-open a session warmly and not enough to teach from. Two structured tables sit
-beside them, filled from the per-coach extraction fields in
-[`dataCollection()`](src/lib/agent.ts):
+The summaries above are ElevenLabs' free-text paragraphs, which is enough to open
+a session warmly and not enough to teach from. Three tables carry the part you
+can teach from, filled from the extraction fields in
+[`dataCollection()`](src/lib/agent.ts) and read back by
+[`progress.ts`](src/lib/progress.ts). See
+[Accounts, plans and usage](#accounts-plans-and-usage) for their columns.
 
-| Table | What it holds |
+**The plan is not generated.** `buildPlan` in
+[`curriculum.ts`](src/lib/curriculum.ts) joins the fixed curriculum with the
+tasks and the path the diagnostic collected. Deterministic, so the plan the
+teacher works through is byte-for-byte the plan the progress page renders, and
+"paso 4 de 11" means one thing. It is built the first time a profile has weekly
+tasks, which is why a diagnostic that ran out of minutes before that question
+leaves no plan and says so on the progress page.
+
+**Memory reaches the agent as dynamic variables**, not as a contextual update:
+
+| Variable | What it carries |
 |---|---|
-| `session_summaries` | One row per finished session: exam or target date, weak areas, which questions were asked and which were missed, and the commitment. |
-| `career_profiles` | One row per learner: role, field, years, weekly tasks, tools, goal, the map they were given and the plan built from it. |
+| `apertura` | The first thing said out loud, composed server-side. On a first session it asks what they do; on a later one it names the step and the commitment. |
+| `registro` | The compact record: profile, chosen path, current step, last commitment with its status, days since the last session. Capped at 800 characters. |
+| `primera_sesion` | `sí` or `no`, which is what tells the persona to run the diagnostic instead of opening on a plan that does not exist. |
 
-[`studyContext()`](src/lib/study.ts) turns those into the block sent through
-`sendContextualUpdate` at the start of a session, capped at 800 characters
-because it competes with the persona for the same turn. It is what lets PMP bias
-the next set of questions toward the domains missed last time, and what lets the
-employability coach open on the step of the plan the learner is actually on.
-`isFirstSession()` sets `first_session`, which is how a coach knows to run the
-diagnostic instead of the follow-up.
+The first message is spoken before any LLM turn, so an opening that names the
+step cannot be a fixed string and must not depend on a model remembering to
+perform it. Placeholders for all three are declared on the agent, because a
+prompt referencing a variable nothing supplies fails the whole conversation, and
+that is exactly what a test from the ElevenLabs dashboard would do.
 
-Run [`supabase/migrations/20260808000000_study_memory.sql`](supabase/migrations/20260808000000_study_memory.sql).
-RLS is on and every policy is scoped to `auth.uid()`. Reads fail soft on a
-missing table or column, so a deployment without the migration behaves like one
-without memory rather than erroring.
+### The post-call webhook
+
+Session memory works without it: `memory.ts` fetches what it needs on the next
+connect. The plan does not. The plan has to exist before the learner opens the
+progress page, which is the thing that brings them back between sessions, and
+"the next time you start a call" is too late for a page whose whole job is to be
+read in between.
+
+[`/api/webhooks/elevenlabs`](src/app/api/webhooks/elevenlabs/route.ts) receives
+the post-call analysis and writes the profile, the plan, the step that advanced
+and the session row, in one pass. Set it up in the ElevenLabs dashboard:
+
+```
+Conversational AI -> Settings -> Webhooks
+URL:    https://<app>.vercel.app/api/webhooks/elevenlabs
+Events: post_call_transcription
+```
+
+Copy the signing secret into `ELEVENLABS_WEBHOOK_SECRET`. Without it the route
+refuses every request, which is the right default: an unauthenticated endpoint
+that writes to a learner's plan is worse than no webhook. Verification is HMAC
+SHA-256 over `${timestamp}.${body}` with a 30-minute tolerance, compared with
+`timingSafeEqual`, and the learner is resolved from `coach_sessions` by
+conversation id rather than from the payload, so a request cannot name a user of
+its own choosing.
+
+Rows are keyed on the conversation id, so a redelivery updates rather than
+duplicating.
+
+Run [`supabase/migrations/20260810000000_teacher_memory.sql`](supabase/migrations/20260810000000_teacher_memory.sql).
+Reads fail soft on a missing table or column, so a deployment without the
+migration behaves like one without memory rather than erroring.
 
 ### Commitments
 
 The follow-up above used to be a coin flip. The commitment lived only in the
-free-text summary, so the coach asked about it when ElevenLabs happened to keep
+free-text summary, so the teacher asked about it when ElevenLabs happened to keep
 it and silently didn't when it didn't — for the one behaviour the product sells
 hardest.
 
@@ -361,28 +445,27 @@ the action, the deadline as it was said, and the signal that would count as it
 having worked, which are exactly the three parts the persona demands. ElevenLabs
 fills them in when it analyses the call, so there is still no LLM of ours;
 [`commitments.ts`](src/lib/commitments.ts) stores them on the same lazy
-backfill as the summary and returns the most recent one, which is what the
-picker at `/coach` shows before you choose anything and what
-[`learnerContext()`](src/lib/memory.ts) puts at the top of the next session's
-context.
+backfill as the summary and returns the most recent one, which is what `/coach`
+shows above the microphone and what [`learnerContext()`](src/lib/memory.ts) puts
+at the top of the next session's context.
 
-There is deliberately **no completion column**. Nothing could set it honestly:
-the learner reports back out loud, mid-conversation, and a checkbox would invite
-marking something done without doing it — the exact failure this is aimed at. A
-commitment stops being shown when a newer session produces one.
+`coach_sessions` has deliberately **no completion column**: nothing could set it
+honestly from a transcript we never read. `session_summaries.commitment_done`
+does have one, and it is three-state, because the learner answers it themselves
+on the progress page and "nobody has said yet" is not the same as "no".
 
 Run [`supabase/migrations/20260805000000_commitments.sql`](supabase/migrations/20260805000000_commitments.sql)
-for the columns, and `npm run sync:agent -- --push` so the agents carry the
+for the columns, and `npm run sync:agent -- --push` so the agent carries the
 extraction fields. Both degrade quietly: without the migration the reads and
-writes are skipped and nothing else changes, and an agent provisioned before
-this existed picks the fields up on its next sync.
+writes are skipped and nothing else changes, and an agent provisioned before a
+field existed picks it up on the next sync.
 
 ## Tuning retrieval
 
 The knobs live in `ragConfig()` in [`src/lib/agent.ts`](src/lib/agent.ts):
 
 - **`max_vector_distance`** (0.8 by default) is the relevance gate and the
-  setting that matters most. Set too tight and the coach retrieves nothing,
+  setting that matters most. Set too tight and the teacher retrieves nothing,
   answering from general knowledge instead. That is now a legitimate answer
   rather than a failure, which is exactly why the threshold still matters: the
   learner loses the specific material without anything sounding wrong. At 0.6, a
@@ -395,11 +478,8 @@ The knobs live in `ragConfig()` in [`src/lib/agent.ts`](src/lib/agent.ts):
   least one on a topic the model likely knows independently. Questions only your
   corpus can answer will pass at almost any threshold and tell you nothing.
 
-  It is set **per coach**, because the corpora do not behave alike. PMP material
-  is terminology-dense and phrased almost identically across sources, so it sits
-  at 0.7 to keep near-duplicates from crowding out the chunk that answers the
-  question. `maxVectorDistance` in [`src/lib/coaches.ts`](src/lib/coaches.ts) is
-  the default; `<ENVKEY>_MAX_VECTOR_DISTANCE` overrides it without a deploy.
+  `TEACHER.maxVectorDistance` in [`src/lib/teacher.ts`](src/lib/teacher.ts) is
+  the default; `ELEVENLABS_MAX_VECTOR_DISTANCE` overrides it without a deploy.
 - **`max_retrieved_rag_chunks_count`** (12) and **`max_documents_length`**
   (12,000 tokens) — retrieval budget. Larger mostly buys latency, which is felt
   much more sharply in voice than in text.
@@ -421,11 +501,11 @@ claude-haiku-4-5    claude-sonnet-4     claude-3-7-sonnet
 Leave the variable unset and you get the ElevenLabs workspace default rather
 than a Claude model.
 
-The persona is built by `personaFor()` in the same file and returned by
-`tutorSystemPrompt(coach)`: one shared base plus the coach's own session spine
-from [`src/lib/coaches.ts`](src/lib/coaches.ts). Written for voice, so turns run
-to at most 3 sentences and nothing is read aloud that only makes sense on a
-page. See [What the coaches are for](#what-the-coaches-are-for).
+The persona is built by `persona()` in the same file and returned by
+`teacherSystemPrompt()`, with the curriculum rendered into it from
+[`curriculum.ts`](src/lib/curriculum.ts). Written for voice, so turns run to at
+most 3 sentences and nothing is read aloud that only makes sense on a page. See
+[How a session goes](#how-a-session-goes).
 
 ### `auto` vs `prompt` usage mode
 
@@ -438,80 +518,71 @@ page. See [What the coaches are for](#what-the-coaches-are-for).
 glossary of internal acronyms. Pass `"usageMode": "prompt"` on upload, or tick
 "Always in context" in the UI.
 
-## What the coaches are for
+## How a session goes
 
-**PMP** runs the same shape every session: ask the exam date and say how many
-days are left, put one PMI-style situational question with 4 options, correct
-the answer naming the domain and task from the Examination Content Outline,
-explain in at most 3 sentences why the best answer is best and why the most
-tempting distractor is wrong, repeat 3 to 5 times biased toward the domains
-missed last time, and close on a commitment. Where PMI's expected answer
-differs from what an experienced project manager would actually do, the coach
-says so out loud, because that gap is where most of the score is lost.
+**The first session is a diagnostic.** One question per turn, each under two
+sentences, until the teacher has the role or degree, the field and sector, the
+years, the 3 to 5 tasks that fill most of the week, the tools already used,
+whether AI is already in play, and the goal. It reflects the profile back in
+three sentences, gives the map, and asks which of the three paths is theirs. Then
+the plan gets built and the learner is told where to see it. It closes on the
+first commitment.
 
-**Empleabilidad con IA** starts with a diagnostic: role or degree, field,
-years, the 3 to 5 tasks that fill the week, tools already used, and the goal.
-Then it gives the map before any plan: where the learner's existing knowledge
-gains value, what categories of tool exist and what each unlocks for their
-tasks, and 3 paths from closest to farthest. Later sessions are lessons anchored
-to one of the learner's own weekly tasks, never a tool in the abstract: the
-concept in 2 sentences, the exact steps at voice pace, the verification habit,
-and an exercise. It asks whether the learner is at a computer or walking and
-teaches differently for each. It is career and technical guidance, not interview
-rehearsal.
+**Every session after that is a lesson**, in this order: review the evidence for
+the current step in at most three sentences (what worked, what is missing, what a
+stronger version looks like), then teach, then close on a commitment. A lesson is
+the concept in two sentences, the exact steps at voice pace, the verification
+habit, and one exercise on the learner's own task corrected in session. It
+explains why the technique works, not only which button to press.
 
-Both close every session the same way: 1 action, 1 date, 1 signal that confirms
-it worked. The next session opens by asking about it.
+**It asks where the learner is.** At a computer: one step per turn, waiting for
+confirmation, adapting to what they report seeing. Walking or driving: concept,
+reasoning and rehearsal by voice, and the hands-on part becomes homework with
+exact steps.
+
+Both close the same way: 1 action, 1 date, 1 signal that would confirm it worked.
+The next session opens by asking about it, and does not accept "sí, lo hice"
+without a description.
 
 ### Why not just use ChatGPT
 
-Every visitor is asking this, so it is worth being able to answer it in
-behaviour rather than in adjectives. Most of the persona is *prohibitions* —
-don't invent figures, don't deny features from memory, don't dictate click
-paths. Those keep the coach from being **worse** than a general assistant. None
-of them make it better than one.
+Every visitor is asking this, so it is worth being able to answer in behaviour
+rather than in adjectives. Most of the persona is *prohibitions*: no invented
+figures, no invented course names, no claiming to have looked something up. Those
+keep the teacher from being **worse** than a general assistant. None of them make
+it better than one.
 
-Four sections do the differentiating, each one checkable in a single
-conversation and each one something a general assistant structurally cannot do
-with this corpus:
+Four things do the differentiating, each checkable in a single session, and each
+one listed on the landing page in `DIFFERENCES`:
 
-- **It names the source out loud, mid-sentence.** "This is Kagan, in *Million
-  Dollar Weekend*." The corpus carries its attributions inside the prose, so the
-  retrieved chunk has the author in it. A general model recalls the same ideas
-  unsourced and — the part that matters — cannot tell you which of the two it is
-  doing. The persona also forbids attributing anything the material didn't
-  attribute: a false citation is worse than none, because it is what the learner
-  repeats in their next meeting.
-- **It refuses to average the authors.** The corpus has an explicit contrast
-  document ([`08-errores-y-desacuerdos.md`](knowledge/negocio/08-errores-y-desacuerdos.md))
-  recording where Kagan, Martell and Abdaal genuinely disagree — validate in 48
-  hours versus build slowly over years while keeping your job. Consensus
-  smoothing is the default failure of a summarising model, and it deletes
-  exactly the information that decides what someone should do. The persona names
-  both positions, picks one for *this* person, and says what would flip it.
-- **It closes on a commitment.** One action, a date, and what signal would count
-  as it having worked — the cheapest test that resolves the biggest doubt, not
-  the most thorough plan. One thing, not three: a list of next steps is
-  forgotten whole.
-- **It doesn't sound like a chatbot.** No "great question", no "hope that
-  helps", no "ultimately it depends on you". That register is the most
-  recognisable tell there is, and removing it costs nothing.
+- **It interviews you first.** A general assistant answers what you ask, so a
+  learner who does not know what to ask gets nowhere. This one starts from your
+  week and teaches on your own tasks.
+- **It has a curriculum.** Four levels in a fixed order, with a step count you
+  can see. A chat window has no notion of where you are in anything.
+- **It knows what you owe.** The commitment is an extracted field, not a hope
+  that a summariser kept it, and the next session opens on it.
+- **It distinguishes what it knows from what it has.** It names the source when
+  it retrieved one, says so when the answer is general criterion, and gives no
+  figures without a source. A general model recalls the same ideas unsourced and,
+  the part that matters, cannot tell you which of the two it is doing.
 
-The first three were promised on the marketing page before anything in the
-prompt asked for them. If you drop one from the persona, drop it from
-`DIFFERENCES` in [`src/lib/site.ts`](src/lib/site.ts) in the same change — that
-list is a set of claims a visitor can falsify in one session.
+If you drop one of these from the persona, drop it from `DIFFERENCES` and
+`PROMISES` in [`src/lib/site.ts`](src/lib/site.ts) in the same change. Those are
+claims a visitor can falsify in one session, and `npm run doctor` fails when a
+`PROMISES` entry has no matching marker in the built prompt.
 
 **The date is injected from the browser**, in
-[`VoiceTutor`](src/components/VoiceTutor.tsx), alongside the learner's stated
-objective. Without it the commitment step degrades: a model has no clock, so it
-either invents a date or retreats to "this week", which is the vagueness the
-commitment exists to remove.
+[`VoiceTutor`](src/components/VoiceTutor.tsx). Without it the commitment step
+degrades: a model has no clock, so it either invents a date or retreats to "this
+week", which is the vagueness the commitment exists to remove. It also feeds
+"days since your last session" in the record.
 
 ### Pushing a persona change
 
-The persona is source code, but each agent holds its own copy: editing
-`personaFor()` or a coach's `sessionSpine` changes nothing audible until it is
+The persona is source code, but the agent holds its own copy: editing
+`persona()` in [`agent.ts`](src/lib/agent.ts), or a lesson title in
+[`curriculum.ts`](src/lib/curriculum.ts), changes nothing audible until it is
 pushed.
 
 ```bash
@@ -520,8 +591,9 @@ npm run sync:agent -- --push  # apply
 ```
 
 Dry by default: it writes to a live agent that someone may be mid-conversation
-with. The same call re-attaches every indexed document, because the prompt and
-the knowledge list go up in one PATCH and are not separable.
+with. The same call re-attaches every indexed document and re-declares the
+dynamic-variable placeholders and the extraction fields, because the whole prompt
+block goes up in one PATCH and is not separable.
 
 `POST /api/agent` on a deployment does the same thing, but requires shipping the
 change before you can hear it.
@@ -533,11 +605,13 @@ src/lib/elevenlabs.ts   Typed REST client (knowledge base, RAG, agents, signed U
 src/lib/knowledge.ts    Ingestion + index status
 src/lib/catalog.ts      Assembles document state from ElevenLabs + agent config
 src/lib/agent.ts        Persona, RAG config, data collection, knowledge sync
-src/lib/coaches.ts      The two coaches: scope, corpus prefixes, session spines
-src/lib/study.ts        Session summaries and career profiles, for continuity
+src/lib/curriculum.ts   The 4 levels, the lessons, and buildPlan
+src/lib/teacher.ts      Agent identity, corpus prefixes, spoken openings
+src/lib/progress.ts     Profile, plan and session rows, both directions
 src/lib/auth.ts         Shared-secret gate
 src/lib/config.ts       Env config + bounded-concurrency helper
 src/app/api/            Route handlers
+src/app/progreso/       The notebook: map, plan, evidence, history
 src/components/         VoiceTutor, KnowledgeManager, KnownTopics
 src/lib/site.ts         Landing-page copy, incl. the falsifiable DIFFERENCES list
 scripts/                setup-agent, sync-agent, bulk ingest, doctor
@@ -545,32 +619,37 @@ scripts/                setup-agent, sync-agent, bulk ingest, doctor
 
 ## Known limits
 
-- **Topic grouping and session history were dropped** when the app went
-  stateless — both needed a database. RAG relevance handles scoping in
-  practice. If you want them back, Vercel KV is the smallest addition.
 - **The catalog fans out one status request per document**, capped at 8
   concurrent. Past a few hundred documents, paginate the list route.
-- **Corpus isolation is per-agent, not per-workspace.** Each coach attaches only
-  the documents matching its `sources` prefixes, so one coach cannot retrieve
-  another's material. The documents themselves are still workspace-wide, so any
-  agent you create by hand *could* be pointed at them — fine for coaches we own,
-  not sufficient for a client's private corpus, which needs its own workspace.
+- **Corpus isolation is per-agent, not per-workspace.** The agent attaches only
+  documents matching `TEACHER.sources`, so the retired corpora cannot be
+  retrieved. The documents themselves are still workspace-wide, so any agent you
+  create by hand *could* be pointed at them, which is fine for material we wrote
+  and not sufficient for a client's private corpus, which needs its own workspace.
 - **Voice needs HTTPS.** Fine on Vercel and on `localhost`; a plain-HTTP host
   will silently fail to get mic access.
-- **Procedural steps come from general knowledge, not the corpus.** The
-  employability coach's job includes saying which menu to open and what to type,
-  and no corpus here documents anyone's interface. So those steps come from the
-  model, are subject to the honesty rule like anything else, and go stale when a
-  vendor moves a button. The persona keeps them at voice pace and pairs each one
-  with a way to check the result, which is what makes a wrong step recoverable.
-- **Memory is per-deployment-with-Supabase, and only as good as the
-  summaries.** Session memory (see [Session memory](#session-memory)) needs the
-  service role to read the ledger — a deployment without Supabase starts every
-  conversation cold, as before. The summaries themselves are ElevenLabs'
-  automatic ones: a paragraph per call, usually in English, with no control
-  over what they keep. Nuance does not survive; the commitment no longer relies
-  on it, since it is extracted as its own field (see [Commitments](#commitments)).
-- **The persona is long** (9.2k characters for PMP, 13.6k for employability)
-  and rides on every turn. `npm run doctor` fails it past 15k. It is a system prompt, so it caches, but a materially larger one
-  will start to be felt as latency in voice, where it is much more noticeable
-  than in text.
+- **Procedural steps come from general knowledge, and go stale.** The teacher's
+  job includes saying which menu to open and what to type, and no corpus here
+  documents anyone's interface. Those steps come from the model, are subject to
+  the honesty rule like anything else, and are wrong the moment a vendor moves a
+  button. The persona says so while giving them, keeps them at voice pace, and
+  pairs each with a way to check the result, which is what makes a wrong step
+  recoverable rather than misleading.
+- **Step status depends on the extractor.** `lesson_taught` comes back as the
+  teacher's own phrasing, matched against the learner's step titles by loose
+  comparison. A paraphrase far enough from the title falls back to the current
+  step, and a session that taught nothing advances nothing. The learner can see
+  and correct the result on `/progreso`, which is the backstop.
+- **The free tier is a lifetime 20 minutes**, enforced at mint time against the
+  `plan_usage_total` view. Nothing takes money yet: `CHECKOUT_READY` in
+  [`plans.ts`](src/lib/plans.ts) is false and the paid buttons write to a person.
+- **Memory needs Supabase and the webhook.** Without the service role there is no
+  ledger, so every conversation starts cold. Without
+  `ELEVENLABS_WEBHOOK_SECRET` the profile and the plan are never written, and the
+  progress page stays empty however many sessions happen. Both fail soft: the
+  teacher still talks.
+- **The persona is 14.8k characters** and rides on every turn. `npm run doctor`
+  fails past 15k and warns inside 500 of it, which matters because the prompt
+  grows on its own: every lesson title added to the curriculum lands in it. It is
+  a system prompt, so it caches, but a materially larger one starts to be felt as
+  latency in voice, where it is far more noticeable than in text.
