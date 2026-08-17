@@ -135,6 +135,13 @@ Three ways out, in increasing order of how much they cost in trust:
 Repricing after people have subscribed is the expensive option, which is why the
 break-even table is on `/admin/costos` rather than only here.
 
+Option 1 is written and not applied:
+[`supabase/optional/founder_allowance_120.sql`](../supabase/optional/founder_allowance_120.sql).
+It is deliberately outside `supabase/migrations/`, so `npm run sql` cannot apply a
+pricing decision by accident. Run `npm run doctor` first — if the Billing section
+already reports subscribers, that file is the expensive option and raising the
+price is the cheaper one.
+
 ### Fixed monthly costs
 
 | Item | $/mo | Why not the free tier |

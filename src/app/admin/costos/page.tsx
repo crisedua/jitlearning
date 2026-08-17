@@ -284,7 +284,10 @@ function BreakEven() {
           asignación completa. Sobrevive mientras el uso promedio quede muy por debajo, que es lo
           normal en una suscripción, y es justo lo que este producto está diseñado para subir.
           Tres salidas: bajar los minutos incluidos, subir el precio, o dejarlo y vigilar{' '}
-          <code className="font-mono text-[12px]">plan_usage</code> el primer mes.
+          <code className="font-mono text-[12px]">plan_usage</code> el primer mes. La primera está
+          escrita y sin aplicar en{' '}
+          <code className="font-mono text-[12px]">supabase/optional/founder_allowance_120.sql</code>{' '}
+          — sale gratis mientras nadie haya pagado, y cara el día después.
         </p>
       )}
     </section>

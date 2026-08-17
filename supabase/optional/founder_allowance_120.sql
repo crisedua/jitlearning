@@ -1,0 +1,42 @@
+-- OPTIONAL. Nothing runs this for you, and `npm run sql` does not include it.
+--
+-- Lowers the Fundador allowance from 300 minutes to 120, and Estándar from 300
+-- to 240. Apply it, or don't: it is a pricing decision, not a fix.
+--
+-- ## The arithmetic it responds to
+--
+-- Marginal cost is $0.152 per spoken minute (docs/pricing.md §1). After Stripe's
+-- 2.9% + $0.30, a $9 subscription nets $8.44 and covers 56 minutes. It advertises
+-- 300. A subscriber who uses what they were sold costs $45.60 and pays $8.44.
+--
+-- That is the ordinary shape of a subscription and it is survivable while average
+-- use stays far below the allowance. What makes it worth deciding *now* rather
+-- than later is that this product is built to raise engagement: a first session
+-- that finishes real work, a number that recurs weekly, a reason to come back for
+-- the next task. Every improvement moves average use toward the allowance.
+--
+-- ## Why now is the cheap moment
+--
+-- Lowering an allowance nobody has bought costs nothing. Lowering one after people
+-- have subscribed means telling paying customers they get less than they were
+-- sold, which costs more trust than the margin is worth. Run
+-- `npm run doctor` first: if the Billing section reports subscribers, this file is
+-- already the expensive option and you should raise the price instead.
+--
+-- 120 minutes is still four to six classes a month, which covers the 3 to 5 weekly
+-- tasks of level 1 plus the level 2 lessons. It is not a crippled tier; it is the
+-- tier the arithmetic supports.
+--
+-- ## After applying
+--
+--   1. `plans.monthly_minutes` is what `checkPlanAllowance` enforces, so this
+--      takes effect immediately for everyone on those plans.
+--   2. Update PLAN_FEATURES and FALLBACK_PLANS in src/lib/plans.ts to match, or
+--      the pricing page will quote the old figure during a database outage.
+--   3. Stripe is not involved: the price is unchanged, only what it buys.
+
+update public.plans set monthly_minutes = 120 where id = 'founder';
+update public.plans set monthly_minutes = 240 where id = 'standard';
+
+-- To undo, before anybody subscribes:
+--   update public.plans set monthly_minutes = 300 where id in ('founder', 'standard');
