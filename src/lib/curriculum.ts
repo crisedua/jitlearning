@@ -346,6 +346,52 @@ export interface PlannedStep {
  * described a job, not a plan, and the teacher is instructed to pick the 3 to 5
  * that fill most of the week.
  */
+/**
+ * A stable id for one of the learner's own weekly tasks.
+ *
+ * ## Why this is not the position in the list
+ *
+ * It was `sem-01`, `sem-02`, numbered by array index, and that made the id a
+ * fact about the order of an array rather than about the task. `upsertProfile`
+ * replaces `weekly_tasks` wholesale whenever a session yields any, so the order
+ * is not stable across conversations: the same `sem-01` could describe answering
+ * supplier email one week and writing the weekly summary the next, while the
+ * measured minutes sitting on that row belonged to the first.
+ *
+ * The old code avoided that by building the plan exactly once and never
+ * touching it again. Safe, and it froze the plan at whatever the first
+ * successful extraction happened to contain. A learner who named one task in
+ * session one had a one-task plan permanently, while the offer beside it
+ * promised "alcanza para las 3 a 5 tareas de tu semana". The teacher would keep
+ * collecting tasks and the notebook would keep not showing them.
+ *
+ * Deriving the id from the task text makes both problems go away. The same task
+ * keeps its id, its status and its minutes no matter how the list is reordered,
+ * and a task named later is simply a new step. A reworded task becomes a new
+ * step too, and the old one stays: its minutes were measured against the words
+ * that were actually said, and quietly moving them onto a different sentence
+ * would be the corruption this exists to prevent.
+ *
+ * FNV-1a over the accent-stripped text. Not a security boundary, just a short
+ * stable name, and kept dependency-free so this module stays usable in the
+ * browser.
+ */
+export function weeklyLessonId(task: string): string {
+  const normalised = task
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < normalised.length; i++) {
+    hash ^= normalised.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return `sem-${hash.toString(36).padStart(7, '0')}`;
+}
+
 export function buildPlan(input: {
   weeklyTasks: readonly string[];
   path: PathId | null | undefined;
@@ -362,8 +408,8 @@ export function buildPlan(input: {
     .filter(Boolean)
     .slice(0, WEEKLY_MAX);
 
-  const weekly: PlannedStep[] = tasks.map((task, i) => ({
-    lessonId: `sem-${String(i + 1).padStart(2, '0')}`,
+  const weekly: PlannedStep[] = tasks.map((task) => ({
+    lessonId: weeklyLessonId(task),
     level: WEEKLY.level,
     title: WEEKLY.title(task),
     linkedTask: task,

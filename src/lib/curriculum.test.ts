@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
-import { LEVELS, buildPlan, PATHS, type PathId } from './curriculum';
+import { LEVELS, PATHS, buildPlan, isWeeklyTask, type PathId, weeklyLessonId } from './curriculum';
 
 const MIGRATIONS = path.join(process.cwd(), 'supabase', 'migrations');
 
@@ -71,5 +71,68 @@ describe('level ids agree between the curriculum and the database', () => {
         assert.ok(allowed.has(step.level), `${path}: step '${step.lessonId}' has level '${step.level}'`);
       }
     }
+  });
+});
+
+/**
+ * The identity of one of the learner's own tasks.
+ *
+ * A weekly step carries the two numbers the whole value claim rests on, so its
+ * id has to name the task and nothing else. When the id was the position in an
+ * array, and `upsertProfile` replaces that array wholesale, "step one" could
+ * come to mean a different task between one conversation and the next while the
+ * measured minutes stayed put.
+ */
+describe('naming a weekly task', () => {
+  it('gives the same task the same id every time', () => {
+    assert.equal(
+      weeklyLessonId('Responder correos de proveedores'),
+      weeklyLessonId('Responder correos de proveedores'),
+    );
+  });
+
+  it('does not depend on where the task sits in the list', () => {
+    const a = buildPlan({ weeklyTasks: ['Tarea uno', 'Tarea dos'], path: 'mejorar' });
+    const b = buildPlan({ weeklyTasks: ['Tarea dos', 'Tarea uno'], path: 'mejorar' });
+
+    const idOf = (plan: typeof a, task: string) =>
+      plan.find((s) => s.linkedTask === task)!.lessonId;
+
+    assert.equal(idOf(a, 'Tarea uno'), idOf(b, 'Tarea uno'));
+    assert.equal(idOf(a, 'Tarea dos'), idOf(b, 'Tarea dos'));
+  });
+
+  it('ignores case, accents and spacing, which a transcript will vary', () => {
+    assert.equal(weeklyLessonId('Informe  Semanal'), weeklyLessonId('informe semanal'));
+    assert.equal(weeklyLessonId('Cotizacion'), weeklyLessonId('Cotización'));
+  });
+
+  it('gives different tasks different ids', () => {
+    const seen = new Set(
+      ['Responder correos', 'Armar el informe', 'Cotizar', 'Actualizar la planilla'].map(
+        weeklyLessonId,
+      ),
+    );
+    assert.equal(seen.size, 4);
+  });
+
+  it('is still recognisable as a weekly task', () => {
+    // isWeeklyTask gates whether the minutes are written at all.
+    assert.ok(isWeeklyTask(weeklyLessonId('Cualquier tarea')));
+  });
+
+  it('adding a task leaves the existing ones untouched', () => {
+    // The whole point: re-running buildPlan after the learner names a second
+    // task must not renumber the first, because the first carries its minutes.
+    const before = buildPlan({ weeklyTasks: ['Responder correos'], path: 'mejorar' });
+    const after = buildPlan({
+      weeklyTasks: ['Responder correos', 'Armar el informe'],
+      path: 'mejorar',
+    });
+
+    const first = before.find((s) => s.linkedTask === 'Responder correos')!;
+    const same = after.find((s) => s.linkedTask === 'Responder correos')!;
+    assert.equal(first.lessonId, same.lessonId);
+    assert.equal(after.filter((s) => isWeeklyTask(s.lessonId)).length, 2);
   });
 });

@@ -753,7 +753,6 @@ function prune<T extends Record<string, unknown>>(value: T): Partial<T> {
  */
 async function ensurePlan(userId: string): Promise<number> {
   const existing = await planSteps(userId);
-  if (existing.length > 0) return 0;
 
   const profile = await careerProfile(userId);
   if (!profile || profile.weeklyTasks.length === 0) return 0;
@@ -762,6 +761,24 @@ async function ensurePlan(userId: string): Promise<number> {
     weeklyTasks: profile.weeklyTasks,
     path: profile.chosenPath,
   });
+
+  /*
+   * The plan grows as the learner names more of their week.
+   *
+   * This used to return early whenever any step existed, so the plan was frozen
+   * at whatever the first successful extraction held. Somebody who named one
+   * task in their first conversation had a one-task plan for good, while the
+   * offer next to it promised three to five, and the teacher went on collecting
+   * tasks that never appeared anywhere.
+   *
+   * Safe to re-run now only because `weeklyLessonId` derives the id from the
+   * task text: an existing step keeps its id, and with it its status, its
+   * evidence and its measured minutes. The upsert names no status column, so a
+   * finished step stays finished. Nothing is ever deleted, because deleting a
+   * step is deleting a measurement.
+   */
+  const known = new Set(existing.map((s) => s.lessonId));
+  if (planned.every((step) => known.has(step.lessonId))) return 0;
 
   const rows = planned.map((step, i) => ({
     user_id: userId,
