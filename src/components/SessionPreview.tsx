@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from 'react';
 
-const QUESTION = 'Tengo una idea de negocio pero no sé si alguien pagaría por ella.';
+const QUESTION = 'Listo, quedó armado. Me tomó veinte minutos.';
 const ANSWER =
-  'Entonces todavía no toca construir nada. Busca tres personas que te paguen en cuarenta y ocho horas. ¿A quién podrías escribirle hoy mismo?';
-const SOURCE =
-  'Respuesta fundamentada en la regla de validación de Noah Kagan, que está en la base de conocimiento.';
+  'Antes tardabas noventa. Acabas de recuperar setenta minutos, y eso se repite cada semana que hagas este informe. Te lo anoto en tu página de progreso.';
+const SOURCE = 'Los dos números los pusiste tú. La resta es lo único que ponemos nosotros.';
 
 /** Milliseconds from the start of a loop at which each stage begins. */
 const CUES = { userTyping: 600, user: 2000, coachTyping: 3000, coach: 4600 } as const;
@@ -14,12 +13,26 @@ const TYPE_MS = 26;
 const HOLD_MS = 7000;
 
 /**
- * The hero's replay of a real exchange.
+ * The hero's replay of the moment the product pays for itself.
  *
- * It sells the tone of the thing rather than describing it: someone asks
- * whether their idea would sell, and the coach pushes back with the validation
- * rule instead of agreeing. The words are the ones the corpus actually
- * supports, so the demo does not promise behaviour the product lacks.
+ * Not the opening question: the end of the first session, where the learner says
+ * how long the task took and the teacher says the subtraction. That is the whole
+ * pitch in two lines, and it is the exact exchange the session spine produces, so
+ * the demo promises nothing the product does not do.
+ *
+ * ## What this used to be, and why that mattered
+ *
+ * It replayed the retired entrepreneur coach: an idea-validation question,
+ * answered with Noah Kagan's 48-hour rule, footnoted "que está en la base de
+ * conocimiento". That corpus moved to `knowledge/_retired/` two products ago, so
+ * the most persuasive element on the landing page was demonstrating a coach that
+ * no longer exists and citing a source the agent can no longer retrieve. A
+ * fabricated citation, on the home page, of a product whose entire claim is that
+ * it does not fabricate citations.
+ *
+ * Whatever replaces this has to be an exchange the current persona actually
+ * produces. Check it against `### Primera sesión` in `agent.ts` before changing a
+ * word of it.
  *
  * The animated region is hidden from assistive tech — a typewriter effect
  * re-announces the same sentence on every character. The exchange is exposed
@@ -82,7 +95,7 @@ export function SessionPreview() {
     <div className="rounded-xl border border-line bg-surface p-6 shadow-lg sm:p-7">
       <div className="flex items-center justify-between gap-4 border-b border-line pb-4">
         <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-soft">
-          Así suena una sesión
+          El final de la primera clase
         </span>
         <Waveform />
       </div>
@@ -114,7 +127,8 @@ export function SessionPreview() {
       )}
 
       <p className="sr-only">
-        Ejemplo de conversación. Tú: «{QUESTION}» Coach: «{ANSWER}» {SOURCE}
+        Ejemplo de conversación al final de la primera clase. Tú: «{QUESTION}» Profesor: «{ANSWER}»{' '}
+        {SOURCE}
       </p>
     </div>
   );
