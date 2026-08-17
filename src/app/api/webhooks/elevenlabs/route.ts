@@ -58,14 +58,24 @@ function verify(rawBody: string, header: string | null, secret: string): boolean
     }),
   );
 
-  const timestamp = Number(parts.get('t'));
+  /*
+   * `sent` is the timestamp exactly as it arrived, and it is what goes into the
+   * HMAC. Signing over `Number(sent)` instead would work until the day the
+   * string does not survive a round trip through a float, at which point every
+   * webhook 401s and the entire memory pipeline stops with a correct-looking
+   * signature check. Free to avoid, so it is avoided.
+   */
+  const sent = parts.get('t');
   const provided = parts.get('v0');
-  if (!Number.isFinite(timestamp) || !provided) return false;
+  if (!sent || !provided) return false;
+
+  const timestamp = Number(sent);
+  if (!Number.isFinite(timestamp)) return false;
 
   const age = Math.abs(Math.floor(Date.now() / 1000) - timestamp);
   if (age > TOLERANCE_SECONDS) return false;
 
-  const expected = createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex');
+  const expected = createHmac('sha256', secret).update(`${sent}.${rawBody}`).digest('hex');
   const a = Buffer.from(expected, 'utf8');
   const b = Buffer.from(provided, 'utf8');
   return a.length === b.length && timingSafeEqual(a, b);
