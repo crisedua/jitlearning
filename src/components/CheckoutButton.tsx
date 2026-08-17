@@ -1,6 +1,8 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import { signInPath } from '@/lib/paths';
 
 /**
  * The button that takes money.
@@ -12,10 +14,16 @@ import { useState } from 'react';
  * ## The signed-out case is handled, not blocked
  *
  * A visitor comparing prices has usually not signed in. The route answers 401 and
- * this sends them through Google with `next` pointing back at the pricing page, so
- * they land where they were rather than on the home page wondering what happened.
- * Losing somebody at the moment they decided to pay is the most expensive failure
- * a pricing page has.
+ * this sends them through Google with `next` pointing back at the page they were
+ * on, so they land where they were rather than on the home page wondering what
+ * happened. Losing somebody at the moment they decided to pay is the most
+ * expensive failure a pricing page has.
+ *
+ * That return path used to be the string `/planes` while the comment beside it
+ * claimed they land where they were. Harmless while this only rendered on the
+ * pricing page, and quietly wrong the moment it did not: the offer on `/progreso`
+ * is made next to the learner's own measured hours, and bouncing them to a
+ * comparison table throws away the one thing that convinced them.
  */
 export function CheckoutButton({
   plan,
@@ -28,6 +36,7 @@ export function CheckoutButton({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const here = usePathname();
 
   async function start() {
     setBusy(true);
@@ -40,7 +49,7 @@ export function CheckoutButton({
       });
 
       if (res.status === 401) {
-        window.location.href = `/auth/login?next=${encodeURIComponent('/planes')}`;
+        window.location.href = signInPath(here || '/planes');
         return;
       }
 

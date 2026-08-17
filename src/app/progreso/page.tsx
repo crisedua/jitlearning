@@ -20,6 +20,7 @@ import { getUsageBalance } from '@/lib/account';
 import { formatMinutes, formatMoney, type Plan } from '@/lib/plans';
 import { recommendedPlan } from '@/lib/offer';
 import { BillingLink } from '@/components/BillingLink';
+import { CheckoutButton } from '@/components/CheckoutButton';
 import { saveEvidence, setCommitmentDone } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -36,9 +37,11 @@ export const metadata = {
  * promised. None of it would survive being read aloud, and all of it is the
  * reason to come back between sessions.
  *
- * Server components throughout. The only interactive parts are two forms posting
- * to server actions, so this page ships no client JavaScript of its own: the
- * whole thing is readable on a phone on a bus, which is where it will be read.
+ * Server components throughout, with one exception: the checkout button in the
+ * offer, which needs a fetch and a redirect and cannot be a form post. Two forms
+ * posting to server actions carry the rest. Everything that can be read is
+ * readable on a phone on a bus with nothing running, which is where it will be
+ * read.
  */
 export default async function ProgresoPage({
   searchParams,
@@ -140,9 +143,20 @@ function freeMinutesLeft(balance: Awaited<ReturnType<typeof getUsageBalance>>): 
  * lie the first time somebody changed a price — the exact drift the pricing page
  * has always avoided by reading `plans` at request time.
  *
- * The button goes to /planes rather than straight to checkout. Somebody deciding
- * wants to see what the tiers are, and skipping that step to shave a click reads as
- * a trick at the moment trust matters most.
+ * ## The button used to go to /planes, and the reason it no longer does
+ *
+ * It sent people to the pricing page on the argument that somebody deciding
+ * wants to see the tiers, and that shaving the click would read as a trick at
+ * the moment trust matters most. The concern was about hiding the alternatives,
+ * and it was right about that. It was wrong about the remedy: the paragraph
+ * above has already named this plan, this price and this allowance, so the
+ * pricing page was not showing them a choice, it was making them find the row
+ * they had just read and decide again without their own number in front of them.
+ *
+ * Nothing is hidden now instead. The button states the plan and the exact monthly
+ * charge on its face, and the comparison is one link below it. That answers the
+ * trust objection more directly than a detour did, because the price is on the
+ * thing you press rather than on a page you have to go and read.
  */
 function Ofrecer({
   saved,
@@ -174,17 +188,30 @@ function Ofrecer({
             : `Te quedan ${minutesLeft} minutos gratis.`}
         </p>
       )}
-      <Link
-        href="/planes"
-        className="mt-5 inline-flex items-center gap-2.5 rounded-full bg-accent px-6 py-3 text-[15px] font-medium text-white shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover"
-      >
-        Ver los planes
-        <span aria-hidden className="font-mono">
-          →
-        </span>
-      </Link>
+      {/*
+       * The checkout itself, not a link to a page that sells it.
+       *
+       * This is the highest-intent moment the product has: the sentence above
+       * just told them, in their own measured numbers, what they get back each
+       * week, and named this plan and this price. Sending them to a comparison
+       * table from here asks them to make the decision a second time, without
+       * the number that made it, and the plan they would be comparing is the one
+       * already named. `plan` is the recommended plan the page resolved, so the
+       * button buys exactly what the paragraph describes.
+       */}
+      <div className="mt-5 max-w-[22rem]">
+        <CheckoutButton
+          plan={plan.id}
+          label={`Activar ${plan.name} · ${formatMoney(plan.priceMinor, plan.currency)} al mes`}
+          recommended
+        />
+      </div>
       <p className="mt-3 text-[13px] leading-relaxed text-soft">
-        Cancelas cuando quieras, desde esta misma página.
+        Cancelas cuando quieras, desde esta misma página.{' '}
+        <Link href="/planes" className="underline underline-offset-2 hover:text-accent">
+          Ver todos los planes
+        </Link>
+        .
       </p>
     </section>
   );
