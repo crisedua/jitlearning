@@ -85,6 +85,20 @@ export interface CostInputs {
   /** Force a tier, or let the model pick the cheapest that fits. */
   elevenLabsTierId: string | 'auto';
 
+  /**
+   * Lookups per spoken minute. The teacher calls the search tool only when the
+   * answer depends on something current, so this is well under 1: roughly two
+   * lookups in a 15-minute class.
+   */
+  lookupsPerMinute: number;
+  /** USD per lookup: one Claude Opus 5 turn plus its web searches. */
+  lookupCost: number;
+
+  /** Percentage the payment processor takes, as a fraction. */
+  processorRate: number;
+  /** Flat fee per transaction, in USD. */
+  processorFixed: number;
+
   /** Flat monthly cost of the database. */
   supabaseMonthly: number;
   /** Flat monthly cost of hosting and bandwidth. */
@@ -93,21 +107,44 @@ export interface CostInputs {
 
 /**
  * Defaults derived in `docs/pricing.md` §1, from this repository's own agent
- * configuration: a 17,791-character system prompt and `max_documents_length` of
- * 12,000 characters, against Claude Sonnet 4.5 list pricing.
+ * configuration: the persona measured by `teacherSystemPrompt()` and
+ * `max_documents_length` of 12,000 characters, against Claude Sonnet 4.5 list
+ * pricing for the conversation turn.
+ *
+ * `inputTokensPerTurn` tracks the persona, which is now ~15,400 characters
+ * (~4,400 tokens) plus retrieval and history. Re-measure it when the prompt
+ * changes: the doctor prints the character count on every run.
  */
 export const DEFAULT_INPUTS: CostInputs = {
   users: 30,
   minutesPerUser: 60,
 
   turnsPerMinute: 2,
-  inputTokensPerTurn: 9_100,
+  inputTokensPerTurn: 8_400,
   outputTokensPerTurn: 200,
   inputPricePerMTok: 3,
   outputPricePerMTok: 15,
 
   elevenLabsOveragePerMinute: 0.08,
   elevenLabsTierId: 'auto',
+
+  /*
+   * Two lookups in a 15-minute class, each one an Opus 5 turn (~12k input from
+   * the search results, ~650 output including thinking) plus up to 4 web
+   * searches at $10/1k. That is ~$0.076 + ~$0.04 = ~$0.116, which makes a lookup
+   * cost about the same as one spoken minute.
+   *
+   * Small, but it is the line most likely to be forgotten, because it is billed
+   * by a third provider that appears on neither the ElevenLabs nor the Supabase
+   * invoice.
+   */
+  lookupsPerMinute: 2 / 15,
+  lookupCost: 0.116,
+
+  // Stripe's standard rate. On a $9 subscription this is $0.56, or 6% of the
+  // revenue, which is not negligible against these margins.
+  processorRate: 0.029,
+  processorFixed: 0.3,
 
   supabaseMonthly: 25,
   vercelMonthly: 20,
@@ -130,9 +167,12 @@ export interface CostBreakdown {
   totalMinutes: number;
   /** USD per spoken minute of LLM inference. */
   llmPerMinute: number;
+  /** USD per spoken minute of search lookups, amortised over the class. */
+  lookupPerMinute: number;
 
   elevenLabs: ElevenLabsCost;
   llm: number;
+  lookups: number;
   supabase: number;
   vercel: number;
   total: number;
@@ -217,6 +257,8 @@ export function llmCostPerMinute(input: CostInputs): number {
 export function project(input: CostInputs): CostBreakdown {
   const totalMinutes = Math.max(0, input.users * input.minutesPerUser);
   const llmPerMinute = llmCostPerMinute(input);
+  // The search tool, billed by Anthropic and invisible on every other invoice.
+  const lookupPerMinute = input.lookupsPerMinute * input.lookupCost;
 
   const elevenLabs = elevenLabsCost(
     totalMinutes,
@@ -224,24 +266,88 @@ export function project(input: CostInputs): CostBreakdown {
     input.elevenLabsTierId,
   );
   const llm = llmPerMinute * totalMinutes;
-  const total = elevenLabs.total + llm + input.supabaseMonthly + input.vercelMonthly;
+  const lookups = lookupPerMinute * totalMinutes;
+  const total =
+    elevenLabs.total + llm + lookups + input.supabaseMonthly + input.vercelMonthly;
 
   return {
     totalMinutes,
     llmPerMinute,
+    lookupPerMinute,
     elevenLabs,
     llm,
+    lookups,
     supabase: input.supabaseMonthly,
     vercel: input.vercelMonthly,
     total,
     // Once the subscription's included minutes are gone, one more minute costs
     // an overage minute plus its inference. Below that line it is inference
     // only, which is the cheaper and less useful number to plan with.
-    marginalPerMinute: input.elevenLabsOveragePerMinute + llmPerMinute,
+    marginalPerMinute: input.elevenLabsOveragePerMinute + llmPerMinute + lookupPerMinute,
     costPerUser: input.users > 0 ? total / input.users : 0,
     averagePerMinute: totalMinutes > 0 ? total / totalMinutes : 0,
     concurrency: elevenLabs.tier.concurrency,
   };
+}
+
+// ------------------------------------------------------------- break-even ---
+
+export interface BreakEven {
+  planId: string;
+  planName: string;
+  /** USD per month the learner pays. */
+  price: number;
+  /** What lands after the payment processor takes its cut. */
+  net: number;
+  /** Minutes per month at which that net exactly covers marginal cost. */
+  minutes: number;
+  /** The plan's advertised allowance. */
+  allowance: number | null;
+  /**
+   * Fraction of the allowance a subscriber can use before the plan loses money.
+   * Below 1 means the plan is underwater for anyone who uses what they bought.
+   */
+  utilisation: number | null;
+}
+
+/**
+ * Where each plan stops making money.
+ *
+ * This is the number the pricing decision actually turns on, and it was not
+ * computed anywhere: the cost model priced minutes, the plans sold allowances,
+ * and nothing compared the two. At the current marginal cost a $9 plan covers
+ * about 56 minutes, while advertising 300 — so a subscriber who uses what they
+ * were sold costs several times what they pay.
+ *
+ * That is survivable while average use sits far below the allowance, which is the
+ * ordinary shape of a subscription. It is worth watching precisely because this
+ * product is built to raise engagement: every improvement that gets somebody to
+ * come back for the next task moves average use toward the allowance, and the
+ * better it works the worse this gets. `plan_usage` has the real distribution
+ * after a month of traffic; until then this is the guardrail.
+ */
+export function breakEven(
+  input: CostInputs,
+  plans: readonly { id: string; name: string; priceMinor: number; monthlyMinutes: number | null }[],
+): BreakEven[] {
+  const marginal = project(input).marginalPerMinute;
+
+  return plans
+    .filter((p) => p.priceMinor > 0)
+    .map((p) => {
+      const price = p.priceMinor / 100;
+      const net = price * (1 - input.processorRate) - input.processorFixed;
+      const minutes = marginal > 0 ? net / marginal : 0;
+      return {
+        planId: p.id,
+        planName: p.name,
+        price,
+        net,
+        minutes,
+        allowance: p.monthlyMinutes,
+        utilisation: p.monthlyMinutes ? minutes / p.monthlyMinutes : null,
+      };
+    });
 }
 
 // -------------------------------------------------------------- scenarios ---

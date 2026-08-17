@@ -73,12 +73,65 @@ the LLM total falls to ~$0.033/min. This model assumes it does **not**, because
 that cannot be checked from outside. If it turns out to cache, every margin
 below improves; none of them gets worse.
 
+### The lookup — ~$0.015 / min
+
+The teacher calls the search tool (`/api/ask`) when an answer depends on
+something current. Each call is one Claude Opus 5 turn plus its web searches:
+
+    input   ~12,000 tok × $5/M    = $0.060   (mostly the search results)
+    output     ~650 tok × $25/M   = $0.016   (3 sentences, plus thinking)
+    search    up to 4 × $10/1k    = $0.040
+                                    ────────
+                                    $0.116   per lookup
+
+At roughly two lookups in a 15-minute class that is **$0.015 / spoken minute**.
+Small, and the line most likely to be forgotten: it is billed by a third provider
+and appears on neither the ElevenLabs nor the Supabase invoice.
+
 ### Marginal cost
 
     $0.080  ElevenLabs
-    $0.061  LLM
+    $0.056  LLM
+    $0.015  lookups
     ──────
-    $0.141  per spoken minute      →  $0.14 is the number to price against
+    $0.152  per spoken minute      →  $0.15 is the number to price against
+
+---
+
+## 1b. Where each plan stops making money
+
+This is the comparison the model did not make until now: the cost side priced
+minutes, the sell side sold allowances, and nothing put the two in one table.
+Stripe takes 2.9% + $0.30, which on a $9 subscription is 6% of the revenue.
+
+| Plan | Price | Net after Stripe | Minutes it covers | Minutes it promises | Underwater past |
+|---|---:|---:|---:|---:|---:|
+| Fundador | $9 | $8.44 | 56 | 300 | 19% of the allowance |
+| Estándar | $19 | $18.15 | 120 | 300 | 40% of the allowance |
+
+**Both plans lose money on a subscriber who uses what they were sold.** A founder
+subscriber at the full 300 minutes costs $45.60 and pays $8.44.
+
+That is the ordinary shape of a subscription: allowances are sold on the
+assumption that average use sits far below them, and at 60 minutes a month the
+founder tier roughly breaks even. What makes it worth watching *here* is that
+this product is deliberately built to raise engagement — a first session that
+finishes real work, a number that recurs, a reason to come back for the next
+task. Every improvement moves average use toward the allowance, so the better it
+works the thinner this gets.
+
+Three ways out, in increasing order of how much they cost in trust:
+
+1. **Lower the included minutes.** 120 on the founder tier is still four or five
+   classes a month and puts the tier comfortably ahead. Cheapest to do before
+   anyone has bought.
+2. **Raise the price.** $19 covers 120 minutes; $29 covers 190.
+3. **Leave it and watch `plan_usage` for a month.** Defensible while the number of
+   subscribers is small and the real distribution is unknown, which it is. This is
+   the current choice, and it is a choice, not an oversight.
+
+Repricing after people have subscribed is the expensive option, which is why the
+break-even table is on `/admin/costos` rather than only here.
 
 ### Fixed monthly costs
 

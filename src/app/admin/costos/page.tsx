@@ -14,6 +14,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CostProjector, type LiveUsage } from '@/components/CostProjector';
+import { breakEven, DEFAULT_INPUTS, usd } from '@/lib/costs';
+import { FALLBACK_PLANS } from '@/lib/plans';
 import { checkAdmin } from '@/lib/admin';
 import { signInPath } from '@/lib/paths';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
@@ -185,6 +187,8 @@ export default async function CostosPage() {
         <CostProjector live={live} />
       </div>
 
+      <BreakEven />
+
       <p className="mt-14 max-w-[75ch] border-t border-line pt-6 text-[13px] leading-relaxed text-soft">
         El detalle de cómo se derivó cada número —y qué pasa si ElevenLabs cachea el prompt de
         sistema, que abarataría la inferencia a menos de la mitad— está en{' '}
@@ -195,6 +199,94 @@ export default async function CostosPage() {
         </Link>
         .
       </p>
+    </section>
+  );
+}
+
+/**
+ * Where each plan stops making money.
+ *
+ * On this page rather than only in `docs/pricing.md` because it is the number the
+ * next pricing decision turns on, and a number in a markdown file is a number
+ * nobody re-reads. The cost model priced minutes and the plans sold allowances,
+ * and until now nothing compared the two.
+ *
+ * Read as a warning when the utilisation figure is under 100%: that is a plan
+ * whose subscribers lose money if they use what they were sold. That is ordinary
+ * for a subscription and dangerous for this one specifically, because every
+ * improvement to the product moves average use toward the allowance.
+ */
+function BreakEven() {
+  /*
+   * The fallback plan figures, not a database read.
+   *
+   * This is an operator's planning tool, and the fallback rows are the ones the
+   * repository states as the intended prices. Reading `plans` here would make the
+   * warning disappear the moment somebody edited a row, which is exactly when it
+   * most needs to be visible.
+   */
+  const rows = breakEven(DEFAULT_INPUTS, [...FALLBACK_PLANS]);
+  if (rows.length === 0) return null;
+
+  const underwater = rows.filter((r) => r.utilisation !== null && r.utilisation < 1);
+
+  return (
+    <section className="mt-12">
+      <h2 className="font-serif text-[26px] font-normal leading-snug tracking-[-0.01em]">
+        Dónde cada plan deja de ganar
+      </h2>
+      <p className="mt-3 max-w-[70ch] text-[15px] leading-relaxed text-muted">
+        Minutos al mes que cubre cada plan una vez descontada la comisión de la pasarela, contra
+        los minutos que promete. Si el porcentaje es menor a 100%, el plan pierde plata con quien
+        use lo que le vendiste.
+      </p>
+
+      <div className="mt-6 overflow-x-auto">
+        <table className="w-full min-w-[34rem] border-collapse text-[14px]">
+          <thead>
+            <tr className="border-b border-line text-left text-[12px] uppercase tracking-[0.08em] text-soft">
+              <th className="py-2 pr-4 font-semibold">Plan</th>
+              <th className="py-2 pr-4 text-right font-semibold">Precio</th>
+              <th className="py-2 pr-4 text-right font-semibold">Neto</th>
+              <th className="py-2 pr-4 text-right font-semibold">Cubre</th>
+              <th className="py-2 pr-4 text-right font-semibold">Promete</th>
+              <th className="py-2 text-right font-semibold">Uso hasta</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const bad = r.utilisation !== null && r.utilisation < 1;
+              return (
+                <tr key={r.planId} className="border-b border-line/60">
+                  <td className="py-2.5 pr-4">{r.planName}</td>
+                  <td className="py-2.5 pr-4 text-right font-mono">{usd(r.price)}</td>
+                  <td className="py-2.5 pr-4 text-right font-mono text-muted">{usd(r.net)}</td>
+                  <td className="py-2.5 pr-4 text-right font-mono">{Math.round(r.minutes)} min</td>
+                  <td className="py-2.5 pr-4 text-right font-mono text-muted">
+                    {r.allowance ?? 'sin límite'}
+                  </td>
+                  <td
+                    className={`py-2.5 text-right font-mono ${bad ? 'text-warning' : 'text-success'}`}
+                  >
+                    {r.utilisation === null ? '—' : `${Math.round(r.utilisation * 100)}%`}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {underwater.length > 0 && (
+        <p className="mt-5 max-w-[70ch] rounded-lg border border-warning/35 bg-warning-soft/50 px-4 py-3 text-[14px] leading-relaxed text-ink/80">
+          {underwater.map((r) => r.planName).join(' y ')}{' '}
+          {underwater.length === 1 ? 'pierde' : 'pierden'} plata con un suscriptor que use su
+          asignación completa. Sobrevive mientras el uso promedio quede muy por debajo, que es lo
+          normal en una suscripción, y es justo lo que este producto está diseñado para subir.
+          Tres salidas: bajar los minutos incluidos, subir el precio, o dejarlo y vigilar{' '}
+          <code className="font-mono text-[12px]">plan_usage</code> el primer mes.
+        </p>
+      )}
     </section>
   );
 }
