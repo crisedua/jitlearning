@@ -11,6 +11,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  buildRecord,
   currentStep,
   matchStep,
   opening,
@@ -408,5 +409,59 @@ describe('reading minutes out of what the extractor wrote', () => {
     assert.equal(parseMinutes(''), null);
     assert.equal(parseMinutes(null), null);
     assert.equal(parseMinutes('3000'), null);
+  });
+});
+
+/**
+ * Whether the teacher recognises somebody it has already met.
+ *
+ * `learnerRecord` produces the three dynamic variables the agent starts with,
+ * and `primera_sesion` is the one the persona branches its whole opening on.
+ * Getting it wrong does not fail: it produces a perfectly pleasant conversation
+ * in which a returning learner is greeted as a stranger and the commitment they
+ * made last time is never mentioned. The product's entire claim is a teacher
+ * that remembers you.
+ */
+describe('deciding whether this is the first session', () => {
+  const summary = (over: Partial<SessionRecord> = {}): SessionRecord => ({
+    id: 'h1',
+    createdAt: new Date().toISOString(),
+    lessonId: null,
+    taught: 'Responder correos',
+    commitment: null,
+    commitmentDate: null,
+    commitmentDone: null,
+    ...over,
+  });
+
+  const recordFor = (input: {
+    profile: CareerProfile | null;
+    steps?: PlanStep[];
+    history?: SessionRecord[];
+  }) => buildRecord({ profile: input.profile, steps: input.steps ?? [], history: input.history ?? [] });
+
+  it('a profile is not what makes it a first session', () => {
+    /*
+     * The bug this guards: the branch was `if (!profile)`. upsertProfile
+     * deliberately writes nothing when a call taught it nothing about who the
+     * person is, so a learner who talked about one task and never restated
+     * their job has an empty career_profiles row and a full session_summaries
+     * one. They were greeted as new every single time.
+     */
+    const record = recordFor({ profile: null, history: [summary({ commitment: 'mandar el resumen' })] });
+    assert.equal(record.primera_sesion, 'no');
+    assert.ok(record.registro.includes('mandar el resumen'), record.registro);
+  });
+
+  it('is a first session only when nothing has happened at all', () => {
+    const record = recordFor({ profile: null, history: [] });
+    assert.equal(record.primera_sesion, 'sí');
+  });
+
+  it('still says something useful when there is history but no profile', () => {
+    const record = recordFor({ profile: null, history: [summary({ commitment: null })] });
+    assert.equal(record.primera_sesion, 'no');
+    assert.ok(record.registro.length > 0);
+    assert.ok(!record.registro.includes('primera vez'), record.registro);
   });
 });

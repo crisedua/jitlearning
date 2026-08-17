@@ -436,7 +436,46 @@ export async function learnerRecord(userId: string): Promise<LearnerRecord> {
     sessionHistory(userId, 3),
   ]);
 
-  if (!profile) {
+  return buildRecord({ profile, steps, history });
+}
+
+/**
+ * The record, decided from what was read rather than from the reads.
+ *
+ * Split out so `progress.test.ts` can reach it. Everything above this line is
+ * three database calls; everything below is the judgement about what the teacher
+ * is told, and that judgement decides whether a returning learner is recognised.
+ */
+export function buildRecord({
+  profile,
+  steps,
+  history,
+}: {
+  profile: CareerProfile | null;
+  steps: readonly PlanStep[];
+  history: readonly SessionRecord[];
+}): LearnerRecord {
+  /*
+   * First session means nothing has happened, not "no profile row".
+   *
+   * This used to branch on the profile alone, and a profile is written only when
+   * a call gives the extractor something to write: `upsertProfile` deliberately
+   * returns without writing when it learned nothing, so that a session about one
+   * task does not blank the diagnostic. A conversation that ends without the
+   * learner restating their job leaves `career_profiles` empty and
+   * `session_summaries` full.
+   *
+   * The result was that such a learner was greeted as a stranger on every visit,
+   * with the commitment they made last time sitting in the database, unread. For
+   * a product whose entire promise is a teacher that remembers you, there is no
+   * worse failure, and it is silent: nothing errors, the conversation is
+   * perfectly pleasant, and the person quietly concludes it does not work.
+   *
+   * History is the honest test. If they have talked before, this is not the
+   * first time, and whatever is known gets used even when that is only a
+   * commitment and a date.
+   */
+  if (!profile && history.length === 0) {
     return {
       apertura: OPENING_FIRST,
       registro: 'Sin registro previo: es la primera vez que hablas con esta persona.',
@@ -444,26 +483,46 @@ export async function learnerRecord(userId: string): Promise<LearnerRecord> {
     };
   }
 
+  /*
+   * A blank profile rather than a branch. Every block below is already written
+   * to skip what it does not have, so the null case needs no special path: it
+   * simply contributes nothing and the plan, the commitment and the dates carry
+   * the record on their own.
+   */
+  const known: CareerProfile = profile ?? {
+    role: null,
+    field: null,
+    sector: null,
+    experienceYears: null,
+    weeklyTasks: [],
+    tools: [],
+    aiUsage: null,
+    goal: null,
+    chosenPath: null,
+    map: {},
+    updatedAt: null,
+  };
+
   const current = currentStep(steps);
   const lastCommitment = history.find((h) => h.commitment);
   const saved = timeSaved(steps);
 
   const blocks: string[] = [];
 
-  const who = [profile.role, profile.field, profile.sector].filter(Boolean).join(', ');
+  const who = [known.role, known.field, known.sector].filter(Boolean).join(', ');
   if (who) {
     blocks.push(
       `Perfil: ${who}${
-        profile.experienceYears ? `, ${profile.experienceYears} años de experiencia` : ''
+        known.experienceYears ? `, ${known.experienceYears} años de experiencia` : ''
       }.`,
     );
   }
-  if (profile.goal) blocks.push(`Busca: ${profile.goal}.`);
-  if (profile.chosenPath) blocks.push(`Camino elegido: ${profile.chosenPath}.`);
-  if (profile.weeklyTasks.length > 0) {
-    blocks.push(`Sus tareas: ${profile.weeklyTasks.slice(0, 5).join(', ')}.`);
+  if (known.goal) blocks.push(`Busca: ${known.goal}.`);
+  if (known.chosenPath) blocks.push(`Camino elegido: ${known.chosenPath}.`);
+  if (known.weeklyTasks.length > 0) {
+    blocks.push(`Sus tareas: ${known.weeklyTasks.slice(0, 5).join(', ')}.`);
   }
-  if (profile.tools.length > 0) blocks.push(`Ya usa: ${profile.tools.slice(0, 5).join(', ')}.`);
+  if (known.tools.length > 0) blocks.push(`Ya usa: ${known.tools.slice(0, 5).join(', ')}.`);
   /*
    * The saving goes near the front of the record, because it is the best thing
    * the teacher can open on: a person who hears "ya recuperas tres horas a la
@@ -495,8 +554,11 @@ export async function learnerRecord(userId: string): Promise<LearnerRecord> {
   }
 
   return {
-    apertura: opening(profile, current, lastCommitment ?? null, saved.perWeek),
-    registro: (blocks.join(' ') || 'Tiene perfil pero todavía no hay plan.').slice(0, RECORD_CHARS),
+    apertura: opening(known, current, lastCommitment ?? null, saved.perWeek),
+    registro: (
+      blocks.join(' ') ||
+      'Ya hablaron antes, pero no quedó registro de quién es: pregúntaselo de nuevo.'
+    ).slice(0, RECORD_CHARS),
     primera_sesion: 'no',
   };
 }
