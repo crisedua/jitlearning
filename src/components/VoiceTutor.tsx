@@ -431,6 +431,15 @@ function VoiceTutorInner() {
         <Transcript turns={turns} scrollRef={transcriptRef} />
 
         {connected && <TextFallback onSend={sendTyped} />}
+
+        {/*
+          After the call, not during it. The plan and the evidence live on the
+          progress page, and the moment somebody has just promised to do
+          something is the moment to point at where it is written down. Shown
+          only once there was a real conversation, so it never reads as an
+          instruction to leave before starting.
+        */}
+        {!connected && turns.length > 0 && <AfterSession />}
       </div>
 
       <KnownTopics onPick={pickExample} connected={connected} />
@@ -550,6 +559,31 @@ function Transcript({
           ))}
         </ul>
       )}
+    </section>
+  );
+}
+
+/**
+ * Where the session goes next.
+ *
+ * Voice cannot hand anybody a plan: eleven steps read aloud is nothing anyone
+ * retains. This is the handoff from the classroom to the notebook.
+ */
+function AfterSession() {
+  return (
+    <section className="animate-rise rounded-lg border border-gold/35 bg-gold-soft/30 px-5 py-4">
+      <h2 className="text-[15px] font-semibold">La clase terminó. Lo hablado quedó escrito.</h2>
+      <p className="mt-1.5 text-[14px] leading-relaxed text-ink/85">
+        Tu plan, el paso en el que vas y lo que te comprometiste a hacer están en tu página de
+        progreso. Ahí puedes marcar lo que cumpliste y describir qué construiste.
+      </p>
+      <a
+        href="/progreso"
+        className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-medium text-accent transition-colors duration-150 ease-out hover:text-accent-hover"
+      >
+        Ver tu plan
+        <span aria-hidden>→</span>
+      </a>
     </section>
   );
 }

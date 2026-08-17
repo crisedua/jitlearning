@@ -52,8 +52,9 @@ export const metadata: Metadata = {
  * here a visitor may arrive at directly, from a link someone sent them.
  */
 const NAV = [
-  { href: '/#coaches', label: 'Los coaches' },
+  { href: '/#curriculum', label: 'El currículum' },
   { href: '/#como', label: 'Cómo funciona' },
+  { href: '/progreso', label: 'Tu progreso' },
   { href: '/planes', label: 'Planes' },
   { href: '/feedback', label: 'Feedback' },
 ];
@@ -141,7 +142,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             >
               {/* One flex item, or the parent's gap opens between the two words. */}
               <span>
-                Hablar<span className="hidden xs:inline"> con el coach</span>
+                Empezar<span className="hidden xs:inline"> la clase</span>
               </span>
               <span
                 aria-hidden

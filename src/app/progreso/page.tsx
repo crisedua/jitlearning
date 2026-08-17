@@ -1,0 +1,459 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { SessionBar } from '@/components/SessionBar';
+import { currentUser } from '@/lib/supabase/server';
+import { signInPath } from '@/lib/paths';
+import {
+  careerProfile,
+  currentStep,
+  planSteps,
+  sessionHistory,
+  type CareerProfile,
+  type PlanStep,
+  type SessionRecord,
+} from '@/lib/progress';
+import { LEVELS, PATHS, stepDetail, type LevelId, type PathId } from '@/lib/curriculum';
+import { saveEvidence, setCommitmentDone } from './actions';
+
+export const dynamic = 'force-dynamic';
+
+export const metadata = {
+  title: 'Tu progreso · ModoJIT',
+};
+
+/**
+ * The notebook.
+ *
+ * Voice is the classroom and this is everything the classroom cannot hold: a
+ * plan of eleven steps, the map as it was given, and the history of what was
+ * promised. None of it would survive being read aloud, and all of it is the
+ * reason to come back between sessions.
+ *
+ * Server components throughout. The only interactive parts are two forms posting
+ * to server actions, so this page ships no client JavaScript of its own: the
+ * whole thing is readable on a phone on a bus, which is where it will be read.
+ */
+export default async function ProgresoPage() {
+  const user = await currentUser();
+  if (!user) redirect(signInPath('/progreso'));
+
+  const [profile, steps, history] = await Promise.all([
+    careerProfile(user.id),
+    planSteps(user.id),
+    sessionHistory(user.id),
+  ]);
+
+  const current = currentStep(steps);
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-12 px-6 py-10">
+      <header>
+        <div className="mb-5 flex justify-end">
+          <SessionBar />
+        </div>
+        <p className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em] text-accent">
+          <span aria-hidden className="inline-block h-px w-[34px] bg-gold" />
+          Tu cuaderno
+        </p>
+        <h1 className="mt-3 font-serif text-[clamp(2rem,4.5vw,2.875rem)] font-normal leading-[1.05] tracking-[-0.02em]">
+          Tu mapa y tu plan
+        </h1>
+        <p className="mt-3 max-w-2xl text-[17px] leading-relaxed text-muted">
+          Lo que hablaste por voz, escrito. El estado de cada paso lo pone la clase; lo que
+          construiste y si cumpliste, lo pones tú.
+        </p>
+
+        <Link
+          href="/coach"
+          className="mt-5 inline-flex items-center gap-2.5 rounded-full bg-accent px-6 py-3 text-[15px] font-medium text-white shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover"
+        >
+          {steps.length > 0 ? 'Seguir con la clase' : 'Empezar la primera clase'}
+          <span aria-hidden className="font-mono">
+            →
+          </span>
+        </Link>
+      </header>
+
+      {!profile && <FirstVisit />}
+
+      {profile && <Mapa profile={profile} />}
+
+      {steps.length > 0 && <Plan steps={steps} currentId={current?.step.id ?? null} />}
+
+      {profile && steps.length === 0 && <PlanPending profile={profile} />}
+
+      {history.length > 0 && <Historial history={history} />}
+    </div>
+  );
+}
+
+/** Nothing has happened yet. Say what the first session does, not "no data". */
+function FirstVisit() {
+  return (
+    <section className="rounded-lg border border-line bg-surface-alt/50 p-6">
+      <h2 className="font-serif text-[22px] font-normal leading-snug">
+        Todavía no hay nada acá, y eso es normal.
+      </h2>
+      <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-muted">
+        Esta página se llena en tu primera clase. El profesor te va a preguntar a qué te
+        dedicas, en qué se te va la semana y qué buscas. Con eso te muestra el mapa, armas tu
+        plan, y desde la segunda sesión cada clase se ancla a una de tus propias tareas.
+      </p>
+      <p className="mt-3 text-[15px] leading-relaxed text-muted">
+        Son unos 15 minutos hablando. Puedes hacerlo caminando.
+      </p>
+    </section>
+  );
+}
+
+/**
+ * The map, as it was given to this person.
+ *
+ * Not a template: these three strings came out of their own diagnostic. That is
+ * why the page shows them at all rather than re-describing the product, and why
+ * a missing part is left out instead of filled with generic copy.
+ */
+function Mapa({ profile }: { profile: CareerProfile }) {
+  const who = [profile.role, profile.field, profile.sector].filter(Boolean).join(' · ');
+  const parts = [
+    { label: 'Dónde gana valor lo que ya sabes', body: profile.map.value },
+    { label: 'Qué herramientas existen para lo tuyo', body: profile.map.categories },
+    { label: 'Los 3 caminos', body: profile.map.paths },
+  ].filter((p) => Boolean(p.body));
+
+  return (
+    <section className="space-y-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 className="font-serif text-[26px] font-normal leading-snug tracking-[-0.01em]">
+          El mapa
+        </h2>
+        {who && <p className="text-[14px] text-muted">{who}</p>}
+      </div>
+
+      {profile.weeklyTasks.length > 0 && (
+        <div className="rounded-lg border border-line bg-surface p-5 shadow-sm">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-soft">
+            Tus tareas de la semana
+          </h3>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+            {profile.weeklyTasks.map((task) => (
+              <li key={task} className="flex items-start gap-2.5 text-[15px] leading-relaxed">
+                <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" />
+                {task}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {parts.length > 0 && (
+        <div className="space-y-4">
+          {parts.map((part) => (
+            <div key={part.label} className="rounded-lg border border-line bg-surface p-5 shadow-sm">
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-soft">
+                {part.label}
+              </h3>
+              <p className="mt-2 text-[15px] leading-relaxed text-ink/90">{part.body}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        {(Object.keys(PATHS) as PathId[]).map((id) => {
+          const chosen = profile.chosenPath === id;
+          return (
+            <div
+              key={id}
+              className={`rounded-lg border p-4 ${
+                chosen
+                  ? 'border-accent/45 bg-accent-soft/30 ring-1 ring-accent/15'
+                  : 'border-line bg-surface-alt/40'
+              }`}
+            >
+              {chosen && (
+                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-accent">
+                  Tu camino
+                </span>
+              )}
+              <h3
+                className={`text-[15px] font-semibold leading-snug ${chosen ? 'mt-1.5' : ''} ${
+                  chosen ? 'text-ink' : 'text-muted'
+                }`}
+              >
+                {PATHS[id].title}
+              </h3>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-muted">{PATHS[id].body}</p>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * A profile with no plan.
+ *
+ * This is a real state, not an error: the diagnostic ran out of minutes before
+ * the weekly tasks, and there is no applied level without them. Say which piece
+ * is missing rather than showing an empty plan.
+ */
+function PlanPending({ profile }: { profile: CareerProfile }) {
+  const missing = profile.weeklyTasks.length === 0 ? 'tus tareas de la semana' : 'tu camino';
+  return (
+    <section className="rounded-lg border border-warning/25 bg-warning-soft/50 p-5">
+      <h2 className="text-[15px] font-semibold text-warning">Tu plan está a medio armar.</h2>
+      <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-ink/85">
+        Falta {missing}. Retoma la clase y termina el diagnóstico: son un par de preguntas y
+        el plan queda armado acá mismo.
+      </p>
+    </section>
+  );
+}
+
+/** Steps grouped by level, in curriculum order, with the current one marked. */
+function Plan({ steps, currentId }: { steps: PlanStep[]; currentId: string | null }) {
+  const done = steps.filter((s) => s.status === 'done').length;
+
+  return (
+    <section className="space-y-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 className="font-serif text-[26px] font-normal leading-snug tracking-[-0.01em]">
+          Tu plan
+        </h2>
+        <p className="text-[14px] text-muted">
+          {done} de {steps.length} pasos hechos
+        </p>
+      </div>
+
+      {/* One bar, not a percentage badge: the shape of the plan is the point. */}
+      <div
+        aria-hidden
+        className="flex h-1.5 gap-px overflow-hidden rounded-full bg-surface-alt"
+      >
+        {steps.map((step) => (
+          <span
+            key={step.id}
+            className={`flex-1 ${
+              step.status === 'done'
+                ? 'bg-success'
+                : step.id === currentId
+                  ? 'bg-accent'
+                  : 'bg-line'
+            }`}
+          />
+        ))}
+      </div>
+
+      <div className="space-y-6">
+        {LEVELS.map((level) => {
+          const own = steps.filter((s) => s.level === level.id);
+          if (own.length === 0) return null;
+
+          return (
+            <div key={level.id}>
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                <h3 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-accent">
+                  Nivel {level.number}
+                </h3>
+                <p className="text-[17px] font-semibold tracking-tight">{level.title}</p>
+              </div>
+              <p className="mt-1 text-[14px] leading-relaxed text-muted">{level.purpose}</p>
+
+              <ol className="mt-3 space-y-2.5">
+                {own.map((step) => (
+                  <li key={step.id}>
+                    <Step step={step} isCurrent={step.id === currentId} level={level.id} />
+                  </li>
+                ))}
+              </ol>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+const STATUS_LABEL: Record<PlanStep['status'], string> = {
+  pending: 'Pendiente',
+  in_progress: 'En progreso',
+  done: 'Hecho',
+};
+
+function Step({
+  step,
+  isCurrent,
+  level,
+}: {
+  step: PlanStep;
+  isCurrent: boolean;
+  level: LevelId;
+}) {
+  const detail = stepDetail(step);
+
+  return (
+    <article
+      className={`rounded-lg border bg-surface p-4 shadow-sm sm:p-5 ${
+        isCurrent ? 'border-accent/45 ring-1 ring-accent/15' : 'border-line'
+      }`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5">
+        <div className="min-w-0">
+          {isCurrent && (
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-accent">
+              Vas acá
+            </span>
+          )}
+          <h4 className={`text-[16px] font-semibold leading-snug ${isCurrent ? 'mt-1' : ''}`}>
+            {step.title}
+          </h4>
+          {detail && (
+            <p className="mt-1.5 text-[14px] leading-relaxed text-muted">{detail.objective}</p>
+          )}
+        </div>
+
+        <span
+          className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] ${
+            step.status === 'done'
+              ? 'border-success/25 bg-success-soft/70 text-success'
+              : step.status === 'in_progress'
+                ? 'border-gold/40 bg-gold-soft/50 text-warning'
+                : 'border-line bg-surface-alt text-soft'
+          }`}
+        >
+          {STATUS_LABEL[step.status]}
+        </span>
+      </div>
+
+      {detail && (
+        <p className="mt-3 text-[13px] leading-relaxed text-soft">
+          <span className="font-semibold text-muted">La prueba:</span> {detail.proof}
+        </p>
+      )}
+
+      {step.commitment && (
+        <p className="mt-3 rounded-md border border-gold/30 bg-gold-soft/30 px-3.5 py-2.5 text-[14px] leading-relaxed text-ink/85">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-warning">
+            Te comprometiste a
+          </span>
+          <br />
+          {step.commitment}
+        </p>
+      )}
+
+      {/*
+        The evidence box is on every step, open by default, and pre-filled with
+        whatever the transcript captured. Progress is only real if the artifact
+        exists, so the place to describe it should never be a click away.
+      */}
+      <form action={saveEvidence} className="mt-4">
+        <input type="hidden" name="stepId" value={step.id} />
+        <label
+          className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-soft"
+          htmlFor={`evidence-${step.id}`}
+        >
+          {level === 'portafolio' ? 'Tu portafolio' : 'Qué construiste'}
+        </label>
+        <textarea
+          id={`evidence-${step.id}`}
+          name="evidence"
+          rows={2}
+          defaultValue={step.evidence ?? ''}
+          placeholder="Describe lo que hiciste y qué tuviste que corregir a mano."
+          className="mt-1.5 w-full rounded-md border border-field bg-surface px-3.5 py-2.5 text-[14px] leading-relaxed text-ink transition-colors duration-150 ease-out placeholder:text-muted hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft"
+        />
+        <button className="mt-2 rounded-md border border-line bg-surface px-4 py-2 text-[13px] font-semibold text-ink shadow-sm transition duration-150 ease-out hover:border-line-strong hover:shadow-md">
+          Guardar
+        </button>
+      </form>
+    </article>
+  );
+}
+
+/** What happened, session by session, newest first. */
+function Historial({ history }: { history: SessionRecord[] }) {
+  return (
+    <section className="space-y-5">
+      <h2 className="font-serif text-[26px] font-normal leading-snug tracking-[-0.01em]">
+        Tus sesiones
+      </h2>
+
+      <ul className="space-y-3">
+        {history.map((session) => (
+          <li
+            key={session.id}
+            className="rounded-lg border border-line bg-surface p-4 shadow-sm sm:p-5"
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-soft">
+              {new Date(session.createdAt).toLocaleDateString('es-CL', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })}
+            </p>
+            {session.taught && (
+              <p className="mt-1.5 text-[15px] font-medium leading-snug">{session.taught}</p>
+            )}
+
+            {session.commitment && (
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5 rounded-md bg-surface-alt/60 px-3.5 py-3">
+                <p className="min-w-0 text-[14px] leading-relaxed text-ink/85">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-soft">
+                    Compromiso
+                  </span>
+                  <br />
+                  {session.commitment}
+                </p>
+
+                {session.commitmentDone === null ? (
+                  <div className="flex shrink-0 gap-2">
+                    <DoneButton sessionId={session.id} done label="Lo hice" />
+                    <DoneButton sessionId={session.id} done={false} label="No lo hice" />
+                  </div>
+                ) : (
+                  <span
+                    className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] ${
+                      session.commitmentDone
+                        ? 'border-success/25 bg-success-soft/70 text-success'
+                        : 'border-line bg-surface text-muted'
+                    }`}
+                  >
+                    {session.commitmentDone ? 'Cumplido' : 'Sin hacer'}
+                  </span>
+                )}
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function DoneButton({
+  sessionId,
+  done,
+  label,
+}: {
+  sessionId: string;
+  done: boolean;
+  label: string;
+}) {
+  return (
+    <form action={setCommitmentDone}>
+      <input type="hidden" name="sessionId" value={sessionId} />
+      <input type="hidden" name="done" value={String(done)} />
+      <button
+        className={`rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition duration-150 ease-out hover:shadow-sm ${
+          done
+            ? 'border-success/30 bg-success-soft/50 text-success hover:border-success/60'
+            : 'border-line bg-surface text-muted hover:border-line-strong'
+        }`}
+      >
+        {label}
+      </button>
+    </form>
+  );
+}
