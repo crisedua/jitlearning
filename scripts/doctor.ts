@@ -230,6 +230,20 @@ async function main() {
        * three are wrong in the direction that costs the learner the subtraction,
        * and nothing on this side would see it.
        */
+      /*
+       * The persona variant is chosen from whether a tool is attached, and that
+       * only identifies the search tool while it is the only one. Said out loud
+       * rather than left to be discovered by a teacher promising a lookup it
+       * cannot perform.
+       */
+      if (check.toolCount > 1) {
+        bad(`${check.toolCount} tools are attached, so "has the search tool" is a guess.`);
+        note('The persona variant is picked from tool presence, not from which tool it is,');
+        note('so a second tool can put the searching persona on an agent that cannot search.');
+        note('Resolve the ids against their names before trusting the persona verdict above.');
+        failures++;
+      }
+
       if (check.liveClassCapSeconds !== null) {
         bad(
           `The agent ends a class at ${Math.round(check.liveClassCapSeconds / 60)} min; this repo ` +

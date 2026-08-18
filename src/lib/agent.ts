@@ -537,6 +537,51 @@ export function dataCollection(): DataCollectionConfig {
 }
 
 /**
+ * Turn-taking, as one source for both the agent this repo creates and the agent
+ * it already has.
+ *
+ * These lived only in the creation config, so an agent made before a value
+ * changed kept the old one forever and nothing here would say so. That is how
+ * the class ceiling came to sit at a number nobody had chosen. Sent on every
+ * sync now, for the same reason the persona and the extraction fields are.
+ */
+function turnConfig(): NonNullable<AgentConfig['conversation_config']['turn']> {
+  return {
+    turn_eagerness: 'normal',
+    speculative_turn: false,
+    /*
+     * How long the teacher waits in silence before prompting again.
+     *
+     * Eight seconds is the stock figure and it suits a conversation. This
+     * is not only a conversation: the persona's working mode is "un paso
+     * por turno, esperando que confirme", where the teacher names a step
+     * and the learner goes and does it. Opening a file, finding a column,
+     * pasting a draft and reading what came back all take longer than eight
+     * seconds of quiet, and at eight the teacher talks over somebody who is
+     * busy doing exactly what it asked for.
+     *
+     * That costs more than an awkward interruption. The class has one job,
+     * which is to finish a task and measure it, and the learner only has
+     * seven minutes of it before the closing starts. Every prompt into a
+     * working silence spends some of that on reassurance nobody asked for.
+     *
+     * Fifteen rather than the 30 the platform allows, because this is also
+     * still a conversation and a teacher that waits half a minute after a
+     * question reads as broken. The same reasoning as the two settings
+     * above: when in doubt, the learner holds the floor.
+     */
+    turn_timeout: 15.0,
+  };
+}
+
+/**
+ * How long a class may run, from the same one place. See `CLASS_CAP_MINUTES`.
+ */
+function conversationConfig() {
+  return { max_duration_seconds: CLASS_CAP_SECONDS };
+}
+
+/**
  * Create the agent. Returns the new id, which the caller must persist into the
  * environment under `TEACHER.envKey` — nothing is written back at runtime.
  */
@@ -594,25 +639,8 @@ export async function provisionAgent(): Promise<string> {
        * These three settings are stock. Anything faster has to be earned
        * without touching who holds the floor.
        */
-      turn: {
-        turn_eagerness: 'normal',
-        speculative_turn: false,
-        turn_timeout: 8.0,
-      },
-      /*
-       * How long a class can run before the platform hangs up.
-       *
-       * This was never set, so the agent carried ElevenLabs' own default and
-       * nothing in this repo knew the number. The classroom schedules its two
-       * wrap-up prompts against the learner's balance, and with the default
-       * sitting well below every balance both prompts were unreachable: no
-       * class was ever told to close the task, ask what it takes now, or take a
-       * commitment. Stated here so the ceiling and the prompts come from one
-       * figure. See `CLASS_CAP_MINUTES`.
-       */
-      conversation: {
-        max_duration_seconds: CLASS_CAP_SECONDS,
-      },
+      turn: turnConfig(),
+      conversation: conversationConfig(),
       tts: {
         // Turbo, not flash: flash is the lowest-latency tier but audibly the
         // weakest at pronunciation, and this agent code-switches constantly —
@@ -705,6 +733,11 @@ export async function syncAgentKnowledge(
           tool_ids: toolIds,
         },
       },
+      // Same reason as `platform_settings` below: the agent keeps its own copy,
+      // and these were only ever written at creation, so an agent made before a
+      // value changed kept the old one and nothing said so.
+      turn: turnConfig(),
+      conversation: conversationConfig(),
     },
     // Sent on every sync for the same reason the prompt is: the agent holds its
     // own copy, so an agent provisioned before a field existed picks it up here

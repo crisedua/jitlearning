@@ -236,3 +236,33 @@ describe('resuming a measurement the ceiling interrupted', () => {
     assert.doesNotMatch(progress, /minutesBefore !== null &&\s*current\.step\.minutesAfter !== null/);
   });
 });
+
+/*
+ * Settings the agent keeps its own copy of have to be re-sent, not only written
+ * once at creation. That was how the class ceiling came to sit at a value
+ * nothing in this repo had chosen, undetected for as long as the project had
+ * existed.
+ */
+describe('agent settings that only existed at creation', () => {
+  const agent = read('src', 'lib', 'agent.ts');
+
+  it('shares one source between the created agent and the synced one', () => {
+    assert.equal(
+      (agent.match(/turn: turnConfig\(\)/g) ?? []).length,
+      2,
+      'the turn config is written in one place and synced in another again',
+    );
+    assert.equal((agent.match(/conversation: conversationConfig\(\)/g) ?? []).length, 2);
+  });
+
+  it('waits longer than a person takes to do the step it just named', () => {
+    // The persona's working mode is "un paso por turno, esperando que
+    // confirme". Opening a file and pasting a draft take longer than the stock
+    // eight seconds, and prompting into that spends the little time the task has.
+    const m = agent.match(/turn_timeout: ([\d.]+)/);
+    assert.ok(m, 'the turn timeout is no longer stated');
+    const seconds = Number(m[1]);
+    assert.ok(seconds >= 12, `${seconds}s talks over somebody doing what was asked`);
+    assert.ok(seconds <= 30, 'the platform refuses more than 30');
+  });
+});

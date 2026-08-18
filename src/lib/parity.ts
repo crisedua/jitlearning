@@ -79,11 +79,34 @@ export interface Parity {
    * the same direction as before, and nothing on this side would notice.
    */
   liveClassCapSeconds: number | null;
+  /**
+   * How many tools the agent carries. One is the search tool and is what
+   * `hasTool` means; more than one makes `hasTool` unreliable, because nothing
+   * here can tell which of them it is.
+   */
+  toolCount: number;
 }
 
 export function parity(agent: LiveAgent): Parity {
   const prompt = agent.prompt;
-  const hasTool = (prompt?.tool_ids ?? []).length > 0;
+  /*
+   * "Has the search tool", inferred from there being any tool at all.
+   *
+   * That inference is only true while the search tool is the only tool this
+   * agent ever carries, which it is today and which nothing enforces. Attach a
+   * second one — the platform's own skip_turn, say, which is the right way to
+   * let a learner work in silence — and this reads as a search tool being
+   * present. The persona chosen from it would then be the variant that promises
+   * to look things up, pushed onto an agent that cannot, which is the
+   * over-promising failure this file exists to detect.
+   *
+   * Left as an inference rather than resolved against tool names, because that
+   * needs a second API call the callers do not make. Reported instead: more
+   * than one tool means the inference no longer holds, and the doctor says so
+   * rather than quietly picking a persona.
+   */
+  const toolIds = prompt?.tool_ids ?? [];
+  const hasTool = toolIds.length > 0;
   const live = (prompt?.prompt ?? '').trim();
 
   /*
@@ -127,6 +150,7 @@ export function parity(agent: LiveAgent): Parity {
       .map((c) => c.id)
       .filter((id) => !liveCriteria.includes(id)),
     retrieval: { enabled: Boolean(rag?.enabled), drift },
+    toolCount: toolIds.length,
     liveClassCapSeconds:
       agent.conversation?.max_duration_seconds === undefined ||
       agent.conversation.max_duration_seconds === CLASS_CAP_SECONDS

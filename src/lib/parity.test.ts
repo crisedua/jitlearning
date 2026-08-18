@@ -138,3 +138,23 @@ describe('how long the live agent lets a class run', () => {
     assert.equal(parity({ ...healthy(true), conversation: { max_duration_seconds: 1800 } }).liveClassCapSeconds, 1800);
   });
 });
+
+/*
+ * The persona variant is chosen from whether any tool is attached, which
+ * identifies the search tool only while it is the only tool. A second one —
+ * skip_turn, say — would make this read as "can search" and push the persona
+ * that promises lookups onto an agent that cannot perform them.
+ */
+describe('how many tools the agent carries', () => {
+  it('counts them, so the inference can be questioned', () => {
+    assert.equal(parity({ ...healthy(true), prompt: { prompt: 'x', tool_ids: ['a'] } }).toolCount, 1);
+    assert.equal(
+      parity({ ...healthy(true), prompt: { prompt: 'x', tool_ids: ['a', 'b'] } }).toolCount,
+      2,
+    );
+  });
+
+  it('reports none when there are none', () => {
+    assert.equal(parity(healthy(false)).toolCount, 0);
+  });
+});
