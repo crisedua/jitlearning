@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CLASS_CAP_MINUTES, CLASS_CAP_SECONDS, wrapUpAt } from './class-length';
+import { CLASS_CAP_MINUTES, CLASS_CAP_SECONDS, MIN_USEFUL_MINUTES, wrapUpAt } from './class-length';
 import { FALLBACK_PLANS } from './plans';
 
 const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), 'utf8');
@@ -341,5 +341,37 @@ describe('the platform tools nothing here configures', () => {
       const at = agent.indexOf(carried);
       assert.ok(at > read0, `${carried} is not carried out of that read`);
     }
+  });
+});
+
+/*
+ * The gate refuses a class only once the minutes are gone, so a learner with
+ * one left can still start one. The classroom already knows such a class
+ * cannot be closed — `wrapUpAt` schedules nothing below MIN_USEFUL_MINUTES,
+ * because the class is shorter than the warning would be — and the note above
+ * the button was telling them it was enough to finish what they were doing.
+ */
+describe('a balance too small to be a class', () => {
+  it('is the same threshold the classroom already used', () => {
+    assert.equal(wrapUpAt(MIN_USEFUL_MINUTES), null);
+    assert.notEqual(wrapUpAt(MIN_USEFUL_MINUTES + 1), null);
+  });
+
+  it('stops the note promising a finished task', () => {
+    const note = read('src', 'components', 'BalanceNote.tsx');
+    assert.match(note, /left <= MIN_USEFUL_MINUTES/);
+    assert.match(note, /No alcanza para una clase que termine y mida una tarea/);
+  });
+
+  it('still says it rather than blocking it', () => {
+    // Spending the last minute is the learner's to choose.
+    const note = read('src', 'components', 'BalanceNote.tsx');
+    assert.match(note, /Alcanza para terminar lo que estás haciendo/);
+  });
+
+  it('takes the threshold from one place', () => {
+    const note = read('src', 'components', 'BalanceNote.tsx');
+    assert.doesNotMatch(note, /left <= 2\b/);
+    assert.match(note, /MIN_USEFUL_MINUTES.*from '@\/lib\/class-length'|from '@\/lib\/class-length'/);
   });
 });

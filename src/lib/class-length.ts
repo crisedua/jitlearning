@@ -41,11 +41,26 @@ export const CLASS_CAP_SECONDS = CLASS_CAP_MINUTES * 60;
  * warn — under about two minutes there is nothing useful to say that is not
  * itself the interruption.
  */
+/**
+ * The shortest class that can produce anything.
+ *
+ * A class exists to finish one task and measure it, and the measuring is two
+ * questions and a subtraction. Below this there is no room for the closing at
+ * all, which is why `wrapUpAt` returns nothing: there is no useful moment to
+ * warn about when the whole class is shorter than the warning.
+ *
+ * Named because two places need it. The classroom uses it to decide there is
+ * nothing to schedule, and the note above the start button uses it to stop
+ * telling somebody with one minute left that it is enough to finish what they
+ * are doing.
+ */
+export const MIN_USEFUL_MINUTES = 2;
+
 export function wrapUpAt(
   minutesLeft: number | null,
 ): { close: number; last: number; closeRemaining: number } | null {
   const end = Math.min(minutesLeft ?? CLASS_CAP_MINUTES, CLASS_CAP_MINUTES);
-  if (end <= 2) return null;
+  if (end <= MIN_USEFUL_MINUTES) return null;
 
   /*
    * How much of the class to spend closing, as a share of it rather than a

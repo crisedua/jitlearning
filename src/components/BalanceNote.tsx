@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { minutesLeft, sessionsLeft, type UsageBalance } from '@/lib/balance';
-import { CLASS_CAP_MINUTES } from '@/lib/class-length';
+import { CLASS_CAP_MINUTES, MIN_USEFUL_MINUTES } from '@/lib/class-length';
 
 /**
  * What is left, said before the button rather than discovered at it.
@@ -74,9 +74,27 @@ export function BalanceNote({ balance }: { balance: UsageBalance }) {
         </>
       ) : nearlyOut ? (
         <>
+          {/*
+            "Enough to finish what you are doing" stopped being true at the
+            bottom of this range.
+            
+            The gate only refuses a class once the minutes are gone, so somebody
+            with one left can still start one, and this told them it would reach
+            the end of a task. It cannot: below MIN_USEFUL_MINUTES the classroom
+            schedules no closing at all, because the class is shorter than the
+            warning would be, so there is no version of it that finishes and
+            measures anything.
+            
+            Said rather than blocked. Spending the last minute is theirs to
+            choose, and a product that refuses the time somebody already has
+            reads worse than one that says what it is worth.
+          */}
           <span>
             Te quedan {parts.join(' y ')}
-            {lifetime ? ' gratis' : ' este mes'}. Alcanza para terminar lo que estás haciendo.
+            {lifetime ? ' gratis' : ' este mes'}.{' '}
+            {left !== null && left <= MIN_USEFUL_MINUTES
+              ? 'No alcanza para una clase que termine y mida una tarea.'
+              : 'Alcanza para terminar lo que estás haciendo.'}
           </span>
           <Link
             href="/planes"
