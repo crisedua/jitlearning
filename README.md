@@ -102,16 +102,17 @@ each one does):
 | `ELEVENLABS_WEBHOOK_SECRET` | Sessions work; the plan and the hours never advance |
 | `ANTHROPIC_API_KEY` | The teacher cannot look anything up, and says so |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Paid plans fall back to "conversemos" |
-| `PUBLIC_BASE_URL` | The search tool points at the compiled default, and the `.vercel.app` alias stays a live second front door |
+| `NEXT_PUBLIC_SITE_URL` (or `PUBLIC_BASE_URL`) | The search tool points at the compiled default, and the `.vercel.app` alias stays a live second front door |
 
 **One host, or sign-in breaks for half the people you send the link to.** This
 app answers on its custom domain *and* on the `.vercel.app` alias, and Supabase
 allow-lists OAuth redirect URLs one at a time. A flow begun on the alias asks to
 return to an address the project may not accept; Supabase then delivers the code
 to the Site URL instead, and it cannot be completed there because the PKCE
-verifier is a cookie bound to the origin that set it. Set `PUBLIC_BASE_URL` to
+verifier is a cookie bound to the origin that set it. Set `NEXT_PUBLIC_SITE_URL` to
 the canonical origin and production redirects the alias to it before any of that
-starts. Previews are untouched. Either way, **share the custom domain**, not the
+starts. One variable: the same value decides the search tool's endpoint, every
+Stripe return URL, and the OAuth `redirect_to`. Previews are untouched. Either way, **share the custom domain**, not the
 alias.
 
 Two webhooks are registered outside this repo, and each has its own consequence

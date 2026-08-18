@@ -6,13 +6,17 @@
  * step. The forwarded headers are what a proxy (Vercel included) rewrites, so
  * they beat the raw host.
  *
- * `NEXT_PUBLIC_SITE_URL` overrides everything, for the case where the app sits
- * behind something that does not forward honestly.
+ * A configured canonical origin overrides everything, for the case where the app
+ * sits behind something that does not forward honestly. It is resolved by
+ * `canonical.ts` from either `NEXT_PUBLIC_SITE_URL` or `PUBLIC_BASE_URL`, so the
+ * search tool, the canonical-host redirect and every URL built here agree about
+ * one deployment instead of holding three opinions about it.
  */
 import { headers } from 'next/headers';
+import { configuredOrigin } from './canonical';
 
 export async function siteOrigin(): Promise<string> {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, '');
+  const configured = configuredOrigin();
   if (configured) return configured;
 
   const h = await headers();

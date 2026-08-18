@@ -17,9 +17,19 @@ import './env';
 import { createTool, listTools, updateAgent, updateTool } from '../src/lib/elevenlabs';
 import { currentAgent } from '../src/lib/agent';
 import { requireAgentId } from '../src/lib/config';
+import { configuredOrigin } from '../src/lib/canonical';
 
-/** Where the deployed route lives. Override for a preview deployment. */
-const BASE_URL = process.env.PUBLIC_BASE_URL?.trim() || 'https://www.modojit.com';
+/**
+ * Where the deployed route lives.
+ *
+ * Resolved by `canonical.ts` from `NEXT_PUBLIC_SITE_URL` or `PUBLIC_BASE_URL`,
+ * so the tool endpoint, the canonical-host redirect and every URL the app
+ * generates come from one setting. The compiled default is the fallback for a
+ * deployment that has configured neither, and it is the wrong answer for anybody
+ * who forked this — which is why the script prints the URL it is about to
+ * register before it registers it.
+ */
+const BASE_URL = configuredOrigin() ?? 'https://www.modojit.com';
 
 /**
  * The lookup tool.

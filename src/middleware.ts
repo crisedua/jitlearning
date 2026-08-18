@@ -13,6 +13,7 @@
  */
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
+import { canonicalHost } from '@/lib/canonical';
 
 /**
  * The one host sign-in is allowed to begin on, when there is more than one.
@@ -29,24 +30,16 @@ import { updateSession } from '@/lib/supabase/middleware';
  * which is exactly the link somebody pastes into a message when the custom
  * domain has not been front of mind.
  *
- * Derived from `PUBLIC_BASE_URL`, the same variable that decides where the
- * search tool points, so one setting names the canonical origin for both. Unset,
- * this does nothing at all: no redirect, no behaviour change, and a fork
- * deploying somewhere else is unaffected. Production only — a preview
- * deployment has to stay on its own hostname to be testable.
+ * The origin comes from `canonical.ts`, the same resolution the search tool and
+ * every generated URL use. Unset, this does nothing at all. Production only — a
+ * preview deployment has to stay on its own hostname to be testable.
  */
-function canonicalHost(): string | null {
-  const configured = process.env.PUBLIC_BASE_URL?.trim();
-  if (!configured || process.env.VERCEL_ENV !== 'production') return null;
-  try {
-    return new URL(configured).host;
-  } catch {
-    return null;
-  }
+function redirectHost(): string | null {
+  return process.env.VERCEL_ENV === 'production' ? canonicalHost() : null;
 }
 
 export async function middleware(request: NextRequest) {
-  const canonical = canonicalHost();
+  const canonical = redirectHost();
   const host = request.headers.get('host');
   if (canonical && host && host !== canonical) {
     const url = request.nextUrl.clone();
