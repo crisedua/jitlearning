@@ -281,6 +281,13 @@ const RadarOutput = z.object({
   recomendaciones_busqueda: z.array(z.string()),
 });
 
+/**
+ * One curated pain, exactly as the model is made to return it. Derived from the
+ * schema rather than written twice, so a change to the shape is a type error
+ * here instead of a surprise at runtime.
+ */
+export type Dolor = z.infer<typeof RadarOutput>['dolores'][number];
+
 /* ----------------------------------------------------- exclusion memory --- */
 
 /**
@@ -291,16 +298,43 @@ const RadarOutput = z.object({
  * ours to depend on, so it is read defensively and any error — absent table,
  * different columns — degrades to an empty list rather than blocking a run.
  */
-async function exclusionBlock(): Promise<string> {
-  if (!serviceConfigured()) return '';
+/**
+ * What the run already knows about, in the two shapes it is needed in.
+ *
+ * `text` is prose for the model: a list of already-registered pains it should
+ * not spend its search budget finding again. `urls` is for the code, and has to
+ * be separate from the prose.
+ *
+ * It was not. The caller held only the prose block and asked
+ * `exclusions.includes(url)` — a substring search over a formatted paragraph.
+ * That drops a genuinely new finding whenever its URL is a prefix of a stored
+ * one, which on Reddit is the ordinary case rather than an edge: the same post
+ * is served as `/comments/1abc` and as `/comments/1abc/titulo_del_post`, and a
+ * model quoting the canonical short link would have its row discarded and
+ * counted as a duplicate.
+ *
+ * The prose also carries `radar_findings` rows, which have a name and no URL at
+ * all, so the paragraph was never a URL list in the first place.
+ */
+interface Exclusions {
+  text: string;
+  urls: Set<string>;
+}
+
+async function exclusionBlock(): Promise<Exclusions> {
+  if (!serviceConfigured()) return { text: '', urls: new Set() };
   const lines: string[] = [];
+  const urls = new Set<string>();
 
   const { data } = await supabaseAdmin()
     .from('pain_signals')
     .select('url, title')
     .order('captured_at', { ascending: false })
     .limit(50);
-  for (const row of data ?? []) lines.push(`- ${row.title} (${row.url})`);
+  for (const row of data ?? []) {
+    lines.push(`- ${row.title} (${row.url})`);
+    if (typeof row.url === 'string') urls.add(row.url.trim());
+  }
 
   try {
     const { data: findings, error } = await supabaseAdmin()
@@ -319,11 +353,82 @@ async function exclusionBlock(): Promise<string> {
     // The sibling table is optional context, never a dependency.
   }
 
-  if (lines.length === 0) return '';
-  return `\n\nDOLORES YA REGISTRADOS — no los reportes de nuevo; gasta el presupuesto de búsqueda en dolores NUEVOS:\n${lines.join('\n')}`;
+  if (lines.length === 0) return { text: '', urls };
+  const text = `\n\nDOLORES YA REGISTRADOS — no los reportes de nuevo; gasta el presupuesto de búsqueda en dolores NUEVOS:\n${lines.join('\n')}`;
+  return { text, urls };
 }
 
 /* ------------------------------------------------------------ URL check --- */
+
+/**
+ * One curated pain, as a row this app already knows how to rank and show.
+ *
+ * Pulled out of `runRadarLlm` so the shape can be checked without spending a
+ * dollar on the two model calls that normally produce it. Nothing here reaches
+ * the network or the database; give it a parsed pain and it returns the row.
+ */
+export function toSignal(d: Dolor, scope: RadarScope): PainSignal {
+  return {
+    source: 'radar-llm',
+    community: d.foro?.toLowerCase().replace(/^r\//, '') ?? null,
+    url: d.url.trim(),
+    lang: d.idioma,
+    country: d.pais && isKnownCountry(d.pais.toUpperCase()) ? d.pais.toUpperCase() : null,
+    title: d.titulo.replace(/\s+/g, ' ').trim().slice(0, 300),
+    excerpt: excerpt(d.cita),
+    /*
+     * puntaje_total, not upvotes. Mixed semantics with the Reddit rows —
+     * accepted deliberately: `pain-search` ranks by `score desc` and a null
+     * would sink every LLM row below every scraped one. It is a ranking hint,
+     * not a statistic.
+     */
+    score: d.puntaje_total,
+    comments: null,
+    query: `radar-llm:${scope}`,
+    theme: d.tema,
+    verdict: d.veredicto === 'painkiller' ? 'painkiller' : 'vitamin',
+  };
+}
+
+/**
+ * Which curated pains survive, and how many did not.
+ *
+ * Three separate reasons to drop, in order: the model's own `ruido` verdict, a
+ * URL that is missing or repeated inside this batch, and a URL already in the
+ * table. Each costs one from the count, and the first reason that applies wins,
+ * so a noisy duplicate is one drop rather than two.
+ *
+ * `known` is an exact set. It used to be the prose exclusion block, tested with
+ * a substring match, which discarded new findings whose URL was a prefix of a
+ * stored one.
+ */
+export function siftDolores(
+  dolores: Dolor[],
+  known: Set<string>,
+): { candidates: Dolor[]; dropped: number } {
+  let dropped = 0;
+  const seen = new Set<string>();
+  const candidates = dolores.filter((d) => {
+    if (d.veredicto === 'ruido') {
+      dropped++;
+      return false;
+    }
+    const key = d.url.trim();
+    if (!key.startsWith('http') || seen.has(key)) {
+      dropped++;
+      return false;
+    }
+    seen.add(key);
+    // Already known: the upsert would refresh it harmlessly, but the run's
+    // "new signals" count should mean what it says.
+    if (known.has(key)) {
+      dropped++;
+      return false;
+    }
+    return true;
+  });
+  return { candidates, dropped };
+}
 
 /**
  * Liveness gate against hallucinated links.
@@ -370,7 +475,7 @@ export async function runRadarLlm(opts: {
     ANGLES.map((angle) =>
       createResponse({
         instructions: SCAN_SYSTEM,
-        input: scanTask(opts.scope, angle) + exclusions,
+        input: scanTask(opts.scope, angle) + exclusions.text,
         webSearch: true,
         requireTool: true,
         reasoningEffort: 'low',
@@ -432,27 +537,8 @@ export async function runRadarLlm(opts: {
     }
   }
 
-  let dropped = 0;
-  const seen = new Set<string>();
-  const candidates = parsed.dolores.filter((d) => {
-    if (d.veredicto === 'ruido') {
-      dropped++;
-      return false;
-    }
-    const key = d.url.trim();
-    if (!key.startsWith('http') || seen.has(key)) {
-      dropped++;
-      return false;
-    }
-    seen.add(key);
-    // Already known: the upsert would refresh it harmlessly, but the run's
-    // "new signals" count should mean what it says.
-    if (exclusions.includes(key)) {
-      dropped++;
-      return false;
-    }
-    return true;
-  });
+  const { candidates, dropped: siftDropped } = siftDolores(parsed.dolores, exclusions.urls);
+  let dropped = siftDropped;
 
   log(`Verificando ${candidates.length} URL(s)…`);
   const alive = await Promise.all(candidates.map((d) => urlAlive(d.url)));
@@ -461,26 +547,7 @@ export async function runRadarLlm(opts: {
     return alive[i];
   });
 
-  const signals: PainSignal[] = kept.map((d) => ({
-    source: 'radar-llm',
-    community: d.foro?.toLowerCase().replace(/^r\//, '') ?? null,
-    url: d.url.trim(),
-    lang: d.idioma,
-    country: d.pais && isKnownCountry(d.pais.toUpperCase()) ? d.pais.toUpperCase() : null,
-    title: d.titulo.replace(/\s+/g, ' ').trim().slice(0, 300),
-    excerpt: excerpt(d.cita),
-    /*
-     * puntaje_total, not upvotes. Mixed semantics with the Reddit rows —
-     * accepted deliberately: `pain-search` ranks by `score desc` and a null
-     * would sink every LLM row below every scraped one. It is a ranking hint,
-     * not a statistic.
-     */
-    score: d.puntaje_total,
-    comments: null,
-    query: `radar-llm:${opts.scope}`,
-    theme: d.tema,
-    verdict: d.veredicto === 'painkiller' ? 'painkiller' : 'vitamin',
-  }));
+  const signals: PainSignal[] = kept.map((d) => toSignal(d, opts.scope));
 
   const usage = {
     inputTokens:
