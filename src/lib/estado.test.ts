@@ -179,3 +179,45 @@ describe('administrative pages', () => {
     assert.deepEqual(leaky, [], `administrative pages a search engine may index: ${leaky.join(', ')}`);
   });
 });
+
+/*
+ * The two files that tell a crawler what to do, and each other.
+ *
+ * Neither existed, which is not neutral: with no instructions a crawler reads
+ * everything it can reach, and `noindex` only takes effect after the page has
+ * been fetched. The pair has to agree — a sitemap advertising a page that
+ * robots.txt forbids is a contradiction served from one domain, and the one that
+ * matters is whichever the crawler happens to trust.
+ */
+describe('what crawlers are told', () => {
+  const read = (file: string) =>
+    readFileSync(path.join(ROOT, 'src', 'app', file), 'utf8');
+
+  const disallowed = [...read('robots.ts').matchAll(/'(\/[a-z/]*)'/g)]
+    .map((m) => m[1]!)
+    .filter((p) => p !== '/');
+  const advertised = [...read('sitemap.ts').matchAll(/\$\{origin\}(\/[a-z]*)`/g)].map((m) => m[1]!);
+
+  it('found both files, so the check below means something', () => {
+    assert.ok(disallowed.length >= 4, `only ${disallowed.length} disallow rules parsed`);
+    assert.ok(advertised.length >= 3, `only ${advertised.length} sitemap entries parsed`);
+  });
+
+  it('never advertises a page it also forbids', () => {
+    const contradictory = advertised.filter((url) =>
+      disallowed.some((rule) => url === rule || (rule.endsWith('/') && url.startsWith(rule))),
+    );
+    assert.deepEqual(
+      contradictory,
+      [],
+      `the sitemap offers these and robots.txt forbids them: ${contradictory.join(', ')}`,
+    );
+  });
+
+  it('forbids every page that redirects to a sign-in', () => {
+    // A crawler fetching these gets a 307 into a wall, repeatedly, forever.
+    for (const gated of ['/coach', '/progreso']) {
+      assert.ok(disallowed.includes(gated), `${gated} redirects to sign-in and is not disallowed`);
+    }
+  });
+});
