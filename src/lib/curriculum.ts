@@ -187,10 +187,22 @@ const CRITERIO: readonly Lesson[] = [
   {
     id: 'cri-02-pedir-bien',
     level: 'criterio',
+    /*
+     * Three parts, and the title is the list.
+     *
+     * This said "las 4 partes" in both the objective and the proof while naming
+     * three, and nothing anywhere defines a fourth: not the persona, not the
+     * corpus, not another lesson. A learner reads the title, is asked for four,
+     * and has to guess which one nobody told them about — in the lesson whose
+     * whole subject is asking precisely.
+     *
+     * Corrected to three rather than inventing a fourth. What the parts are is a
+     * teaching decision and it is already made, out loud, in the title.
+     */
     title: 'Pedir bien: instrucción, contexto, formato',
     objective:
-      'Armar una petición con las 4 partes, en vez de escribir y corregir hasta que salga.',
-    proof: 'Una petición tuya escrita con las 4 partes, guardada para reusar.',
+      'Armar una petición con las 3 partes, en vez de escribir y corregir hasta que salga.',
+    proof: 'Una petición tuya escrita con las 3 partes, guardada para reusar.',
     personalised: false,
   },
   {

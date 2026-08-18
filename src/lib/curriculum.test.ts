@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
-import { LEVELS, PATHS, WEEKLY_MAX, WEEKLY_MIN, buildPlan, isWeeklyTask, type PathId, weeklyLessonId } from './curriculum';
+import { LESSONS, LEVELS, PATHS, WEEKLY_MAX, WEEKLY_MIN, buildPlan, isWeeklyTask, type PathId, weeklyLessonId } from './curriculum';
 
 const MIGRATIONS = path.join(process.cwd(), 'supabase', 'migrations');
 
@@ -177,5 +177,39 @@ describe('the offer describes the plan it is selling', () => {
     });
     assert.equal(smallest.filter((s) => isWeeklyTask(s.lessonId)).length, WEEKLY_MIN);
     assert.ok(smallest.length > WEEKLY_MIN, 'a minimal plan is only the weekly tasks');
+  });
+});
+
+/*
+ * A lesson that names a list may not ask for a different number of it.
+ *
+ * "Pedir bien: instrucción, contexto, formato" asked for "las 4 partes" in both
+ * its objective and its proof, and nothing anywhere defined a fourth — not the
+ * persona, not the corpus, not another lesson. A learner reads three, is asked
+ * for four, and has to guess which one nobody told them about, in the lesson
+ * whose whole subject is asking precisely.
+ *
+ * Nothing else in the codebase could catch that. The counts, the paths and the
+ * titles were all checked; what the lesson says about itself was not.
+ */
+describe('a lesson that counts its own parts', () => {
+  it('counts the same number it names', () => {
+    const wrong: string[] = [];
+
+    for (const lesson of LESSONS) {
+      // Only titles that spell out a comma-separated list after a colon.
+      const listed = lesson.title.split(':')[1];
+      if (!listed || !listed.includes(',')) continue;
+      const parts = listed.split(',').filter((p: string) => p.trim().length > 0).length;
+
+      for (const text of [lesson.objective, lesson.proof]) {
+        const claim = text?.match(/\blas (\d+) partes\b/);
+        if (claim && Number(claim[1]) !== parts) {
+          wrong.push(`"${lesson.title}" names ${parts} and asks for ${claim[1]}`);
+        }
+      }
+    }
+
+    assert.deepEqual(wrong, [], wrong.join('; '));
   });
 });
