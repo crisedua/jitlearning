@@ -16,6 +16,17 @@ import { checkPlanAllowance, getUsageBalance, startCoachSession } from '@/lib/ac
 import { learnerContext } from '@/lib/memory';
 import { learnerRecord } from '@/lib/progress';
 
+/**
+ * What a learner is told when the class cannot start.
+ *
+ * One sentence, in Spanish, that says the situation and what to do, and names
+ * nothing internal. Every failure in this route that is not the plan gate
+ * resolves to this, because from the learner's side they are the same event:
+ * they pressed the button and there is no class right now.
+ */
+const NOT_AVAILABLE =
+  'El profesor no está disponible en este momento. Vuelve a intentarlo en un rato: si sigue igual, escríbenos y lo revisamos.';
+
 export const runtime = 'nodejs';
 // The URL is short-lived; caching it would hand stale credentials to new sessions.
 export const dynamic = 'force-dynamic';
@@ -32,7 +43,17 @@ export async function GET() {
 
     const id = agentId();
     if (!id) {
-      return NextResponse.json({ error: `${TEACHER.envKey} is not configured.` }, { status: 409 });
+      /*
+       * Configuration, said as a sentence rather than as a variable name.
+       *
+       * This used to answer `ELEVENLABS_AGENT_ID is not configured.`, and
+       * VoiceTutor renders whatever comes back in the error box on /coach. So a
+       * learner who pressed the button to start their first class was shown the
+       * name of an environment variable, in English. Nothing they can do with
+       * that, and it reads as broken rather than as not-ready-yet.
+       */
+      console.error(`[signed-url] ${TEACHER.envKey} is not configured.`);
+      return NextResponse.json({ error: NOT_AVAILABLE }, { status: 409 });
     }
 
     /*
@@ -107,9 +128,21 @@ export async function GET() {
       dynamicVariables: record,
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Could not get signed URL' },
-      { status: 500 },
-    );
+    /*
+     * Everything the learner can see here is written for them.
+     *
+     * This returned `err.message`, and VoiceTutor puts that straight in the
+     * error box. So the first click of a first session could show
+     * "ElevenLabs 401 on /convai/conversation/get-signed-url: {detail...}" to
+     * somebody who speaks Spanish and did not ask about our API keys, or
+     * "ELEVENLABS_API_KEY is not set. Copy .env.example to .env.local", which
+     * tells a learner to edit a file on our laptop.
+     *
+     * It is also the only place in the app that hands a signed-in stranger the
+     * shape of our internal configuration. The detail belongs in the function
+     * log, where somebody can act on it.
+     */
+    console.error('[signed-url] mint failed:', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: NOT_AVAILABLE }, { status: 500 });
   }
 }
