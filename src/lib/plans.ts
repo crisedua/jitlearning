@@ -1,3 +1,4 @@
+import { CLASS_CAP_MINUTES } from './class-length';
 import { WEEKLY_MAX, WEEKLY_MIN } from './curriculum';
 /**
  * The plans, for display.
@@ -354,18 +355,27 @@ export function formatOverage(plan: Plan): string {
  * Roughly how many classes the allowance buys, for readers who think in sessions
  * rather than minutes.
  *
- * 15 minutes, which is what the landing page tells people a class takes. It was
- * 8 when a session was one question answered, and leaving it there had the
- * pricing page promising 37 classes out of an allowance that holds 20. An
- * estimate, not a measurement, so the copy that uses it says "unas" and never a
- * precise figure.
+ * The length of a class, which is now a fact rather than an estimate: the
+ * platform ends one at `CLASS_CAP_MINUTES`, so nothing longer exists. It was 8
+ * when a session was one question answered, then 15, which was what the landing
+ * page told people while the agent was cutting them off at 10.
+ *
+ * Derived rather than restated, because two figures for one thing is how the
+ * site came to advertise a class the product could not deliver. The assumption
+ * baked in is that a class uses its whole length, which is the conservative
+ * direction: a class that finishes early only means more classes than the
+ * pricing page promised, never fewer.
+ *
+ * Still an estimate in the copy that quotes it, which says "unas" and never a
+ * precise figure, because how many classes an allowance really holds depends on
+ * how many end early.
  *
  * The landing page and the empty notebook said "15 minutos" as prose, which is
  * the same drift one step removed: this number moving would have left two pages
  * quoting the old one while the class count moved. Both read it from here now,
  * so there is one place to change and no sentence that can disagree with it.
  */
-export const ASSUMED_SESSION_MINUTES = 15;
+export const ASSUMED_SESSION_MINUTES = CLASS_CAP_MINUTES;
 
 export function approximateSessions(minutes: number | null): number | null {
   if (minutes === null) return null;
