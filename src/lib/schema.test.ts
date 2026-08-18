@@ -31,6 +31,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
+import { MIGRATION_SENSITIVE } from './schema';
 
 /** The repo root. `process.cwd()` is where npm test runs, which is the root. */
 const ROOT = process.cwd();
@@ -161,6 +162,53 @@ describe('every onConflict has a constraint behind it', () => {
           `Postgres raises 42P10 and the call site logs and continues, so this ` +
           `write fails silently forever. Constraints found: ` +
           `${available.map((s) => `(${[...s].join(', ')})`).join(' ') || 'none'}`,
+      );
+    });
+  }
+});
+
+/**
+ * The health endpoint's schema list, checked against the migrations.
+ *
+ * `/api/health` reports a deployment as broken when any of these columns is
+ * missing. A typo in the list would make it report that forever, on a database
+ * that is perfectly fine — and a check that cries wolf is worse than no check,
+ * because the next real failure is read as noise.
+ *
+ * So the list has to name columns the migrations actually create.
+ */
+describe('the columns the health endpoint watches', () => {
+  const sql = readdirSync(path.join(ROOT, 'supabase', 'migrations'))
+    .filter((f) => f.endsWith('.sql'))
+    .map((f) => readFileSync(path.join(ROOT, 'supabase', 'migrations', f), 'utf8'))
+    .join('\n');
+
+  it('watches something', () => {
+    assert.ok(MIGRATION_SENSITIVE.length >= 5);
+  });
+
+  for (const { table, column } of MIGRATION_SENSITIVE) {
+    it(`${table}.${column} is created by a migration`, () => {
+      /*
+       * Either the table is created with the column in its body, or the column
+       * is added later. Both forms appear in this repo, and a column added by a
+       * later migration is exactly the case worth catching: the table exists,
+       * so a table-level check would pass on a half-migrated database.
+       */
+      const created = new RegExp(
+        `create\\s+table\\s+(?:if\\s+not\\s+exists\\s+)?(?:public\\.)?${table}\\s*\\(([\\s\\S]*?)\\n\\);`,
+        'i',
+      ).exec(sql);
+      const inBody = created ? new RegExp(`^\\s*${column}\\s`, 'im').test(created[1]!) : false;
+
+      const added = new RegExp(
+        `alter\\s+table\\s+(?:public\\.)?${table}[\\s\\S]*?add\\s+column\\s+(?:if\\s+not\\s+exists\\s+)?${column}\\b`,
+        'i',
+      ).test(sql);
+
+      assert.ok(
+        inBody || added,
+        `no migration creates ${table}.${column}, so /api/health would report every deployment broken`,
       );
     });
   }

@@ -17,6 +17,7 @@ import { agentId, embeddingModel } from '@/lib/config';
 import { ownsDocument, TEACHER } from '@/lib/teacher';
 import { requireSecret, UnauthorizedError } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { MIGRATION_SENSITIVE } from '@/lib/schema';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -153,6 +154,46 @@ export async function GET(req: Request) {
           detail: `coach_sessions is not queryable: ${error.message}. Run the migration in supabase/migrations/.`,
         }
       : { state: 'ok', detail: 'Supabase schema reachable; sessions are being recorded' };
+  }
+
+  /*
+   * 6. Did the migrations actually run *here*?
+   *
+   * `npm run doctor` asks this too, and asks it of whatever `.env.local` points
+   * at, which is a laptop's idea of the world. Twice in this project the local
+   * picture and the deployed one have disagreed, and both times the deployment
+   * was the broken one. This endpoint runs inside the deployment, so it is the
+   * only thing that can answer for it.
+   *
+   * Each entry names a column rather than just a table, because the failures
+   * that have actually happened here were columns: a missing `handled_at` turns
+   * a failed payment into a permanent one, a missing `plan_granted_until` makes
+   * every comped plan last forever. A `select` of the column returns 42P01 for a
+   * missing table and 42703 for a missing column, and both mean the same thing
+   * to the reader: run the SQL.
+   */
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY || missingAuth.length > 0) {
+    checks.schema = { state: 'skipped', detail: 'No service role to inspect the schema with' };
+  } else {
+    const broken: string[] = [];
+    for (const { table, column, why } of MIGRATION_SENSITIVE) {
+      const { error } = await supabaseAdmin()
+        .from(table)
+        .select(column, { count: 'exact', head: true });
+      if (error) broken.push(`${table}.${column} (${why}): ${error.code ?? error.message}`);
+    }
+
+    checks.schema =
+      broken.length === 0
+        ? {
+            state: 'ok',
+            detail: `All ${MIGRATION_SENSITIVE.length} migration-sensitive columns present`,
+          }
+        : {
+            state: 'fail',
+            detail: `Run \`npm run sql\` against this project. Missing: ${broken.join('; ')}`,
+          };
   }
 
   const ready = Object.values(checks).every((c) => c.state === 'ok');
