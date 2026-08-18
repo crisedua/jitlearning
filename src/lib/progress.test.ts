@@ -14,6 +14,7 @@ import {
   buildRecord,
   currentStep,
   isOverdue,
+  learnerRecord,
   matchStep,
   opening,
   parseMinutes,
@@ -621,5 +622,44 @@ describe('what the teacher carries between sessions', () => {
     assert.ok(!said.includes('Con IA:'), said);
     assert.ok(!said.includes('Busca:'), said);
     assert.ok(!said.includes('Ya usa:'), said);
+  });
+});
+
+/*
+ * The class has to start even when the record cannot be read.
+ *
+ * `/api/signed-url` awaits `learnerRecord` to build the first sentence. A
+ * rejection there used to fail the mint, so a learner who pressed the
+ * microphone was told there was no class because three database reads did not
+ * come back. Being met as a stranger is a bad session; being told the class
+ * cannot start is no session, and nobody presses it twice.
+ *
+ * What this proves and what it does not: with no service key configured the
+ * readers return empty rather than rejecting, so these run the cold path and pin
+ * the contract — never throws, always three non-empty strings. They do not
+ * exercise the catch or the deadline, which have no seam to inject a failure
+ * through without restructuring the function around its own test. The contract
+ * is the part that reaches a learner: an undefined here is spoken out loud as a
+ * literal {{apertura}}.
+ */
+describe('learnerRecord when the database will not answer', () => {
+  it('opens cold rather than throwing', async () => {
+    const record = await learnerRecord('a-user-with-no-database-behind-it');
+    assert.equal(record.primera_sesion, 'sí');
+    assert.ok(record.apertura.length > 0, 'a first message is still spoken');
+    assert.ok(record.registro.length > 0, 'the teacher still gets a record');
+  });
+
+  /*
+   * The shape matters as much as the fact: these three are substituted into the
+   * prompt and the first message before a word is spoken, so an undefined here
+   * reaches a learner as a literal {{apertura}} said out loud.
+   */
+  it('returns every dynamic variable the agent expects', async () => {
+    const record = await learnerRecord('another-user');
+    for (const key of ['apertura', 'registro', 'primera_sesion'] as const) {
+      assert.equal(typeof record[key], 'string', `${key} must be a string`);
+      assert.notEqual(record[key], '', `${key} must not be empty`);
+    }
   });
 });

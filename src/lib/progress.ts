@@ -41,6 +41,7 @@ import {
 import { OPENING_FIRST, OPENING_RETURN_FALLBACK } from './teacher';
 import { spellMinutes } from './plans';
 import { serviceConfigured, supabaseAdmin } from './supabase/admin';
+import { withDeadline } from './deadline';
 
 /** Postgres: undefined table, undefined column. Both mean "migration pending". */
 const MISSING_TABLE = '42P01';
@@ -494,14 +495,56 @@ export interface LearnerRecord {
  * remembering to perform it.
  */
 export async function learnerRecord(userId: string): Promise<LearnerRecord> {
-  const [profile, steps, history] = await Promise.all([
+  const read = Promise.all([
     careerProfile(userId),
     planSteps(userId),
     sessionHistory(userId, 3),
-  ]);
+  ]).then(([profile, steps, history]) => buildRecord({ profile, steps, history }));
 
-  return buildRecord({ profile, steps, history });
+  /*
+   * Slow is handled by the deadline, broken by the catch. Its sibling in the
+   * same `Promise.all` already had both.
+   *
+   * `/api/signed-url` awaits this beside `learnerContext`, and says of that one
+   * that it degrades to a cold start rather than ever failing the mint.
+   * `learnerContext` earns the claim: a deadline and a catch, added after
+   * noticing that one unhandled rejection returns 500 and a learner is told
+   * there is no class. This function sits next to it under the same `Promise.all`
+   * and had neither, so a rejection here failed the mint the claim was about,
+   * and three slow reads held the microphone open with no ceiling.
+   *
+   * It matters more than the one that was protected. This produces `apertura`,
+   * the first sentence spoken out loud, so losing it costs a returning learner
+   * their continuation. Being met as a stranger is a bad session. Being told the
+   * class cannot start is no session, and they do not press it twice.
+   *
+   * The fallback is the cold-start record `buildRecord` returns for somebody with
+   * no history, which is the same shape a first session gets and is already the
+   * best-tested path in this file.
+   */
+  const cold = () => buildRecord({ profile: null, steps: [], history: [] });
+
+  return withDeadline(read, null, RECORD_DEADLINE_MS)
+    .then((record) => {
+      if (record) return record;
+      console.error('[progress] learner record timed out, opening cold');
+      return cold();
+    })
+    .catch((err) => {
+      console.error('[progress] learner record failed, opening cold:', err);
+      return cold();
+    });
 }
+
+/**
+ * How long the opening record may take before the class starts without it.
+ *
+ * Three reads, on the path that mints the credential for a person who has just
+ * pressed a microphone button. Longer than `memory.ts` allows its summary,
+ * because this one decides the first sentence and is worth waiting a little
+ * more for, and still short enough that nobody is left holding a dead button.
+ */
+const RECORD_DEADLINE_MS = 3_000;
 
 /**
  * The record, decided from what was read rather than from the reads.
