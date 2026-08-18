@@ -28,9 +28,20 @@ export async function GET(request: Request) {
   // /acceso turns the code into something a person can act on.
   const providerError = searchParams.get('error_description') ?? searchParams.get('error');
   if (providerError) {
-    return NextResponse.redirect(
-      `${origin}/acceso?error=${encodeURIComponent(providerError)}`,
-    );
+    /*
+     * The reason goes to the log, a code goes in the URL.
+     *
+     * This forwarded the provider's own string as `?error=`, which /acceso then
+     * used as a lookup key. No entry matches a sentence from Google, so the
+     * learner saw the generic message — correct — while the raw text rode along
+     * in their address bar, and the server kept no record of it at all.
+     *
+     * So the one failure nobody can afford to have be mysterious was also the
+     * one nobody could diagnose: the learner has the detail and cannot use it,
+     * the operator can use it and does not have it.
+     */
+    console.error('[auth] provider declined:', providerError);
+    return NextResponse.redirect(`${origin}/acceso?error=access_denied`);
   }
 
   if (!code) {
@@ -40,7 +51,16 @@ export async function GET(request: Request) {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
-    return NextResponse.redirect(`${origin}/acceso?error=${encodeURIComponent(error.message)}`);
+    /*
+     * Logged for the same reason, and this is the branch that matters most.
+     * A code delivered to an origin other than the one the flow began on cannot
+     * be exchanged, because the PKCE verifier is a cookie bound to that origin —
+     * which is exactly what a second hostname produces, and what the canonical
+     * redirect in the middleware exists to prevent. Without this line that
+     * failure is invisible from the server side.
+     */
+    console.error('[auth] code exchange failed:', error.message);
+    return NextResponse.redirect(`${origin}/acceso?error=exchange_failed`);
   }
 
   // Mirror the Google identity into `public.profiles`. Best-effort: the sign-in

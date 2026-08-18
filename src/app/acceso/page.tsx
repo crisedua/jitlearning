@@ -21,6 +21,14 @@ const ERRORS: Record<string, string> = {
     'No se pudo iniciar el proceso con Google. Si vuelve a pasar, avisa a quien administra el sitio.',
   unconfigured:
     'El inicio de sesión no está configurado en este despliegue. Avisa a quien lo administra.',
+  /*
+   * The code could not be exchanged for a session. In practice this is almost
+   * always a redirect that came back to a different hostname than the one the
+   * sign-in started on: the verifier is a cookie and does not travel. Worth its
+   * own sentence because "try again" from the same place is genuinely the fix.
+   */
+  exchange_failed:
+    'No se pudo completar el inicio de sesión. Vuelve a intentarlo desde esta misma página; si sigue igual, avisa a quien administra el sitio.',
 };
 
 export default async function AccesoPage({
