@@ -307,9 +307,24 @@ export async function GET(req: Request) {
   } else {
     const broken: string[] = [];
     for (const { table, column, why } of MIGRATION_SENSITIVE) {
-      const { error } = await supabaseAdmin()
-        .from(table)
-        .select(column, { count: 'exact', head: true });
+      /*
+       * `limit(0)`, not `head: true`.
+       *
+       * `head` sends a HEAD request, and a HEAD response carries no body by
+       * definition — so when PostgREST refused, supabase-js had nothing to
+       * parse and handed back `{ message: '' }`. This check reported four
+       * columns missing and could not say why about any of them, and it could
+       * never have: the reason was discarded by the shape of the request, not
+       * lost by the formatting. Two rounds of widening the message chased a
+       * value that was never going to be there.
+       *
+       * A `limit(0)` select is the same question with a readable answer: no
+       * rows come back either way, and a failure arrives as an ordinary
+       * PostgREST error — 42703 for a missing column, 42P01 for a missing
+       * table — with a sentence attached. `status` rides along for the
+       * failures that never reach PostgREST at all.
+       */
+      const { error, status } = await supabaseAdmin().from(table).select(column).limit(0);
       if (error) {
         /*
          * `||`, not `??`.
@@ -338,10 +353,10 @@ export async function GET(req: Request) {
          * that is not from PostgREST at all (a fetch that threw, a gateway
          * answering HTML) has a `name` and little else. All of it goes out.
          */
-        const parts = [error.code, error.message, error.details, error.hint, error.name]
+        const parts = [error.code, error.message, error.details, error.hint]
           .filter((v) => typeof v === 'string' && v.length > 0)
           .join(' | ');
-        broken.push(`${table}.${column} (${why}): ${parts || `empty error: ${JSON.stringify(error)}`}`);
+        broken.push(`${table}.${column} (${why}): ${parts || `HTTP ${status}`}`);
       }
     }
 
