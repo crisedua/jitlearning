@@ -23,7 +23,7 @@ import { PROFILE, WHATSAPP } from '@/lib/site';
 import {
   FALLBACK_PLANS,
   PLAN_COLUMNS,
-  PLAN_FEATURES,
+  planFeatures,
   RECOMMENDED_PLAN_ID,
   approximateSessions,
   formatMinutes,
@@ -206,7 +206,7 @@ function PlanAction({ plan, buyable }: { plan: Plan; buyable: boolean }) {
 function PlanCard({ plan, buyable }: { plan: Plan; buyable: boolean }) {
   const recommended = plan.id === RECOMMENDED_PLAN_ID;
   const organisation = plan.seatMinimum !== null;
-  const features = PLAN_FEATURES[plan.id] ?? [];
+  const features = planFeatures(plan);
   const sessions = approximateSessions(plan.monthlyMinutes);
 
   return (

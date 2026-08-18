@@ -12,6 +12,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { spellMinutes } from './plans';
+import { WEEKLY_MAX, WEEKLY_MIN } from './curriculum';
 
 describe('saying a saving out loud', () => {
   it('uses the singular for one minute', () => {
@@ -47,5 +48,49 @@ describe('saying a saving out loud', () => {
       assert.ok(!/\b(?!1\b)\d+ hora\b/.test(said), said);
       assert.ok(!/\by 0 minutos?\b/.test(said), said);
     }
+  });
+});
+
+/**
+ * The bullets under a price cannot contradict the price they sit under.
+ *
+ * The card renders the allowance from `plans.monthly_minutes` and then lists
+ * features underneath. Those features used to be literals, so the same figure
+ * appeared twice on one card — once from the database and once from a string.
+ * The whole premise of this page is that changing a price is a row update rather
+ * than a deploy, which is exactly the change that would have moved one and left
+ * the other.
+ */
+import { FALLBACK_PLANS, formatMinutes, planFeatures } from './plans';
+
+describe('what a plan card claims', () => {
+  it('states the allowance the plan actually has', () => {
+    for (const plan of FALLBACK_PLANS) {
+      const said = planFeatures(plan).join(' | ');
+      assert.ok(
+        said.includes(formatMinutes(plan.monthlyMinutes)),
+        `${plan.id}: features never mention ${formatMinutes(plan.monthlyMinutes)} — ${said}`,
+      );
+    }
+  });
+
+  it('follows the allowance when the database changes it', () => {
+    // The failure this replaces: an operator lowers the founder tier in Postgres
+    // and the headline moves while the bullet keeps quoting the old number.
+    const founder = FALLBACK_PLANS.find((p) => p.id === 'founder')!;
+    const lowered = planFeatures({ ...founder, monthlyMinutes: 120 }).join(' | ');
+    assert.ok(lowered.includes('120'), lowered);
+    assert.ok(!lowered.includes('300'), `still quoting the old allowance: ${lowered}`);
+  });
+
+  it('says the free tier is not monthly, because it is not', () => {
+    const free = FALLBACK_PLANS.find((p) => p.period === 'total')!;
+    assert.ok(planFeatures(free).some((f) => f.includes('en total')), 'free reads as monthly');
+  });
+
+  it('quotes a task range the curriculum can actually build', () => {
+    const founder = FALLBACK_PLANS.find((p) => p.id === 'founder')!;
+    const said = planFeatures(founder).join(' | ');
+    assert.ok(said.includes(`${WEEKLY_MIN} a ${WEEKLY_MAX}`), said);
   });
 });

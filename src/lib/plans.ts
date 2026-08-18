@@ -1,3 +1,4 @@
+import { WEEKLY_MAX, WEEKLY_MIN } from './curriculum';
 /**
  * The plans, for display.
  *
@@ -162,26 +163,57 @@ export const FALLBACK_PLANS: readonly Plan[] = [
  * The card bullets, by plan id. A plan with no entry renders without a list
  * rather than breaking, so adding a tier in SQL never takes the page down.
  */
-export const PLAN_FEATURES: Record<string, readonly string[]> = {
-  free: [
-    'Una tarea real de tu semana, resuelta en la sesión',
-    'Los 2 números: lo que tardabas y lo que tardas ahora',
-    '20 minutos en total, no al mes',
-    'Se detiene al llegar al límite: nunca genera un cobro',
-    'Sin tarjeta. Para estudiantes y para probar',
-  ],
-  founder: [
-    '300 minutos al mes',
-    'Las 3 a 5 tareas de tu semana, una por una',
-    'El currículum completo, hasta el portafolio',
-    'El precio no sube mientras mantengas el plan',
-  ],
-  standard: [
-    '300 minutos al mes',
-    'Las 3 a 5 tareas de tu semana, una por una',
-    'El currículum completo y las horas que recuperas, sumadas',
-  ],
-};
+/**
+ * The bullets under each price, with every number derived.
+ *
+ * These were literals: "300 minutos al mes", "20 minutos en total", "las 3 a 5
+ * tareas". The card above them already renders the allowance from
+ * `plans.monthly_minutes`, so the same figure appeared twice on one card, once
+ * from the database and once from a string — on a page whose entire premise is
+ * that "changing a price is a row update instead of a deploy, so the number a
+ * visitor is quoted is the number the limits are enforced against".
+ *
+ * Change an allowance in Postgres and the headline would have moved while the
+ * bullet stayed, quoting two different numbers a centimetre apart. The weekly
+ * range had the same problem against `WEEKLY_MIN` and `WEEKLY_MAX`, which is
+ * what actually decides how many tasks a plan is built for.
+ *
+ * A function of the plan, so the drift is not possible rather than merely
+ * unlikely.
+ */
+export function planFeatures(plan: Plan): readonly string[] {
+  const allowance =
+    plan.period === 'total'
+      ? `${formatMinutes(plan.monthlyMinutes)} en total, no al mes`
+      : `${formatMinutes(plan.monthlyMinutes)} al mes`;
+  const tasks = `Las ${WEEKLY_MIN} a ${WEEKLY_MAX} tareas de tu semana, una por una`;
+
+  switch (plan.id) {
+    case 'free':
+      return [
+        'Una tarea real de tu semana, resuelta en la sesión',
+        'Los 2 números: lo que tardabas y lo que tardas ahora',
+        allowance,
+        'Se detiene al llegar al límite: nunca genera un cobro',
+        'Sin tarjeta. Para estudiantes y para probar',
+      ];
+    case 'founder':
+      return [
+        allowance,
+        tasks,
+        'El currículum completo, hasta el portafolio',
+        'El precio no sube mientras mantengas el plan',
+      ];
+    case 'standard':
+      return [
+        allowance,
+        tasks,
+        'El currículum completo y las horas que recuperas, sumadas',
+      ];
+    default:
+      return [];
+  }
+}
 
 /**
  * Checkout exists now: `plans.stripe_price_id` names the Stripe price, the button
