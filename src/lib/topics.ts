@@ -20,7 +20,37 @@ export interface Topic {
   examples: string[];
 }
 
+/**
+ * Order is the suggestion, and the first suggestion decides a first session.
+ *
+ * `CoachExplorer` flattens this list in order and every example becomes a button
+ * that *starts the session on that question*. The map used to lead, so the first
+ * four things a first-time learner could tap were all "tell me what is
+ * possible" — and the persona is written to follow whatever they bring, which
+ * means a first session spent on the map.
+ *
+ * That is the mistake this product already made once and reordered to fix. The
+ * README's own account of it: opening with fundamentals meant a first session
+ * ended with a plan rather than with something done, which is a vitamin. A map
+ * is a better vitamin and still a vitamin, and a first session that ends without
+ * a finished task produces no second number, so no measured saving, so no offer.
+ *
+ * The task leads now, and its first example is the painkiller stated plainly.
+ * The map stays exactly as it was, one row down, for the session where it is the
+ * right thing to ask for.
+ */
 export const TOPICS: readonly Topic[] = [
+  {
+    title: 'La clase de hoy, con tus propias tareas',
+    blurb:
+      'Cada clase se ancla a una tarea real de tu semana: qué abrir, qué escribir, qué revisar antes de usar el resultado, y un ejercicio dentro de la sesión.',
+    examples: [
+      'Tengo una tarea que me quita horas cada semana. Hagámosla ahora',
+      'Enséñame a hacer esta tarea con un asistente',
+      '¿Cómo verifico lo que me devuelve?',
+      'No alcancé a hacer la tarea. ¿La achicamos?',
+    ],
+  },
   {
     title: 'Tu mapa: qué abre la IA para alguien como tú',
     blurb:
@@ -30,17 +60,6 @@ export const TOPICS: readonly Topic[] = [
       '¿Qué de lo que sé vale más ahora?',
       '¿Qué tareas mías se están automatizando?',
       'Estoy sin trabajo. ¿Por dónde parto?',
-    ],
-  },
-  {
-    title: 'La clase de hoy, con tus propias tareas',
-    blurb:
-      'Cada clase se ancla a una tarea real de tu semana: qué abrir, qué escribir, qué revisar antes de usar el resultado, y un ejercicio dentro de la sesión.',
-    examples: [
-      'Enséñame a hacer esta tarea con un asistente',
-      '¿Cómo verifico lo que me devuelve?',
-      'Hagamos el ejercicio ahora, estoy frente al computador',
-      'No alcancé a hacer la tarea. ¿La achicamos?',
     ],
   },
   {
