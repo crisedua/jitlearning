@@ -697,6 +697,21 @@ export async function syncAgentKnowledge(
   // anything not carried forward here is erased.
   const live = await getAgent(id);
   const toolIds = live.conversation_config.agent.prompt.tool_ids ?? [];
+  /*
+   * The model, carried forward when this machine does not name one.
+   *
+   * `llm` came only from the environment, and the whole prompt block is
+   * replaced by this PATCH, so a sync run anywhere `ELEVENLABS_AGENT_LLM` is
+   * unset would drop the field and hand the agent back to the platform default.
+   * That is the same hole `tool_ids` was already read for, three lines up, and
+   * with a worse failure: a detached tool is visible in the doctor within
+   * seconds, while a quietly swapped model just makes the teacher a bit worse
+   * at everything, in ways nobody can attribute to a deploy.
+   *
+   * The environment still wins when it is set, because that is how the model is
+   * meant to be chosen. It only stops being able to erase by omission.
+   */
+  const liveLlm = live.conversation_config.agent.prompt.llm;
 
   await updateAgent(id, {
     conversation_config: {
@@ -718,7 +733,7 @@ export async function syncAgentKnowledge(
            * cannot keep by forgetting an option.
            */
           prompt: teacherSystemPrompt({ search: toolIds.length > 0 }),
-          ...(llm ? { llm } : {}),
+          ...(llm ?? liveLlm ? { llm: llm ?? liveLlm } : {}),
           knowledge_base: entries,
           rag: ragConfig(),
           /*

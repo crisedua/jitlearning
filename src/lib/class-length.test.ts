@@ -266,3 +266,28 @@ describe('agent settings that only existed at creation', () => {
     assert.ok(seconds <= 30, 'the platform refuses more than 30');
   });
 });
+
+/*
+ * The sync replaces the whole prompt block, so anything it does not carry
+ * forward is erased. `tool_ids` was read from the live agent for exactly that
+ * reason. `llm` was not, and came only from the environment, so a sync run
+ * anywhere the variable is unset would hand the model back to the platform
+ * default — quietly, and in a way nobody would attribute to a deploy.
+ */
+describe('what the sync would erase by omission', () => {
+  const agent = read('src', 'lib', 'agent.ts');
+
+  it('carries the live model forward when this machine names none', () => {
+    assert.match(agent, /const liveLlm = live\.conversation_config\.agent\.prompt\.llm/);
+    assert.match(agent, /llm \?\? liveLlm/);
+  });
+
+  it('still lets the environment choose the model when it is set', () => {
+    // Carrying forward is a floor, not an override: naming a model must work.
+    assert.match(agent, /llm: llm \?\? liveLlm/);
+  });
+
+  it('reads the live agent before writing it', () => {
+    assert.match(agent, /Read before write[\s\S]{0,200}const live = await getAgent\(id\)/);
+  });
+});
