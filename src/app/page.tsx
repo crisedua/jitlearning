@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { SessionPreview } from '@/components/SessionPreview';
 import { DIFFERENCES, HERO, PROMISES, STEPS, TAGLINE } from '@/lib/site';
-import { LEVELS, lessonsForLevel } from '@/lib/curriculum';
+import { LEVELS, WEEKLY_MAX, WEEKLY_MIN, lessonsForLevel } from '@/lib/curriculum';
 import { ASSUMED_SESSION_MINUTES, FREE_PLAN, spellMinutes } from '@/lib/plans';
 
 export const metadata = {
@@ -142,14 +142,14 @@ export default function HomePage() {
                 */}
                 {level.perTask && (
                   <p className="mt-4 rounded-md border border-gold/30 bg-gold-soft/30 px-4 py-3 text-[15px] leading-relaxed text-ink/85">
-                    Y una clase por cada tarea de tu semana, entre 3 y 5. Esas las define tu
-                    diagnóstico: son tus tareas, no ejemplos.
+                    Y una clase por cada tarea de tu semana, entre {WEEKLY_MIN} y {WEEKLY_MAX}.
+                    Esas las define tu diagnóstico: son tus tareas, no ejemplos.
                   </p>
                 )}
 
                 {level.id === 'flujo' && (
                   <p className="mt-4 text-[13px] leading-relaxed text-soft">
-                    De estas 5 haces las que correspondan al camino que elegiste.
+                    De estas {lessons.length} haces las que correspondan al camino que elegiste.
                   </p>
                 )}
               </li>

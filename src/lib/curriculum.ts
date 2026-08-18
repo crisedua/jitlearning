@@ -454,7 +454,7 @@ export function curriculumForPrompt(): string {
 
   return `Nivel 1, Tu semana. Primero, una sola clase fija e igual para todos, antes de tocar cualquier documento real:
 ${list(SEMANA)}
-Después, una clase por cada tarea de su semana, entre 3 y 5. No existen antes del diagnóstico: las defines con las tareas que te dio, y cada una termina con la tarea hecha y los minutos medidos.
+Después, una clase por cada tarea de su semana, entre ${WEEKLY_MIN} y ${WEEKLY_MAX}. No existen antes del diagnóstico: las defines con las tareas que te dio, y cada una termina con la tarea hecha y los minutos medidos.
 
 Nivel 2, Por qué funcionó. Iguales para todos, en este orden:
 ${list(CRITERIO)}
