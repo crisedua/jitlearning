@@ -148,3 +148,54 @@ describe('exported functions', () => {
     assert.deepEqual(dead, [], `exported and never called: ${dead.join(', ')}`);
   });
 });
+
+/*
+ * The corpus folders and the prefixes that claim them.
+ *
+ * `TEACHER.sources` decides which documents get attached to the agent: a
+ * document whose name does not start with one of those prefixes uploads,
+ * indexes, and belongs to nobody. The only symptom is a teacher that never
+ * cites material somebody wrote and paid to embed.
+ *
+ * The doctor catches it once the agent is carrying such a document, and the
+ * ingest script warns while uploading. Neither fires for a folder that was
+ * added and not yet ingested, which is the window where the mistake is free to
+ * fix — and the folders are on disk, so the comparison is available.
+ *
+ * `_retired` is excluded by instruction: those corpora were retired when the
+ * product became one teacher, and the files are kept rather than deleted
+ * precisely so they are not attached.
+ */
+describe('the knowledge folders', () => {
+  it('are each claimed by a source prefix', async () => {
+    const { TEACHER } = await import('./teacher');
+    const dir = path.join(ROOT, 'knowledge');
+
+    const folders = readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && e.name !== '_retired')
+      .map((e) => `${e.name}/`);
+
+    assert.ok(folders.length > 0, 'no corpus folders found, so this checks nothing');
+
+    const unclaimed = folders.filter((f) => !TEACHER.sources.includes(f));
+    assert.deepEqual(
+      unclaimed,
+      [],
+      `these folders are ingested and attached to nobody: ${unclaimed.join(', ')}. Add the prefix to TEACHER.sources or move them to _retired.`,
+    );
+  });
+
+  it('has a prefix for nothing that is missing', async () => {
+    // The other direction: a prefix naming a folder that no longer exists means
+    // the agent is being asked to attach documents that cannot be produced.
+    const { TEACHER } = await import('./teacher');
+    const dir = path.join(ROOT, 'knowledge');
+    const present = new Set(
+      readdirSync(dir, { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .map((e) => `${e.name}/`),
+    );
+    const missing = TEACHER.sources.filter((s) => !present.has(s));
+    assert.deepEqual(missing, [], `named in TEACHER.sources and not on disk: ${missing.join(', ')}`);
+  });
+});
