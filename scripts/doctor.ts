@@ -1367,15 +1367,31 @@ async function main() {
    * no longer performs, which for a product whose central claim is "no inventa"
    * is the worst kind of drift.
    */
-  const honesty: Array<[string, string]> = [
-    ['no figures without a source', 'Nunca cifras sin fuente'],
-    ['labels general knowledge', 'criterio general'],
-    ['never attributes what it did not retrieve', 'Nunca atribuyas'],
-    ['never promises a job', 'Nunca prometas un trabajo'],
-    ['looks up live data instead of guessing', 'usa la herramienta buscar'],
-    ['never claims a search it did not run', 'nunca digas que buscaste'],
+  /*
+   * Each rule is a list of phrases, any one of which satisfies it.
+   *
+   * Only one rule needs that, and it needed it the moment the persona gained a
+   * variant. "usa la herramienta buscar" is exactly the sentence the no-search
+   * persona removes, and this check reads the searching one unconditionally, so
+   * it has been reporting 6 of 6 against a persona that is not the one live on
+   * the agent. The rule underneath is the same either way: do not guess about
+   * something current. With a tool that means looking it up; without one it
+   * means saying so and offering the general criterion instead.
+   */
+  const honesty: Array<[string, string[]]> = [
+    ['no figures without a source', ['Nunca cifras sin fuente']],
+    ['labels general knowledge', ['criterio general']],
+    ['never attributes what it did not retrieve', ['Nunca atribuyas']],
+    ['never promises a job', ['Nunca prometas un trabajo']],
+    [
+      'never guesses about live data',
+      ['usa la herramienta buscar', 'tampoco ofrezcas buscarla'],
+    ],
+    ['never claims a search it did not run', ['nunca digas que buscaste']],
   ];
-  const missingHonesty = honesty.filter(([, phrase]) => !persona.includes(phrase));
+  const missingHonesty = honesty.filter(
+    ([, phrases]) => !phrases.some((phrase) => persona.includes(phrase)),
+  );
   if (missingHonesty.length === 0) ok(`Honesty rule complete, all ${honesty.length} parts`);
   else {
     bad(`Honesty rule incomplete, missing: ${missingHonesty.map(([label]) => label).join(', ')}`);

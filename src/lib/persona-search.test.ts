@@ -60,3 +60,61 @@ describe('the persona without a search tool', () => {
     }
   });
 });
+
+/*
+ * Both variants have to satisfy the checks that guard the persona.
+ *
+ * The doctor reads the searching variant unconditionally, so when the persona
+ * gained a second form it started reporting "6 of 6" about a persona that was
+ * not the one live on the agent. The rule it got wrong is the one whose wording
+ * differs between them: with a tool, do not guess, look it up; without one, do
+ * not guess, say you cannot and give the general criterion.
+ *
+ * Pinned here rather than only in the doctor because the doctor needs an API key
+ * and this does not, so a persona edit that drops a rule from one variant fails
+ * in the suite rather than on somebody's laptop.
+ */
+describe('what the doctor checks holds for both variants', () => {
+  const HONESTY: string[][] = [
+    ['Nunca cifras sin fuente'],
+    ['criterio general'],
+    ['Nunca atribuyas'],
+    ['Nunca prometas un trabajo'],
+    ['usa la herramienta buscar', 'tampoco ofrezcas buscarla'],
+    ['nunca digas que buscaste'],
+  ];
+
+  const SHAPE = [
+    '## El mapa',
+    '## El plan y el currículum',
+    'los dos minutos de privacidad',
+    'pregúntale cuánto tarda normalmente',
+    '### Sesiones siguientes',
+  ];
+
+  for (const search of [true, false]) {
+    const label = search ? 'with the search tool' : 'without the search tool';
+
+    it(`keeps every honesty rule ${label}`, () => {
+      const persona = teacherSystemPrompt({ search });
+      for (const phrases of HONESTY) {
+        assert.ok(
+          phrases.some((p) => persona.includes(p)),
+          `no phrasing of this rule survives: ${phrases.join(' / ')}`,
+        );
+      }
+    });
+
+    it(`keeps the session shape ${label}`, () => {
+      const persona = teacherSystemPrompt({ search });
+      for (const marker of SHAPE) {
+        assert.ok(persona.includes(marker), `lost: ${marker}`);
+      }
+    });
+
+    it(`fits the budget ${label}`, () => {
+      const length = teacherSystemPrompt({ search }).length;
+      assert.ok(length <= 16_000, `${length} chars, over the 16000 the agent accepts`);
+    });
+  }
+});

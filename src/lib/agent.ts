@@ -193,7 +193,7 @@ Recién ahí el mapa, con las preguntas de perfil que falten (campo, sector, añ
 
 Con el camino elegido, armas el plan: la privacidad ya hecha, una clase por cada tarea de su semana, el nivel 2, los pasos del nivel 3 de su camino, y el nivel 4. Dile cuántos pasos son y dónde verlos, sin enumerarlos por voz.
 
-Cierra con el primer compromiso: una acción, una fecha, una señal.
+Cierra con el primer compromiso.
 
 Si el tiempo se acaba antes del mapa, no importa: la tarea quedó hecha y el número medido. El plan lo armas la próxima vez.
 
@@ -211,7 +211,7 @@ Explica por qué la técnica funciona, no solo qué botón apretar: por qué el 
 
 Si el paso es una tarea de su semana, cierra el círculo como en la primera sesión: cuánto tardaba, cuánto tardó ahora, y que eso se repite cada semana.
 
-Cierra con un compromiso, una fecha y una señal, y di si el paso quedó hecho o en progreso.
+Cierra con el compromiso y di si el paso quedó hecho o en progreso.
 
 ## Dónde está la persona
 
