@@ -1081,11 +1081,79 @@ async function main() {
         note('No conversation over a minute has ever happened on this agent.');
         note('Nothing here has been tried by a person, only checked by a machine.');
       } else if (newest < changed) {
-        const days = Math.floor((changed - newest) / 86_400_000);
-        note(`${real.length} class(es), and the newest is ${days} day(s) older than the persona.`);
+        // Hours matter here: a persona pushed an hour after the last class is a
+        // different situation from one nobody has used in a fortnight, and
+        // "0 day(s) older" reads like a bug rather than a fresh change.
+        const gap = changed - newest;
+        const age =
+          gap < 86_400_000
+            ? `${Math.max(1, Math.round(gap / 3_600_000))} hour(s)`
+            : `${Math.floor(gap / 86_400_000)} day(s)`;
+        note(`${real.length} class(es), and the newest ended ${age} before the persona changed.`);
         note('Nobody has spoken to the teacher that is live right now.');
       } else {
         ok(`${real.length} class(es), and at least one since the persona last changed`);
+      }
+
+      /*
+       * Whether the classes that happened produced the thing being sold.
+       *
+       * Every page leads with the two numbers, and /progreso only shows the
+       * offer when both are present, so a class that ends without them is a
+       * class after which nobody is ever asked to pay. It is also the failure
+       * least likely to be noticed: the conversation goes well, the learner
+       * hangs up happy, and the row is simply missing a field.
+       *
+       * Read from the extractor's own results rather than from the database, so
+       * this answers even before the post-call webhook is registered — which is
+       * the state a first operator is in, and exactly when they most need to
+       * know whether the session shape works.
+       *
+       * The most recent few only. This is one request per conversation and the
+       * doctor is run often; a trend needs the funnel, not a diagnostic.
+       */
+      const recent = real.slice(0, 5);
+      if (recent.length > 0) {
+        let analysed = 0;
+        let measured = 0;
+        const reasons: string[] = [];
+
+        for (const c of recent) {
+          const id = (c as { conversation_id?: string }).conversation_id;
+          if (!id) continue;
+          const res = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${id}`, {
+            headers: { 'xi-api-key': apiKey },
+          });
+          if (!res.ok) continue;
+          const body = (await res.json()) as {
+            analysis?: {
+              data_collection_results?: Record<string, { value?: unknown; rationale?: string }>;
+            };
+          };
+          const fields = body.analysis?.data_collection_results;
+          if (!fields || Object.keys(fields).length === 0) continue;
+          analysed++;
+
+          const filled = (name: string) => {
+            const v = fields[name]?.value;
+            return v !== null && v !== undefined && v !== '';
+          };
+          if (filled('task_minutes_before') && filled('task_minutes_after')) measured++;
+          else {
+            const why = fields.task_minutes_before?.rationale ?? fields.task_minutes_after?.rationale;
+            if (why) reasons.push(why.replace(/\s+/g, ' ').slice(0, 150));
+          }
+        }
+
+        if (analysed === 0) {
+          note('None of the recent classes carries an analysis, so nothing can be read from them.');
+        } else if (measured === analysed) {
+          ok(`${measured} of the last ${analysed} class(es) ended with both numbers`);
+        } else {
+          note(`${measured} of the last ${analysed} class(es) ended with both numbers.`);
+          note('Without both, /progreso never shows the offer, so nobody is asked to pay.');
+          for (const r of reasons.slice(0, 2)) note(`  the extractor said: ${r}`);
+        }
       }
     } catch (err) {
       note(`Could not read usage: ${err instanceof Error ? err.message : err}`);
