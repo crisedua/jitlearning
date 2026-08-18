@@ -20,6 +20,7 @@ import { anonKey, authConfigured, supabaseUrl } from '@/lib/supabase/env';
 import { CheckoutButton } from '@/components/CheckoutButton';
 import { IntentLink } from '@/components/IntentLink';
 import { billingConfigured } from '@/lib/billing';
+import { withDeadline } from '@/lib/deadline';
 import { PROFILE, WHATSAPP } from '@/lib/site';
 import {
   FALLBACK_PLANS,
@@ -83,7 +84,33 @@ export const revalidate = 300;
  * fallback logs: silently serving stale prices is exactly the failure this page
  * cannot afford.
  */
+/**
+ * Long enough for a healthy read, short enough that nobody leaves.
+ *
+ * This page revalidates, so one slow render is served to whoever asked for it
+ * and cached for everybody after. Past a couple of seconds a visitor on a phone
+ * has already decided the site is broken, and the compiled prices are right
+ * anyway — the fallback exists for exactly this and was only reachable by an
+ * error, never by a wait.
+ */
+const PLANS_DEADLINE_MS = 2_500;
+
 async function loadPlans(): Promise<readonly Plan[]> {
+  /*
+   * Every failure here already falls back to the compiled prices: an
+   * unconfigured environment, a network error, an empty result. A read that
+   * simply never answers did not, because a hanging promise is not an error and
+   * the try below has nothing to catch. It hung until the platform gave up, and
+   * what the visitor got in the meantime was the page that asks for money,
+   * blank.
+   *
+   * The same treatment `learnerRecord` and the summary lookup already had, on
+   * the one page here whose whole job is to be read by a stranger.
+   */
+  return withDeadline(read(), FALLBACK_PLANS, PLANS_DEADLINE_MS);
+}
+
+async function read(): Promise<readonly Plan[]> {
   if (!authConfigured()) return FALLBACK_PLANS;
 
   try {
