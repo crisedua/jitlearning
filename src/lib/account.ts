@@ -208,6 +208,34 @@ export async function checkPlanAllowance(
   userId: string,
   email?: string | null,
 ): Promise<{ allowed: true } | { allowed: false; error: string }> {
+  /*
+   * The fail-open promise above, made unconditional.
+   *
+   * Every branch inside returns `{ allowed: true }` on a bad read, so the policy
+   * held for any error Postgres handed back as a value. It did not hold for one
+   * thrown: this is awaited by `/api/signed-url` inside its own try, which turns
+   * a rejection into 500 and "no se pudo conectar con el profesor". That is
+   * precisely the wall the comment says a Supabase hiccup must never become, and
+   * it would land hardest on the paying learner it was written to protect.
+   *
+   * Not a deadline, deliberately. A slow read that eventually answers still
+   * meters correctly, and a timeout that fails open would quietly change how the
+   * cap behaves under load, which is a pricing decision rather than a bug fix.
+   * A read that hangs long enough still costs the class; that gap is real and
+   * left to whoever decides the metering policy.
+   */
+  try {
+    return await allowanceFor(userId, email);
+  } catch (err) {
+    console.error('[account] allowance check threw, allowing:', err);
+    return { allowed: true };
+  }
+}
+
+async function allowanceFor(
+  userId: string,
+  email?: string | null,
+): Promise<{ allowed: true } | { allowed: false; error: string }> {
   if (!serviceConfigured()) return { allowed: true };
 
   /*
