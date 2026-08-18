@@ -1017,7 +1017,18 @@ async function main() {
     console.error('');
     process.exit(1);
   }
-  console.log('\nReady.\n');
+  /*
+   * "Ready." on its own reads as finished, and everything above it is about
+   * configuration. Nothing here has checked that a class works — only that the
+   * pieces a class needs are present and agree with each other. The one thing
+   * that exercises the whole chain is somebody having a complete session, and
+   * the person best placed to hit a broken step and act on it is whoever runs
+   * this, before anybody is sent a link.
+   */
+  console.log('\nReady, in the sense that nothing is misconfigured.\n');
+  console.log('  Nothing above checks that a class works. Have one yourself first:');
+  console.log('  a real task from your week, at a computer, through to both numbers.');
+  console.log('  Then check /progreso shows the hours and /admin/embudo counts you.\n');
 }
 
 main().catch((err) => {

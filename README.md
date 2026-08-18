@@ -125,6 +125,28 @@ curl $SITE/api/health -H "x-ingest-secret: $INGEST_SECRET"
 #    rather than for your laptop, and needs no secret.
 ```
 
+### Then be the first learner
+
+Everything above checks configuration. None of it checks the product. One person
+having one complete session is the only thing that exercises the whole chain, and
+it should be you before it is anybody else — a stranger who hits a broken step
+does not report it, they leave.
+
+Take a real task from your own week, at a computer, and walk it:
+
+| Where | What should be true |
+|---|---|
+| `$SITE` → sign in | You come back to the page you started on, on the canonical domain |
+| `/coach` | The teacher opens by asking what you do and proposes resolving a task today, not by offering a plan |
+| the session | It asks how long the task normally takes **before** you start, and how long it took at the end. Around five minutes from your limit it should start closing rather than opening new ground |
+| `/progreso` | The hours appear as a number you recognise, the plan lists your own tasks by name, and the offer sits directly under the number |
+| `/admin/embudo` | You appear at every step: signed up, talked, finished a task, measured |
+| tomorrow | Open `/coach` again. The first sentence should name the commitment you made, not greet you as new |
+
+Each row is a thing that has been broken here at least once, silently, in a way
+that looked fine from the code. If any of them is wrong, ten people would meet it
+before you heard about it.
+
 Environment variables, all in Vercel (see [`.env.example`](.env.example) for what
 each one does):
 
