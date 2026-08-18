@@ -74,6 +74,14 @@ export default function PrivacidadPage() {
         nada de esto ni lo usamos para entrenar modelos.
       </p>
 
+      <h2 className="mt-10 font-serif text-[24px] font-normal leading-snug">Los registros técnicos</h2>
+      <p className="mt-3 text-[17px] leading-relaxed text-muted">
+        Cuando algo falla, el sistema anota qué falló. Esas líneas llevan identificadores: el
+        número de tu sesión, el del paso, el de tu cuenta. No llevan tu correo, ni tu nombre, ni
+        nada de lo que dijiste o escribiste. Es una regla que revisa una prueba automática, no una
+        buena intención.
+      </p>
+
       <h2 className="mt-10 font-serif text-[24px] font-normal leading-snug">
         Por eso los dos minutos del principio
       </h2>

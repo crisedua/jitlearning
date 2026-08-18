@@ -38,6 +38,28 @@ function sources(dir: string, out: string[] = []): string[] {
 const PERSONAL = /\$\{[^}]*\b(email|correo|name|nombre|full_?name|evidence|taught|summary|transcript|message|commitment|question|answer)\b[^}]*\}/i;
 
 describe('what reaches the logs', () => {
+  /*
+   * The page says this now, so the test is what makes it true.
+   *
+   * "No llevan tu correo, ni tu nombre, ni nada de lo que dijiste o escribiste.
+   * Es una regla que revisa una prueba automática, no una buena intención." That
+   * sentence is only worth printing while this file exists and runs, so it
+   * checks that the claim is still on the page as well as still true of the
+   * code. Removing one without the other leaves either a promise nothing keeps
+   * or a rule nobody knows about.
+   */
+  it('is a promise the privacy page actually makes', () => {
+    const page = readFileSync(
+      path.join(ROOT, 'src', 'app', 'privacidad', 'page.tsx'),
+      'utf8',
+    );
+    assert.match(
+      page,
+      /Los registros técnicos/,
+      'the privacy page no longer describes the logs, so this test guards nothing anybody was told',
+    );
+  });
+
   const files = sources(path.join(ROOT, 'src'));
 
   it('found the tree it is meant to check', () => {
