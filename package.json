@@ -12,6 +12,7 @@
     "doctor": "tsx scripts/doctor.ts",
     "setup:agent": "tsx scripts/setup-agent.ts",
     "sync:agent": "tsx scripts/sync-agent.ts",
+    "setup:webhook": "tsx scripts/setup-webhook.ts",
     "sync:usage": "tsx scripts/sync-usage.ts",
     "ingest": "tsx scripts/ingest.ts",
     "scrape:pains": "tsx scripts/scrape-pains.ts",

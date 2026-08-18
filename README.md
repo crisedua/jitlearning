@@ -90,7 +90,16 @@ npm run setup:tools -- --push
 #    prompt. Left alone, the agent can search and tells every learner it
 #    cannot, which errors nowhere and is taught to everybody.
 
-# 4. The post-call webhook, in the ElevenLabs dashboard.
+# 4. The post-call webhook.
+#
+#    npm run setup:webhook            # what it would do
+#    npm run setup:webhook -- --push  # create it, point ElevenLabs at it
+#
+#    Prints the signing secret, which is shown once. Put it in .env.local and
+#    in Vercel as ELEVENLABS_WEBHOOK_SECRET; until it is there the receiving
+#    route answers 503 and every class is still recorded nowhere.
+#
+#    By hand instead, in the ElevenLabs dashboard:
 #    Conversational AI -> Settings -> Webhooks
 #      URL:    $SITE/api/webhooks/elevenlabs
 #      Events: post_call_transcription

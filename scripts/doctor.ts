@@ -1317,9 +1317,10 @@ async function main() {
           note('Classes will run and be recorded nowhere: no summary, no step marked done,');
           note('no minutes, no commitment. timeSaved counts only done steps with both');
           note('numbers, so the weekly saving stays zero and the offer never appears.');
-          note('Dashboard -> Conversational AI -> Settings -> Post-call webhook.');
-          note(`  URL: <app>/api/webhooks/elevenlabs · Events: post_call_transcription`);
-          note('Then put the signing secret in ELEVENLABS_WEBHOOK_SECRET, here and in Vercel.');
+          note('Run `npm run setup:webhook` to see what it would do, then `-- --push`.');
+          note('It creates the webhook, points ElevenLabs at it, and prints the signing');
+          note('secret, which is shown once. That secret has to reach Vercel and .env.local');
+          note('as ELEVENLABS_WEBHOOK_SECRET, or every delivery fails and nothing changes.');
           failures++;
         }
       }
