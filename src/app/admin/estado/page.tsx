@@ -259,20 +259,32 @@ async function readAgent(id: string): Promise<AgentRow[]> {
     const attached = prompt?.knowledge_base ?? [];
     const foreign = attached.filter((d) => !ownsDocument(d.name));
     const live = (prompt?.prompt ?? '').trim();
+    // Which persona this agent should be running, from what it actually carries.
+    const hasTool = (prompt?.tool_ids ?? []).length > 0;
 
     return [
       {
         label: 'La persona que está corriendo',
-        // Either variant is correct: the persona ships without its lookup
-        // promise when no search tool is attached. See `teacherSystemPrompt`.
-        ok:
-          live === teacherSystemPrompt().trim() ||
-          live === teacherSystemPrompt({ search: false }).trim(),
+        /*
+         * Which variant is right is decided by the agent, not by preference.
+         *
+         * This accepted either one, which made both mismatches read as correct.
+         * The one worth catching is the quiet direction: a search tool attached
+         * and a persona that says it cannot look anything up. Nothing errors,
+         * the tool row below goes green, the class sounds fine, and the teacher
+         * declines to use something it has, to everybody, until somebody
+         * notices. A promise not made looks like modesty.
+         */
+        ok: live === teacherSystemPrompt({ search: hasTool }).trim(),
         detail:
-          live === teacherSystemPrompt().trim()
-            ? 'Es la de este repo, carácter por carácter.'
-            : live === teacherSystemPrompt({ search: false }).trim()
-              ? 'Es la de este repo, sin la promesa de buscar, porque no hay herramienta conectada.'
+          live === teacherSystemPrompt({ search: hasTool }).trim()
+            ? hasTool
+              ? 'Es la de este repo, carácter por carácter.'
+              : 'Es la de este repo, sin la promesa de buscar, porque no hay herramienta conectada.'
+            : live === teacherSystemPrompt({ search: !hasTool }).trim()
+              ? hasTool
+                ? 'Hay herramienta de búsqueda y la persona dice que no puede buscar. Corre `npm run sync:agent -- --push`.'
+                : 'La persona promete buscar y no hay herramienta conectada. Corre `npm run sync:agent -- --push`.'
               : 'El agente tiene una versión distinta. Corre `npm run sync:agent -- --push`.',
       },
       {
@@ -297,7 +309,7 @@ async function readAgent(id: string): Promise<AgentRow[]> {
         detail:
           (prompt?.tool_ids ?? []).length > 0
             ? 'Adjunta. El profesor puede buscar lo que promete buscar.'
-            : 'Sin adjuntar, y la persona dice que puede buscar. Corre `npm run setup:tools -- --push`.',
+            : 'Sin adjuntar, así que el profesor avisa que no puede buscar. Corre `npm run setup:tools -- --push` para que sí pueda.',
       },
     ];
   } catch (err) {
