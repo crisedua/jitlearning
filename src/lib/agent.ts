@@ -43,6 +43,7 @@ import {
   updateAgent,
   type AgentConfig,
   type DataCollectionConfig,
+  type EvaluationCriterion,
   type RagConfig,
 } from './elevenlabs';
 import { agentLanguage, embeddingModel, maxVectorDistance, requireAgentId } from './config';
@@ -361,6 +362,51 @@ export function ragConfig(): RagConfig {
  * a field like this can do is inventing a commitment nobody made or a task
  * nobody mentioned.
  */
+/**
+ * What counts as a class that did its job, judged per conversation.
+ *
+ * The agent had none of these, so `call_successful` came back "success" on a
+ * session that never finished a task and never produced a number: ElevenLabs was
+ * grading a conversation, and nobody had told it what this conversation is for.
+ *
+ * The persona already states the contract in prose. These turn the four parts a
+ * learner would notice into questions with definite answers, so every class is
+ * marked against the thing being sold rather than against whether it went
+ * pleasantly. Written as "did this happen" rather than "how good was it",
+ * because the result is going to be counted.
+ *
+ * They cost nothing to a learner and are visible per conversation, which makes
+ * them the cheapest honest report available on whether the session shape works
+ * before anybody has been asked to pay.
+ */
+export function evaluationCriteria(): EvaluationCriterion[] {
+  const criterion = (id: string, prompt: string): EvaluationCriterion => ({
+    id,
+    name: id,
+    type: 'prompt',
+    conversation_goal_prompt: prompt,
+  });
+
+  return [
+    criterion(
+      'tarea_terminada',
+      'Marca éxito solo si la persona terminó durante la conversación una tarea real y concreta suya, con un resultado que existe al colgar: un texto, un correo, una plantilla, un análisis. No cuenta planificar, explicar, dar ideas ni acordar hacerlo después. Si la conversación fue orientación, diagnóstico o lluvia de ideas, es fracaso.',
+    ),
+    criterion(
+      'dos_numeros',
+      'Marca éxito solo si quedaron dichos en la conversación los dos números de la misma tarea: cuánto tardaba antes y cuánto tardó ahora, ambos en horas o minutos y dichos por la persona. Un solo número es fracaso. Una estimación del profesor que la persona no confirmó es fracaso.',
+    ),
+    criterion(
+      'compromiso_completo',
+      'Marca éxito solo si la conversación cerró con un compromiso que tiene las tres partes: qué va a hacer, para cuándo, y qué señal contaría como que salió bien. Un tema sin fecha es fracaso. Un consejo del profesor que la persona no aceptó es fracaso.',
+    ),
+    criterion(
+      'sin_inventar',
+      'Marca fracaso si el profesor dio una cifra, un porcentaje, un precio, un año, un estudio o un nombre de curso o certificación sin decir de dónde salía; si prometió o insinuó que esto lleva a un trabajo o a un sueldo; o si dijo que había buscado algo cuando no llamó a ninguna herramienta. En cualquier otro caso, éxito.',
+    ),
+  ];
+}
+
 export function dataCollection(): DataCollectionConfig {
   const text = (description: string) => ({ type: 'string' as const, description });
 
@@ -524,7 +570,10 @@ export async function provisionAgent(): Promise<string> {
         similarity_boost: 0.8,
       },
     },
-    platform_settings: { data_collection: dataCollection() },
+    platform_settings: {
+      data_collection: dataCollection(),
+      evaluation: { criteria: evaluationCriteria() },
+    },
   };
 
   const { agent_id } = await createAgent(config);
@@ -593,7 +642,10 @@ export async function syncAgentKnowledge(
     // Sent on every sync for the same reason the prompt is: the agent holds its
     // own copy, so an agent provisioned before a field existed picks it up here
     // rather than needing to be recreated.
-    platform_settings: { data_collection: dataCollection() },
+    platform_settings: {
+      data_collection: dataCollection(),
+      evaluation: { criteria: evaluationCriteria() },
+    },
   });
 
   return { agentId: id, attached: entries.length };

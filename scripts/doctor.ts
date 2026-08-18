@@ -27,6 +27,7 @@ import {
   FIRST_MESSAGE,
   PROMISE_MARKERS,
   dataCollection,
+  evaluationCriteria,
   teacherSystemPrompt,
 } from '../src/lib/agent';
 import { PROMISES } from '../src/lib/site';
@@ -362,6 +363,32 @@ async function main() {
         failures++;
       } else {
         ok(`All ${repoFields.length} extraction fields present on the live agent`);
+      }
+
+      /*
+       * The success criteria, same parity question as the fields above.
+       *
+       * Without them ElevenLabs still returns `call_successful`, and it returned
+       * "success" for a class that finished no task and produced no number,
+       * because it was grading a conversation and nobody had told it what this
+       * conversation is for. A confident wrong verdict is worse than none: it is
+       * the number an operator would check to decide the session works.
+       */
+      const liveCriteria = (
+        (agent as unknown as {
+          platform_settings?: { evaluation?: { criteria?: Array<{ id?: string }> } };
+        }).platform_settings?.evaluation?.criteria ?? []
+      ).map((c) => c.id);
+      const repoCriteria = evaluationCriteria().map((c) => c.id);
+      const missingCriteria = repoCriteria.filter((id) => !liveCriteria.includes(id));
+
+      if (missingCriteria.length > 0) {
+        bad(`The live agent is missing ${missingCriteria.length} success criteria: ${missingCriteria.join(', ')}.`);
+        note('Every class would come back graded "success" without being asked what it achieved.');
+        note('Run `npm run sync:agent -- --push`.');
+        failures++;
+      } else {
+        ok(`All ${repoCriteria.length} success criteria present, so each class is marked`);
       }
     } catch (err) {
       bad(`Agent ${id} could not be fetched: ${err instanceof Error ? err.message : err}`);

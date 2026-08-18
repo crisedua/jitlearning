@@ -204,6 +204,21 @@ export type DataCollectionConfig = Record<
   { type: 'string' | 'number' | 'boolean' | 'integer'; description: string }
 >;
 
+/**
+ * Success criteria, judged per conversation by ElevenLabs after the call.
+ *
+ * `conversation_goal_prompt` is read by an evaluator that has the transcript, so
+ * each one is written as a question with a definite answer rather than as a
+ * quality rating: "did this happen" beats "how good was it" when the result is
+ * going to be counted.
+ */
+export interface EvaluationCriterion {
+  id: string;
+  name: string;
+  type: 'prompt';
+  conversation_goal_prompt: string;
+}
+
 export interface AgentConfig {
   name?: string;
   conversation_config: {
@@ -241,6 +256,7 @@ export interface AgentConfig {
   };
   platform_settings?: {
     data_collection?: DataCollectionConfig;
+    evaluation?: { criteria: EvaluationCriterion[] };
   };
 }
 
