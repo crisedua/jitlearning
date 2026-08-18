@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
-import { LEVELS, PATHS, buildPlan, isWeeklyTask, type PathId, weeklyLessonId } from './curriculum';
+import { LEVELS, PATHS, WEEKLY_MAX, WEEKLY_MIN, buildPlan, isWeeklyTask, type PathId, weeklyLessonId } from './curriculum';
 
 const MIGRATIONS = path.join(process.cwd(), 'supabase', 'migrations');
 
@@ -134,5 +134,48 @@ describe('naming a weekly task', () => {
     const same = after.find((s) => s.linkedTask === 'Responder correos')!;
     assert.equal(first.lessonId, same.lessonId);
     assert.equal(after.filter((s) => isWeeklyTask(s.lessonId)).length, 2);
+  });
+});
+
+/**
+ * What the offer promises is what the plan contains.
+ *
+ * The paragraph on /progreso that asks for money says the plan covers the
+ * learner's weekly tasks "y los otros N niveles, hasta el portafolio", with N
+ * derived from LEVELS rather than written out. It used to name only level 2 and
+ * the portfolio, which described eleven of the fourteen steps somebody would
+ * actually get — understating the product in the one place it asks to be paid,
+ * and omitting the level that turns a task done with AI into a repeatable flow.
+ *
+ * Deriving the number fixes the drift; this pins the assumption underneath it,
+ * that a real plan actually spans every level.
+ */
+describe('the offer describes the plan it is selling', () => {
+  const plan = buildPlan({
+    weeklyTasks: Array.from({ length: WEEKLY_MAX }, (_, i) => `Tarea ${i + 1}`),
+    path: 'mejorar',
+  });
+
+  it('a full plan reaches every level', () => {
+    const reached = new Set(plan.map((s) => s.level));
+    for (const level of LEVELS) {
+      assert.ok(
+        reached.has(level.id),
+        `level "${level.id}" produces no steps, so the offer counts a level nobody gets`,
+      );
+    }
+  });
+
+  it('the weekly steps are as many as the learner named', () => {
+    assert.equal(plan.filter((s) => isWeeklyTask(s.lessonId)).length, WEEKLY_MAX);
+  });
+
+  it('the minimum the offer quotes is a plan that can actually be built', () => {
+    const smallest = buildPlan({
+      weeklyTasks: Array.from({ length: WEEKLY_MIN }, (_, i) => `Tarea ${i + 1}`),
+      path: 'mejorar',
+    });
+    assert.equal(smallest.filter((s) => isWeeklyTask(s.lessonId)).length, WEEKLY_MIN);
+    assert.ok(smallest.length > WEEKLY_MIN, 'a minimal plan is only the weekly tasks');
   });
 });

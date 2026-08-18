@@ -14,7 +14,15 @@ import {
   type SessionRecord,
   type TimeSaved,
 } from '@/lib/progress';
-import { LEVELS, PATHS, stepDetail, type LevelId, type PathId } from '@/lib/curriculum';
+import {
+  LEVELS,
+  PATHS,
+  stepDetail,
+  WEEKLY_MAX,
+  WEEKLY_MIN,
+  type LevelId,
+  type PathId,
+} from '@/lib/curriculum';
 import { subscriptionFor, type Subscription } from '@/lib/billing';
 import { getUsageBalance } from '@/lib/account';
 import { minutesLeft } from '@/lib/balance';
@@ -173,8 +181,8 @@ function Ofrecer({
       <p className="mt-3 max-w-[58ch] text-[15px] leading-relaxed text-ink/85">
         Con una sola tarea ya recuperas {spellMinutes(saved.perWeek)} cada semana, medidos por ti.
         El plan {plan.name} cuesta {formatMoney(plan.priceMinor, plan.currency)} al mes y son{' '}
-        {formatMinutes(plan.monthlyMinutes)} de clase: alcanza para las 3 a 5 tareas de tu semana,
-        el nivel 2 y el portafolio.
+        {formatMinutes(plan.monthlyMinutes)} de clase: alcanza para las {WEEKLY_MIN} a {WEEKLY_MAX}{' '}
+        tareas de tu semana y para los otros {LEVELS.length - 1} niveles, hasta el portafolio.
       </p>
       {outOfMinutes && (
         <p className="mt-2 text-[14px] leading-relaxed text-warning">
