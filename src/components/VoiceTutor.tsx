@@ -6,6 +6,13 @@ import { liveCallMessage } from '@/lib/errors';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConversationProvider, useConversation } from '@elevenlabs/react';
 import { KnownTopics } from './KnownTopics';
+import { PracticeBench } from './PracticeBench';
+import {
+  benchFailureUpdate,
+  benchUpdate,
+  practiceModel,
+  type PracticeModelId,
+} from '@/lib/practica';
 import { CoachExplorer } from './CoachExplorer';
 import { offersUpgrade, withoutUpgradeMarker } from '@/lib/gate';
 
@@ -65,6 +72,18 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
   const [objective, setObjective] = useState('');
   const [starting, setStarting] = useState(false);
   const transcriptRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * The usage row this class opened, for the practice bench to charge against.
+   *
+   * A second home for something `usageRef` already holds, and deliberately so:
+   * that ref is nulled the moment usage is reported, because it doubles as the
+   * "already sent" flag for a report that must fire exactly once. The bench
+   * needs the id for as long as the class is open, and reading it from a ref
+   * that clears itself would silently start writing practice rows with no
+   * session attached partway through a session.
+   */
+  const [benchSession, setBenchSession] = useState<string | null>(null);
 
   /*
    * Usage bookkeeping. Refs rather than state: none of it is rendered, and the
@@ -384,6 +403,7 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
       setTurns([]);
       lastTypedRef.current = null;
       minutesLeftRef.current = typeof data.minutesLeft === 'number' ? data.minutesLeft : null;
+      setBenchSession(data.sessionId ?? null);
       usageRef.current = {
         // Null when this deployment records no usage. Everything downstream
         // checks for it rather than assuming a row exists.
@@ -476,6 +496,52 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
       else setObjective(question);
     },
     [connected, sendTyped],
+  );
+
+  /*
+   * The bench, into the teacher's ear.
+   *
+   * A contextual update rather than a typed turn, and the distinction is the
+   * whole point: a typed turn is the learner speaking, and would make the
+   * teacher answer the prompt they wrote instead of looking at what came back.
+   * This is the teacher noticing something on the learner's screen. It spends
+   * no spoken turn, which is what makes it affordable to send after every
+   * exchange in a ten-minute class.
+   *
+   * This is also the fix for the interrogation the bench was built to end. The
+   * teacher used to have exactly one way to find out what an assistant had
+   * answered — ask, one question per turn — and burned whole classes
+   * reconstructing a spreadsheet the learner had open in front of them.
+   */
+  const onBenchExchange = useCallback(
+    (exchange: {
+      modelId: PracticeModelId;
+      prompt: string;
+      attachments: readonly string[];
+      answer: string;
+    }) => {
+      const model = practiceModel(exchange.modelId);
+      if (!model) return;
+      sendContextualUpdate(
+        benchUpdate({
+          model,
+          prompt: exchange.prompt,
+          attachments: exchange.attachments,
+          answer: exchange.answer,
+        }),
+      );
+    },
+    [sendContextualUpdate],
+  );
+
+  /*
+   * A failure is worth telling the teacher too. Without this the learner goes
+   * quiet fighting an error box while the teacher waits on a step it thinks is
+   * being done, and `skip_turn` means it may wait a long time.
+   */
+  const onBenchFailure = useCallback(
+    (reason: string) => sendContextualUpdate(benchFailureUpdate(reason)),
+    [sendContextualUpdate],
   );
 
   return (
@@ -638,6 +704,23 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
         <Transcript turns={turns} scrollRef={transcriptRef} />
 
         {connected && <TextFallback onSend={sendTyped} />}
+
+        {/*
+          During the class only.
+
+          Not a limitation to work around later: the bench is worth having
+          because the teacher is watching, and outside a call nobody is. It is
+          also metered against the same allowance as the class, and a free tier
+          of twenty minutes that can be spent without ever opening a class is a
+          free tier that buys the learner nothing and us nothing.
+        */}
+        {connected && (
+          <PracticeBench
+            sessionId={benchSession}
+            onExchange={onBenchExchange}
+            onFailure={onBenchFailure}
+          />
+        )}
 
         {/*
           After the call, not during it. The plan and the evidence live on the

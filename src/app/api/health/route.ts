@@ -31,6 +31,8 @@ import { FIRST_MESSAGE, teacherSystemPrompt } from '@/lib/agent';
 import { requireSecret, UnauthorizedError } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { MIGRATION_SENSITIVE } from '@/lib/schema';
+import { openrouterConfigured } from '@/lib/openrouter';
+import { PRACTICE_MODELS } from '@/lib/practica';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -298,6 +300,27 @@ export async function GET(req: Request) {
    * works perfectly and is not selling yet, or true for one that takes money and
    * grants nothing. Neither is a useful answer.
    */
+  /*
+   * The practice bench, reported the way `selling` is and for the same reason.
+   *
+   * Off is a supported state, not a broken one: with no OpenRouter key the
+   * panel does not render, `/api/practica` answers with a sentence saying so,
+   * and the class runs by voice exactly as it did before. Folding that into
+   * `ready` would make a working deployment report itself broken for declining
+   * an optional feature.
+   *
+   * What is *not* reported here is whether the bench is metered, and that is
+   * deliberate: `practice_messages.billed_seconds` is in MIGRATION_SENSITIVE, so
+   * a deployment running the bench without its ledger fails `checks.schema` and
+   * takes `ready` down with it. That is the right severity — it is the state
+   * where every message is served and none is charged.
+   *
+   * `npm run doctor` asks the same question of `.env.local`, which on a
+   * Vercel-only deployment is always going to answer "off" about a bench that is
+   * on. This runs inside the deployment, so it is the one that can be believed.
+   */
+  const bench = openrouterConfigured();
+
   const ready = Object.values(checks).every((c) => c.state === 'ok');
   const selling = Boolean(
     process.env.STRIPE_SECRET_KEY?.trim() && process.env.STRIPE_WEBHOOK_SECRET?.trim(),
@@ -310,6 +333,10 @@ export async function GET(req: Request) {
       sellingDetail: selling
         ? 'Stripe is configured; a completed payment can grant a plan.'
         : 'No Stripe keys: paid plans fall back to writing to a person. Not counted against `ready`.',
+      bench,
+      benchDetail: bench
+        ? `Practice bench is on: ${PRACTICE_MODELS.map((m) => `${m.label} (${m.model})`).join(', ')}. Metering is covered by \`checks.schema\`.`
+        : 'No OPENROUTER_API_KEY: the bench does not render and the class runs by voice. Not counted against `ready`.',
       embeddingModel: embeddingModel(),
       /*
        * Which commit is answering.

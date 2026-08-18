@@ -36,6 +36,7 @@ import { PROMISES } from '../src/lib/site';
 import { CLASS_CAP_MINUTES, wrapUpAt } from '../src/lib/class-length';
 import { ASSUMED_SESSION_MINUTES, dominatedBy, FALLBACK_PLANS, formatMinutes, formatMoney } from '../src/lib/plans';
 import { buildPlan, LESSONS, LEVELS, lessonsForLevel, PATHS } from '../src/lib/curriculum';
+import { PRACTICE_MODELS } from '../src/lib/practica';
 import { serviceConfigured, supabaseAdmin } from '../src/lib/supabase/admin';
 import { classReport } from '../src/lib/classes';
 import { firstMissingRung } from '../src/lib/setup';
@@ -1810,17 +1811,30 @@ async function main() {
    * looks unrelated is what will eventually push it over.
    */
   /*
-   * 16,000, raised from 15,000 once the persona started earning it.
+   * 17,250, raised from 16,000, which was itself raised from 15,000 once the
+   * persona started earning it.
    *
-   * The original figure was a spec number, not a platform limit, and the prompt
-   * now carries strictly more: a session-1 spine that finishes a real task and
-   * measures it, the map, the whole curriculum, and the rules for the lookup
-   * tool. At roughly 4k tokens in a cached system prompt this is not a latency
-   * cost. What the ceiling is really guarding is attention — past some size the
-   * model stops weighting the last section — so it stays, with headroom that
-   * makes trimming a decision rather than an emergency.
+   * None of these is a platform limit. What the ceiling guards is attention —
+   * past some size the model stops weighting the last section — so it moves
+   * only when the persona gains a capability it cannot teach without.
+   *
+   * This one is the practice bench: the learner can now write to Gemini, Claude
+   * or ChatGPT from the classroom screen and the teacher is sent every exchange
+   * (src/lib/practica.ts). A teacher that does not know the bench exists asks
+   * the learner to describe a file they could have attached, which is the
+   * behaviour the bench was built to end, and it has to be told once that the
+   * bench is a rehearsal so the real task still goes into the learner's own
+   * account. That is 972 characters, and it bought back what it could: the
+   * walking-learner instruction had been written out twice and is now written
+   * once.
+   *
+   * The previous ceiling was reached exactly — the persona stood at 15,989 of
+   * 16,000, eleven characters of headroom — so any persona work at all was
+   * going to land on this decision. If the next one does too, the section to
+   * look at first is `## El mapa`: it is the longest in the prompt and, with
+   * classes capped at ten minutes, the one a first session never reaches.
    */
-  const BUDGET = 16_000;
+  const BUDGET = 17_250;
   if (persona.length > BUDGET) {
     bad(`Persona is ${persona.length} chars, over the ${BUDGET.toLocaleString('en-US')} budget`);
     failures++;
@@ -1849,6 +1863,55 @@ async function main() {
     );
   } else {
     ok(`Persona is ${persona.length} chars`);
+  }
+
+  /*
+   * The practice bench, asked of the deployment rather than of this laptop.
+   *
+   * Every other env check here reads `.env.local`, and for this one that is the
+   * wrong file to read. The bench needs an OpenRouter key, and a project run on
+   * Vercel keeps that key in the Vercel dashboard — so a local check would
+   * report "off" about a bench that is on for every learner, which is worse
+   * than not checking: it is a confident wrong answer.
+   *
+   * `/api/health` runs inside the deployment and reports `bench` and
+   * `benchDetail`. Off is not a failure; it is a supported state, the same way
+   * Stripe being absent is. What *is* a failure — the bench running without
+   * `practice_messages`, serving every message and billing none — is caught by
+   * `checks.schema` there, because the column is in MIGRATION_SENSITIVE.
+   */
+  console.log('\nThe practice bench\n');
+
+  if (process.env.OPENROUTER_API_KEY?.trim()) {
+    ok('OPENROUTER_API_KEY is set locally, so `npm run dev` has the bench');
+  } else {
+    note('No OPENROUTER_API_KEY in .env.local, so the bench is off for `npm run dev`.');
+    note('That says nothing about the deployment; the line below does.');
+  }
+
+  for (const model of PRACTICE_MODELS) {
+    note(`  This checkout would run ${model.label} on ${model.model}`);
+  }
+
+  try {
+    const benchOrigin = configuredOrigin() ?? DEFAULT_ORIGIN;
+    const res = await fetch(`${benchOrigin}/api/health`, {
+      headers: { 'x-ingest-secret': process.env.INGEST_SECRET?.trim() ?? '' },
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      bench?: boolean;
+      benchDetail?: string;
+    };
+
+    if (typeof body.bench !== 'boolean') {
+      note(`${benchOrigin} does not report a bench, so it predates this check. Deploy first.`);
+    } else if (body.bench) {
+      ok(`${benchOrigin}: ${body.benchDetail}`);
+    } else {
+      note(`${benchOrigin}: ${body.benchDetail}`);
+    }
+  } catch {
+    note('Could not reach the deployment to ask whether its bench is on.');
   }
 
   console.log('\nSite promises against persona behaviour\n');

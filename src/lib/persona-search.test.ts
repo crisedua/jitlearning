@@ -112,9 +112,13 @@ describe('what the doctor checks holds for both variants', () => {
       }
     });
 
+    /*
+     * The same number the doctor enforces, and the reasoning lives there.
+     * Raised to make room for the practice bench; see `scripts/doctor.ts`.
+     */
     it(`fits the budget ${label}`, () => {
       const length = teacherSystemPrompt({ search }).length;
-      assert.ok(length <= 16_000, `${length} chars, over the 16000 the agent accepts`);
+      assert.ok(length <= 17_250, `${length} chars, over the 17250 budget`);
     });
   }
 });

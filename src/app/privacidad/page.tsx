@@ -55,6 +55,13 @@ export default function PrivacidadPage() {
         usas, qué buscas, tu plan, lo que te comprometiste a hacer, los minutos que medimos y lo
         que escribas tú en tu página de progreso. No guardamos el audio.
       </p>
+      <p className="mt-3 text-[17px] leading-relaxed text-muted">
+        Del banco de práctica, donde le escribes a Gemini, Claude o ChatGPT durante la clase, no
+        guardamos nada de lo que escribes ni los archivos que subas. Los archivos se leen para
+        armar el mensaje y se descartan. Lo que queda en la base es la cuenta: con cuál
+        practicaste, cuántos archivos adjuntaste, cuántos caracteres tenía el mensaje y lo que
+        costó, porque eso descuenta de tus minutos.
+      </p>
 
       <h2 className="mt-10 font-serif text-[24px] font-normal leading-snug">
         Quiénes más están en el camino
@@ -64,7 +71,13 @@ export default function PrivacidadPage() {
         y también quien maneja tu inicio de sesión con Google. Vercel sirve las páginas, así que ve
         las peticiones. Cuando el profesor busca algo actual, la pregunta va a Anthropic, junto con
         una línea de contexto sobre tu rol si la hay, y nada más: ni tu nombre, ni tu correo, ni tu
-        cuenta. Y si algún día pagas, la tarjeta la recibe Stripe y nunca pasa por acá.
+        cuenta. Cuando usas el banco de práctica, tu mensaje y tus archivos van a OpenRouter, que
+        los pasa a Google, Anthropic u OpenAI según con cuál elegiste practicar; van sin tu nombre,
+        sin tu correo y sin tu cuenta, y el profesor recibe una copia de lo que escribiste y de lo
+        que te respondieron para poder enseñarte sobre eso. Por eso el banco te pide que quites
+        nombres, RUT y datos de clientes antes de subir algo del trabajo: es un ensayo, y no hay
+        motivo para que lo real de tus clientes salga de tu computador. Y si algún día pagas, la
+        tarjeta la recibe Stripe y nunca pasa por acá.
       </p>
 
       <h2 className="mt-10 font-serif text-[24px] font-normal leading-snug">Quién lo ve</h2>

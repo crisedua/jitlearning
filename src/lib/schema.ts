@@ -47,6 +47,22 @@ export const MIGRATION_SENSITIVE: ReadonlyArray<{
   },
   {
     /*
+     * The bench's ledger, and the only entry whose absence costs money in the
+     * other direction: everything keeps working.
+     *
+     * `/api/practica` writes one row per exchange and never throws on a failed
+     * write, because losing a row must not cost a learner the answer they are
+     * waiting on mid-class. So a deployment with an OpenRouter key and no
+     * `practice_messages` table serves every practice message, bills none of
+     * them, and reports nothing anywhere. The allowance the two views compute
+     * simply never includes the bench.
+     */
+    table: 'practice_messages',
+    column: 'billed_seconds',
+    why: 'the practice bench spends money and none of it comes off anybody\'s minutes',
+  },
+  {
+    /*
      * A view rather than a table, and the only entry here that costs money when
      * it is absent. `checkPlanAllowance` reads it to learn that the free tier is
      * a lifetime allowance; without it the code falls through to the monthly
