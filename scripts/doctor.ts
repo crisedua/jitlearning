@@ -498,7 +498,16 @@ async function main() {
   let billingFailures = 0;
 
   if (!billingConfigured()) {
-    note('STRIPE_SECRET_KEY not set. Paid plans show "conversemos" instead of a checkout.');
+    /*
+     * Three surfaces degrade, not one. This said "paid plans show conversemos",
+     * which described /planes and was written before the offer under the hours
+     * and the billing portal learned to fall back too. An operator reading it
+     * would picture one page behaving differently and find three.
+     */
+    note('STRIPE_SECRET_KEY not set. Every buy button falls back to a prefilled message:');
+    note('  on /planes, and under the measured hours on /progreso, where the click is still');
+    note('  recorded in purchase_intents. Somebody on a comped plan is told how to reach you');
+    note('  rather than sent to a billing portal that does not exist.');
   } else {
     ok('STRIPE_SECRET_KEY is set');
 

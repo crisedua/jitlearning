@@ -130,7 +130,8 @@ function environment(): { label: string; set: boolean; missing: string }[] {
     {
       label: 'STRIPE_SECRET_KEY',
       set: Boolean(process.env.STRIPE_SECRET_KEY?.trim()),
-      missing: 'Los planes de pago muestran "Conversemos" en vez de un checkout.',
+      missing:
+        'Cada botón de pago cae a un mensaje escrito: en /planes y bajo las horas medidas en /progreso, donde el clic igual queda anotado. A quien tenga un plan de cortesía se le dice cómo escribirte en vez de mandarlo a un portal que no existe.',
     },
     {
       label: 'STRIPE_WEBHOOK_SECRET',
