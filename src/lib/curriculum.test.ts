@@ -138,6 +138,82 @@ describe('naming a weekly task', () => {
 });
 
 /**
+ * The cap counts what is open, not what has ever been done.
+ *
+ * This is the difference between a course that ends and a subscription that
+ * keeps earning its price. Every measured hour on the progress page comes from a
+ * level 1 step, and levels 2 to 4 are fixed lessons that measure nothing — so a
+ * lifetime cap of five weekly tasks is a date, some months out, after which the
+ * learner's own number can no longer move however long they keep paying.
+ */
+describe('the weekly cap bounds open tasks, not a lifetime', () => {
+  const weekly = (plan: ReturnType<typeof buildPlan>) =>
+    plan.filter((s) => isWeeklyTask(s.lessonId)).map((s) => s.linkedTask);
+
+  const named = (n: number, from = 1) =>
+    Array.from({ length: n }, (_, i) => `Tarea ${i + from}`);
+
+  it('a first plan still takes at most WEEKLY_MAX', () => {
+    // Unchanged, and the reason is unchanged: five open tasks is a plan and
+    // nine is a list nobody finishes.
+    const plan = buildPlan({ weeklyTasks: named(WEEKLY_MAX + 4), path: 'mejorar' });
+    assert.equal(weekly(plan).length, WEEKLY_MAX);
+  });
+
+  it('a full plan of open tasks refuses one more', () => {
+    const carried = named(WEEKLY_MAX).map((t) => ({ lessonId: weeklyLessonId(t), done: false }));
+    const plan = buildPlan({
+      weeklyTasks: [...named(WEEKLY_MAX), 'Tarea nueva'],
+      path: 'mejorar',
+      carried,
+    });
+    assert.ok(!weekly(plan).includes('Tarea nueva'));
+  });
+
+  it('a finished task makes room for the next one', () => {
+    const carried = named(WEEKLY_MAX).map((t, i) => ({
+      lessonId: weeklyLessonId(t),
+      done: i === 0,
+    }));
+    const plan = buildPlan({
+      weeklyTasks: [...named(WEEKLY_MAX), 'Tarea nueva'],
+      path: 'mejorar',
+      carried,
+    });
+    assert.ok(weekly(plan).includes('Tarea nueva'));
+    // And the finished one stays: its row holds the minutes that were measured.
+    assert.ok(weekly(plan).includes('Tarea 1'));
+  });
+
+  it('a plan whose weekly tasks are all done takes a whole new set', () => {
+    // The state a paying learner reaches after a few months, and the one the
+    // old cap had nothing to offer.
+    const carried = named(WEEKLY_MAX).map((t) => ({ lessonId: weeklyLessonId(t), done: true }));
+    const plan = buildPlan({
+      weeklyTasks: named(WEEKLY_MAX + 3),
+      path: 'mejorar',
+      carried,
+    });
+    assert.equal(weekly(plan).length, WEEKLY_MAX + 3);
+  });
+
+  it('a task already carried is never dropped over the cap', () => {
+    // Its step holds the status, the evidence and the two minute figures, so
+    // leaving it out of the plan is how a measurement gets stranded.
+    const carried = named(WEEKLY_MAX + 2).map((t) => ({
+      lessonId: weeklyLessonId(t),
+      done: false,
+    }));
+    const plan = buildPlan({
+      weeklyTasks: named(WEEKLY_MAX + 2),
+      path: 'mejorar',
+      carried,
+    });
+    assert.equal(weekly(plan).length, WEEKLY_MAX + 2);
+  });
+});
+
+/**
  * What the offer promises is what the plan contains.
  *
  * The paragraph on /progreso that asks for money says the plan covers the

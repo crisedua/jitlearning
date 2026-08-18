@@ -163,7 +163,15 @@ const WEEKLY = {
     `El resultado real de "${task}", más los minutos que tardabas antes y los que tardas ahora.`,
 };
 
-/** Between 3 and 5 weekly tasks become lessons. Fewer is a thin plan, more is a list nobody finishes. */
+/**
+ * Between 3 and 5 weekly tasks become lessons. Fewer is a thin plan, more is a
+ * list nobody finishes.
+ *
+ * The maximum counts the tasks *open at any one time*, not the tasks a learner
+ * may ever do: see `buildPlan`, which lets a finished task make room for the
+ * next one. The minimum is only ever advice to the teacher — nothing refuses a
+ * plan with two.
+ */
 export const WEEKLY_MIN = 3;
 export const WEEKLY_MAX = 5;
 
@@ -404,9 +412,23 @@ export function weeklyLessonId(task: string): string {
   return `sem-${hash.toString(36).padStart(7, '0')}`;
 }
 
+/**
+ * A weekly step the learner already carries, as `buildPlan` needs to see it.
+ *
+ * Only two facts matter to the cap: that the task is already on the plan, and
+ * whether it is finished. Deliberately not the database row — this module has to
+ * stay usable in the browser and knows nothing about `plan_steps`.
+ */
+export interface CarriedStep {
+  lessonId: string;
+  done: boolean;
+}
+
 export function buildPlan(input: {
   weeklyTasks: readonly string[];
   path: PathId | null | undefined;
+  /** The weekly steps already on this learner's plan. Empty on the first build. */
+  carried?: readonly CarriedStep[];
 }): PlannedStep[] {
   const fixed = (lesson: Lesson): PlannedStep => ({
     lessonId: lesson.id,
@@ -415,17 +437,52 @@ export function buildPlan(input: {
     linkedTask: null,
   });
 
-  const tasks = input.weeklyTasks
-    .map((t) => t.trim())
-    .filter(Boolean)
-    .slice(0, WEEKLY_MAX);
+  /*
+   * `WEEKLY_MAX` bounds how many weekly tasks are *open at once*, not how many a
+   * learner may ever do.
+   *
+   * It used to be `.slice(0, WEEKLY_MAX)` over the whole list, which is right for
+   * the plan somebody is handed on day one — five open tasks is a plan and nine
+   * is a list nobody finishes. Applied for the lifetime of the account it says
+   * something else entirely: that the part of this product which produces the
+   * number, one of the learner's own recurring tasks done and measured, runs five
+   * times and then never again. Everything after level 1 is fixed lessons, so a
+   * plan whose weekly steps are all done has no more measurements left in it, and
+   * the figure the progress page leads with, and that the offer is priced
+   * against, stops moving the month it is finished. That is a subscription with
+   * an expiry date written into `buildPlan`.
+   *
+   * The week does not run out; that is the whole premise. So a finished task
+   * makes room for the next one, and the cap goes on doing the job it was
+   * written for.
+   *
+   * A task already on the plan is always kept, whatever the count: its step holds
+   * the status, the evidence and the two minute figures, and dropping it out of
+   * `planned` over a cap would strand a measurement.
+   */
+  const carried = input.carried ?? [];
+  const known = new Set(carried.map((s) => s.lessonId));
+  let room = Math.max(0, WEEKLY_MAX - carried.filter((s) => !s.done).length);
 
-  const weekly: PlannedStep[] = tasks.map((task) => ({
-    lessonId: weeklyLessonId(task),
-    level: WEEKLY.level,
-    title: WEEKLY.title(task),
-    linkedTask: task,
-  }));
+  const weekly: PlannedStep[] = [];
+  for (const raw of input.weeklyTasks) {
+    const task = raw.trim();
+    if (!task) continue;
+
+    const lessonId = weeklyLessonId(task);
+    if (!known.has(lessonId)) {
+      if (room === 0) continue;
+      room--;
+      known.add(lessonId);
+    }
+
+    weekly.push({
+      lessonId,
+      level: WEEKLY.level,
+      title: WEEKLY.title(task),
+      linkedTask: task,
+    });
+  }
 
   return [
     ...SEMANA.map(fixed),
@@ -466,7 +523,7 @@ export function curriculumForPrompt(): string {
 
   return `Nivel 1, Tu semana. Primero, una sola clase fija e igual para todos, antes de tocar cualquier documento real:
 ${list(SEMANA)}
-Después, una clase por cada tarea de su semana, entre ${WEEKLY_MIN} y ${WEEKLY_MAX}. No existen antes del diagnóstico: las defines con las tareas que te dio, y cada una termina con la tarea hecha y los minutos medidos.
+Después, una clase por cada tarea de su semana, entre ${WEEKLY_MIN} y ${WEEKLY_MAX} abiertas a la vez. No existen antes del diagnóstico: las defines con las tareas que te dio, y cada una termina con la tarea hecha y los minutos medidos. El nivel 1 no se cierra: una tarea hecha y medida deja entrar otra.
 
 Nivel 2, Por qué funcionó. Iguales para todos, en este orden:
 ${list(CRITERIO)}

@@ -18,13 +18,14 @@ import {
   matchStep,
   opening,
   parseMinutes,
+  planOrder,
   readStatus,
   timeSaved,
   type CareerProfile,
   type PlanStep,
   type SessionRecord,
 } from './progress';
-import { buildPlan, LEVELS, WEEKLY_MAX } from './curriculum';
+import { buildPlan, LEVELS, WEEKLY_MAX, weeklyLessonId } from './curriculum';
 
 let seq = 0;
 function step(over: Partial<PlanStep> = {}): PlanStep {
@@ -709,4 +710,166 @@ describe('minutes typed into the notebook', () => {
     assert.equal(parse('90.4'), 90);
     assert.equal(parse('90.6'), 91);
   });
+});
+
+
+/**
+ * Positions, over every step the learner has rather than over the plan the last
+ * conversation happened to describe.
+ *
+ * The bug this pins was silent by construction. `position` was the index into
+ * `buildPlan`'s output, and `buildPlan` only sees the weekly tasks in the
+ * profile — which `upsertProfile` replaces wholesale, so a lesson session that
+ * mentions one task in passing shrinks it to one. Add a genuinely new lesson id
+ * on top of that and the whole plan is renumbered from zero while the weekly
+ * steps that dropped out of the profile keep positions from when the plan was
+ * longer. Postgres has no unique index there to refuse it, so two steps sit on
+ * one number and the order it returns them in is its own business.
+ *
+ * Nothing errors. The learner opens the notebook to a reshuffled plan, and "vas
+ * en el paso 4" names a different lesson than it did yesterday.
+ */
+describe('the plan is numbered over every step that exists', () => {
+  it('gives no two steps the same position', () => {
+    // Five weekly tasks on the plan, of which the profile now remembers one.
+    const carried = ['Correos', 'Informe', 'Reunión', 'Cotización', 'Resumen'];
+    const existing = carried.map((task, i) =>
+      step({ lessonId: weeklyLessonId(task), linkedTask: task, position: i + 1, title: task }),
+    );
+
+    const planned = buildPlan({
+      weeklyTasks: ['Correos'],
+      path: 'mejorar',
+      carried: existing.map((s) => ({ lessonId: s.lessonId, done: true })),
+    });
+
+    const ordered = planOrder(existing, planned);
+    const positions = ordered.map((_, i) => i);
+    assert.equal(new Set(positions).size, ordered.length);
+
+    // And every step that existed is still in the plan being written.
+    for (const s of existing) {
+      assert.ok(
+        ordered.some((o) => o.lessonId === s.lessonId),
+        `${s.lessonId} dropped out of the plan, and with it its minutes`,
+      );
+    }
+  });
+
+  it('keeps the levels in curriculum order', () => {
+    const existing = [
+      step({ lessonId: 'cri-01-contexto', level: 'criterio', position: 0 }),
+      step({ lessonId: weeklyLessonId('Correos'), linkedTask: 'Correos', position: 1 }),
+    ];
+    const planned = buildPlan({
+      weeklyTasks: ['Correos'],
+      path: 'mejorar',
+      carried: [{ lessonId: weeklyLessonId('Correos'), done: true }],
+    });
+
+    const ordered = planOrder(existing, planned);
+    const rank = ordered.map((s) => LEVELS.findIndex((l) => l.id === s.level));
+    assert.deepEqual(rank, [...rank].sort((a, b) => a - b), 'levels came back out of order');
+  });
+
+  it('lands a task taken on later after the ones already there', () => {
+    const first = weeklyLessonId('Correos');
+    const existing = [step({ lessonId: first, linkedTask: 'Correos', position: 1 })];
+    const planned = buildPlan({
+      weeklyTasks: ['Correos', 'Informe'],
+      path: 'mejorar',
+      carried: [{ lessonId: first, done: true }],
+    });
+
+    const ordered = planOrder(existing, planned);
+    const weekly = ordered.filter((s) => s.linkedTask).map((s) => s.linkedTask);
+    assert.deepEqual(weekly, ['Correos', 'Informe']);
+  });
+
+  it('takes the title from the curriculum when the lesson is still in it', () => {
+    // A lesson renamed in curriculum.ts has to reach the rows; only steps
+    // buildPlan no longer emits fall back to what is stored.
+    const existing = [step({ lessonId: 'cri-01-contexto', level: 'criterio', title: 'Nombre viejo' })];
+    const planned = buildPlan({ weeklyTasks: ['Correos'], path: 'mejorar' });
+
+    const written = planOrder(existing, planned).find((s) => s.lessonId === 'cri-01-contexto');
+    assert.notEqual(written?.title, 'Nombre viejo');
+  });
+});
+
+
+/**
+ * The session after the last one.
+ *
+ * Levels 2 to 4 are fixed lessons and finite, so every learner who keeps paying
+ * arrives at a plan with every step done — and both things the teacher starts
+ * from used to go blank there at once. The record stated that the steps were
+ * done and gave no instruction; the opening said "retomemos donde quedamos"
+ * about a plan with nowhere to resume. A subscription whose product has nothing
+ * to do on the day the plan finishes is cancelled that week, and the measured
+ * figure it is priced against had already stopped moving.
+ *
+ * A plan never built produces the same null current step and is the opposite
+ * situation, so both are pinned here.
+ */
+describe('when every step of the plan is done', () => {
+  const blank: CareerProfile = {
+    role: 'contadora',
+    field: null,
+    sector: null,
+    experienceYears: null,
+    weeklyTasks: [],
+    tools: [],
+    aiUsage: null,
+    goal: null,
+    chosenPath: null,
+    map: {},
+    updatedAt: null,
+  };
+
+  const finished = [
+    step({ lessonId: weeklyLessonId('Correos'), status: 'done' }),
+    step({ lessonId: 'cri-01-contexto', level: 'criterio', status: 'done' }),
+  ];
+
+  it('the record tells the teacher what to do, not only what happened', () => {
+    const record = buildRecord({ profile: blank, steps: finished, history: [] });
+    assert.ok(
+      /otra tarea de su semana/i.test(record.registro),
+      `the record leaves the teacher to invent the session: ${record.registro}`,
+    );
+  });
+
+  it('the opening asks for the next task rather than for a screen', () => {
+    const said = opening(blank, null, null, 0, finished.length);
+    assert.ok(/tarea de tu semana/i.test(said), said);
+  });
+
+  it('an unanswered commitment still wins the question', () => {
+    // The follow-up is the one thing that outranks starting something new.
+    const said = opening(
+      blank,
+      null,
+      {
+        id: 'h1',
+        createdAt: new Date().toISOString(),
+        lessonId: null,
+        taught: null,
+        commitment: 'mandar el resumen',
+        commitmentDate: null,
+        commitmentDone: null,
+      },
+      0,
+      finished.length,
+    );
+    assert.ok(said.includes('¿Lo hiciste?'), said);
+  });
+
+  it('says nothing of the sort when the plan was never built', () => {
+    const said = opening(blank, null, null, 0, 0);
+    assert.ok(!/tarea de tu semana/i.test(said), said);
+    const record = buildRecord({ profile: blank, steps: [], history: [] });
+    assert.ok(!/otra tarea de su semana/i.test(record.registro), record.registro);
+  });
+
 });

@@ -256,7 +256,7 @@ they get.
 
 | Level | What | Personalised |
 |---|---|---|
-| 1 Tu semana | The privacy guardrail, then 1 lesson per weekly task, 3 to 5 of them, each ending in the finished output and the two numbers | The tasks do not exist before the diagnostic |
+| 1 Tu semana | The privacy guardrail, then 1 lesson per weekly task, 3 to 5 open at a time, each ending in the finished output and the two numbers | The tasks do not exist before the diagnostic |
 | 2 Por qué funcionó | 5 fixed lessons on the criterion behind what already worked: context, asking well, verifying, what not to delegate, the landscape | No |
 | 3 De tarea a flujo | 5 written lessons (chaining, automation, agents, data, building), of which the learner does the ones matching their chosen path | Selection |
 | 4 Portafolio | Assemble the proofs, then rehearse telling it in 90 seconds | Entirely |
@@ -265,6 +265,38 @@ Every lesson names a proof: an artifact the learner can show. That is this
 product's definition of progress. A step marked done with no evidence is a step
 to ask about again. Level 1 steps name two more things, the minutes before and
 after, which is where the value claim comes from.
+
+### Level 1 does not close
+
+Levels 2 to 4 are fixed lessons and there are twelve of them, so a learner who
+keeps coming reaches a plan with every step done — and every measured minute on
+the progress page comes from a *level 1* step. A cap of five weekly tasks for the
+lifetime of an account therefore sets a date, a few months out, after which the
+number the price is argued from cannot move however long somebody keeps paying.
+
+`WEEKLY_MAX` now bounds the tasks **open at once** rather than the tasks ever
+taken on, which is the job the number was written for: five open is a plan, nine
+is a list nobody finishes. A finished task makes room for the next one, so the
+week goes on being the thing that recurs. `buildPlan` takes the steps the learner
+already carries in order to apply that, and a task already on the plan is never
+dropped over the cap, because its row holds the status, the evidence and the two
+minute figures.
+
+Both things the teacher starts a session from say so when the plan is complete:
+`registro` carries the instruction to take another task from the week rather than
+the observation that the steps are done, and the spoken opening asks which task
+weighs most now instead of offering to resume a plan with nowhere to resume. An
+unanswered commitment still outranks both.
+
+The counterpart in the write path is `planOrder`. `position` decides which step
+is current, and it used to be the index into `buildPlan`'s output — which only
+holds the weekly tasks the *last* extraction produced, since `upsertProfile`
+replaces `weekly_tasks` wholesale. One genuinely new lesson id renumbered the
+whole plan from zero while the weekly steps that had dropped out of the profile
+kept positions from when it was longer. Two rows on one position, no unique index
+to refuse it, and a plan that reshuffles on its own. Positions are now assigned
+over the union of everything stored and everything planned, sorted into
+curriculum order, with new steps landing after the ones already there.
 
 ### The number
 

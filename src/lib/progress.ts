@@ -33,6 +33,7 @@ import type { ConversationDetail } from './elevenlabs';
 import {
   buildPlan,
   isWeeklyTask,
+  LEVELS,
   lessonById,
   type LevelId,
   type PathId,
@@ -705,7 +706,25 @@ export function buildRecord({
       );
     }
   } else if (steps.length > 0) {
-    blocks.push(`Plan: los ${steps.length} pasos están marcados como hechos.`);
+    /*
+     * An instruction, not an observation.
+     *
+     * This used to say only that the steps were all done, which told the teacher
+     * a fact and left it to invent what a session is for afterwards. Levels 2 to
+     * 4 are fixed and finite, so every learner who keeps paying arrives here, and
+     * arrives with nothing waiting: the opening said "retomemos donde quedamos"
+     * about a plan with no next step, and the measured figure the price is
+     * argued from had made its last move.
+     *
+     * The week is what recurs, so level 1 is what resumes. `buildPlan` now lets a
+     * finished task make room for the next one, and this is the sentence that
+     * makes the teacher go and get it.
+     */
+    blocks.push(
+      `Plan: los ${steps.length} pasos están hechos. Sigue con otra tarea de su semana, ` +
+        'como en el nivel 1: cuál le pesa ahora, cuánto tarda, háganla en la sesión y ' +
+        'cierra con cuánto tardó. Aparece sola en su plan.',
+    );
   }
   if (lastCommitment?.commitment) {
     const state =
@@ -726,7 +745,7 @@ export function buildRecord({
   }
 
   return {
-    apertura: opening(known, current, lastCommitment ?? null, saved.perWeek),
+    apertura: opening(known, current, lastCommitment ?? null, saved.perWeek, steps.length),
     registro: (
       blocks.join(' ') ||
       'Ya hablaron antes, pero no quedó registro de quién es: pregúntaselo de nuevo.'
@@ -772,8 +791,16 @@ export function opening(
   current: { step: PlanStep; number: number } | null,
   lastCommitment: SessionRecord | null,
   savedPerWeek = 0,
+  /**
+   * How many steps the plan has, which is the only thing separating a plan
+   * finished from a plan never built. Both arrive here as a null `current`, and
+   * they are opposite situations: one has nothing yet and one has everything.
+   */
+  stepsInPlan = 0,
 ): string {
   const parts: string[] = [];
+  /** Every step done, as against a learner whose plan was never built. */
+  const finished = !current && stepsInPlan > 0;
 
   /*
    * When there is a saving, it opens the session. This is the one sentence in the
@@ -803,6 +830,8 @@ export function opening(
     parts.push(`Retomemos. Eres ${who} y vas en el paso ${current.number}: ${title}.`);
   } else if (current) {
     parts.push(`Retomemos. Vas en el paso ${current.number}: ${title}.`);
+  } else if (finished) {
+    parts.push(`Terminaste los ${stepsInPlan} pasos de tu plan.`);
   } else {
     parts.push('Retomemos donde quedamos.');
   }
@@ -815,6 +844,15 @@ export function opening(
      * exists, the learner knows what it was, and the answer is what matters.
      */
     parts.push(echo ? `Quedaste en ${echo}. ¿Lo hiciste?` : '¿Hiciste lo que quedaste la vez pasada?');
+  } else if (finished) {
+    /*
+     * The plan is done and nothing is owed, so the only question worth the first
+     * turn is the one that starts the next measurement. "¿Estás frente al
+     * computador o caminando?" is the right opener for a session with a step
+     * waiting; here there is none, and asking it leaves the teacher to work out
+     * on its own that the session still has a purpose.
+     */
+    parts.push('¿Cuál es la tarea de tu semana que más te pesa ahora?');
   } else {
     parts.push('¿Estás frente al computador o caminando?');
   }
@@ -940,6 +978,16 @@ async function ensurePlan(userId: string): Promise<number> {
   const planned: PlannedStep[] = buildPlan({
     weeklyTasks: profile.weeklyTasks,
     path: profile.chosenPath,
+    /*
+     * What the learner already carries, so the cap on open weekly tasks is
+     * applied against the plan rather than against one extraction. Without this
+     * the list `buildPlan` sees is whatever the last conversation happened to
+     * mention, and a sixth task survives or is dropped depending on how many
+     * older ones the extractor listed beside it.
+     */
+    carried: existing
+      .filter((s) => isWeeklyTask(s.lessonId))
+      .map((s) => ({ lessonId: s.lessonId, done: s.status === 'done' })),
   });
 
   /*
@@ -960,7 +1008,7 @@ async function ensurePlan(userId: string): Promise<number> {
   const known = new Set(existing.map((s) => s.lessonId));
   if (planned.every((step) => known.has(step.lessonId))) return 0;
 
-  const rows = planned.map((step, i) => ({
+  const rows = planOrder(existing, planned).map((step, i) => ({
     user_id: userId,
     lesson_id: step.lessonId,
     level: step.level,
@@ -978,6 +1026,69 @@ async function ensurePlan(userId: string): Promise<number> {
     return 0;
   }
   return rows.length;
+}
+
+/**
+ * Every step the learner has, in the order the plan should read.
+ *
+ * ## Why this is not `planned.map((step, i) => ...)`
+ *
+ * `position` is what `planSteps` orders by and therefore what decides which step
+ * is current, and it was written from the index into `planned` alone. `planned`
+ * holds the weekly tasks named by *the last extraction that produced any*, and
+ * `upsertProfile` replaces `weekly_tasks` wholesale, so that list shrinks as
+ * easily as it grows: a lesson session that mentions one task in passing leaves
+ * a profile with one.
+ *
+ * Nothing was corrupted while the plan only ever gained steps in the same order.
+ * The moment one genuinely new lesson id appeared, the whole of `planned` was
+ * renumbered from zero — and the weekly steps that had dropped out of the
+ * profile were not in `planned`, so they kept the positions they were given when
+ * the plan was longer. Two steps on one position, no unique index to refuse it,
+ * and an order Postgres is free to pick either way. The visible result is a plan
+ * that reshuffles and a "paso 4 de 12" that means a different lesson than it did
+ * yesterday, which is the one thing the deterministic plan exists to prevent.
+ *
+ * So positions are assigned over the union: every step already in the database,
+ * plus everything new, sorted into curriculum order. Existing steps keep their
+ * relative order inside their level and new ones land after them, which is also
+ * the honest place for a task taken on in month three.
+ *
+ * The planned copy wins on title and linked task where both have the lesson, so
+ * a lesson renamed in `curriculum.ts` still reaches the rows; the stored copy is
+ * used only for steps `buildPlan` no longer emits.
+ *
+ * Exported for `progress.test.ts`. Nothing else calls it, and the seam is worth
+ * it because the failure it guards is silent: two rows on one position produce a
+ * plan in the wrong order, never an error.
+ */
+export function planOrder(
+  existing: readonly PlanStep[],
+  planned: readonly PlannedStep[],
+): PlannedStep[] {
+  const byId = new Map(planned.map((step) => [step.lessonId, step]));
+  const seen = new Set<string>();
+  const merged: PlannedStep[] = [];
+
+  // `existing` arrives ordered by position, so this preserves the plan as read.
+  for (const step of existing) {
+    seen.add(step.lessonId);
+    merged.push(
+      byId.get(step.lessonId) ?? {
+        lessonId: step.lessonId,
+        level: step.level,
+        title: step.title,
+        linkedTask: step.linkedTask,
+      },
+    );
+  }
+  for (const step of planned) {
+    if (!seen.has(step.lessonId)) merged.push(step);
+  }
+
+  // Stable, so the order established above survives inside each level.
+  const rank = (level: LevelId) => LEVELS.findIndex((l) => l.id === level);
+  return merged.sort((a, b) => rank(a.level) - rank(b.level));
 }
 
 /**
