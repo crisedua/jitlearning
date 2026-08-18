@@ -1265,7 +1265,8 @@ async function main() {
       deploymentStale = true;
       bad(`${origin} reports no commit, so it is running a build older than this check.`);
       note('Nothing pushed since then is live, including everything checked above.');
-      note('Look for a failed or paused deployment rather than for a bug here.');
+      note('Run this again in a few minutes before concluding anything: deploys here have');
+      note('lagged by an hour and caught up on their own. A gap that persists is a fault.');
       failures++;
     } else if (live === local) {
       ok(`${origin} is serving ${live}, which is this checkout`);
@@ -1276,6 +1277,7 @@ async function main() {
       deploymentStale = true;
       bad(`${origin} is serving ${live}; this checkout is ${local}, ${behind} commit(s) ahead.`);
       note('Nothing you have pushed since then is live, including anything checked above.');
+      note('A few commits behind is usually a build still running. Check again before digging.');
       failures++;
     }
   } catch (err) {

@@ -139,10 +139,13 @@ curl $SITE/api/health -H "x-ingest-secret: $INGEST_SECRET"
 checkout. If it says the deployment is behind, nothing you have pushed is live
 and every other check in that run described a build nobody is being served.
 
-This has happened here: nineteen commits sat undeployed while the site kept
-answering from an hour-old build, and the only visible symptom was a page
-returning 404 that exists in the repo. Before looking at the code, rule it out —
-it is almost never the code:
+This has happened here, and it was slower rather than broken: a run of pushes
+sat undeployed for about an hour while the site answered from an older build,
+and then caught up on its own. The only visible symptom was a page returning 404
+that exists in the repo, which points at the code and should not.
+
+So read the gap as a delay first and a fault second. Before looking at either,
+establish which it is:
 
 ```bash
 git rev-parse --short HEAD                 # what you have
@@ -150,7 +153,9 @@ git rev-parse --short origin/main          # what GitHub has
 curl -s $SITE/api/health -H "x-ingest-secret: $INGEST_SECRET" | grep commit
 ```
 
-If GitHub has it and the site does not, the repository is not the problem. A
+Run it twice, a few minutes apart. If the commit moves, it was a queue. If GitHub
+has the commit and the site has not moved after a while, the repository is still
+probably not the problem. A
 clean clone of this project installs from the lockfile and builds with no
 environment variables at all, which is worth knowing because it rules out the
 two explanations people reach for first. Look at the Vercel dashboard for a
