@@ -17,6 +17,7 @@ import {
 import { LEVELS, PATHS, stepDetail, type LevelId, type PathId } from '@/lib/curriculum';
 import { subscriptionFor, type Subscription } from '@/lib/billing';
 import { getUsageBalance } from '@/lib/account';
+import { minutesLeft } from '@/lib/balance';
 import { formatMinutes, formatMoney, spellMinutes, type Plan } from '@/lib/plans';
 import { recommendedPlan } from '@/lib/offer';
 import { BillingLink } from '@/components/BillingLink';
@@ -104,7 +105,7 @@ export default async function ProgresoPage({
         on the page it would be an ad; here it is arithmetic the reader can do.
       */}
       {subscription?.planId === 'free' && saved.perWeek > 0 && offer && (
-        <Ofrecer saved={saved} minutesLeft={freeMinutesLeft(balance)} plan={offer} />
+        <Ofrecer saved={saved} minutesLeft={minutesLeft(balance)} plan={offer} />
       )}
 
       {subscription && subscription.planId !== 'free' && (
@@ -122,12 +123,6 @@ export default async function ProgresoPage({
       {history.length > 0 && <Historial history={history} />}
     </div>
   );
-}
-
-/** Free minutes remaining, or null when this deployment does not meter. */
-function freeMinutesLeft(balance: Awaited<ReturnType<typeof getUsageBalance>>): number | null {
-  if (!balance || balance.monthlyMinutes === null) return null;
-  return Math.max(0, Math.floor(balance.monthlyMinutes - balance.minutes));
 }
 
 /**

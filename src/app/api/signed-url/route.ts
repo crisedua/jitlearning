@@ -16,6 +16,7 @@ import { checkPlanAllowance, getUsageBalance, startCoachSession } from '@/lib/ac
 import { learnerContext } from '@/lib/memory';
 import { learnerRecord } from '@/lib/progress';
 import { spellMinutes } from '@/lib/plans';
+import { minutesLeft } from '@/lib/balance';
 
 /**
  * What a learner is told when the class cannot start.
@@ -100,10 +101,7 @@ export async function GET() {
      * learner will run out of minutes holding a plan instead of a finished task,
      * which is the exact failure the whole session order was rebuilt to avoid.
      */
-    const left =
-      balance?.monthlyMinutes === null || balance == null
-        ? null
-        : Math.max(0, Math.floor(balance.monthlyMinutes - balance.minutes));
+    const left = minutesLeft(balance);
 
     if (left !== null) {
       record.registro = `${record.registro} Le queda${left === 1 ? '' : 'n'} ${spellMinutes(left)} de clase${

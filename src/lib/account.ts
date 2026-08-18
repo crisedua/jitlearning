@@ -17,6 +17,7 @@ import { createClient } from './supabase/server';
 import { serviceConfigured, supabaseAdmin } from './supabase/admin';
 import { UPGRADE_MARKER } from './gate';
 import { expireGrantIfDue } from './grants';
+import type { UsageBalance } from './balance';
 import { isAdminEmail } from './admin';
 
 export interface Plan {
@@ -109,25 +110,7 @@ export async function getAccount(): Promise<Account | null> {
   };
 }
 
-export interface UsageBalance {
-  /** Minutes and sessions spent in the plan's window, including unreconciled rows. */
-  minutes: number;
-  sessions: number;
-  /** The plan's limits; null = unlimited. */
-  monthlyMinutes: number | null;
-  monthlySessions: number | null;
-  /**
-   * Which window those numbers cover. `total` is a lifetime allowance and belongs
-   * to the free tier.
-   *
-   * This was missing, and its absence was a lie at the worst possible moment: the
-   * gate has always read `plan_usage_total` for a `total` plan, while this read the
-   * monthly view, so an exhausted free learner was told the counter resets on the
-   * 1st. It does not. They were sent away to wait for something that never arrives,
-   * at the exact moment they had just finished a task and seen what it saved.
-   */
-  period: 'month' | 'total';
-}
+export type { UsageBalance } from './balance';
 
 /**
  * The signed-in learner's month so far, for showing *before* they hit the

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { UsageBalance } from '@/lib/account';
+import { minutesLeft, sessionsLeft, type UsageBalance } from '@/lib/balance';
 
 /**
  * What is left, said before the button rather than discovered at it.
@@ -23,25 +23,23 @@ import type { UsageBalance } from '@/lib/account';
  * than leaving them to find the page.
  */
 export function BalanceNote({ balance }: { balance: UsageBalance }) {
-  const { minutes, monthlyMinutes, monthlySessions, sessions, period } = balance;
+  const { monthlyMinutes, monthlySessions, period } = balance;
   if (monthlyMinutes === null && monthlySessions === null) return null;
 
-  const minutesLeft =
-    monthlyMinutes === null ? null : Math.max(0, Math.floor(monthlyMinutes - minutes));
-  const sessionsLeft =
-    monthlySessions === null ? null : Math.max(0, monthlySessions - sessions);
-  const exhausted = minutesLeft === 0 || sessionsLeft === 0;
+  const left = minutesLeft(balance);
+  const sessionsRemaining = sessionsLeft(balance);
+  const exhausted = left === 0 || sessionsRemaining === 0;
 
   /*
    * "Nearly out" exists so the teacher is not cut off mid-task. Five minutes is
    * about one exercise, which is the smallest unit of work worth starting.
    */
-  const nearlyOut = !exhausted && minutesLeft !== null && minutesLeft <= 5;
+  const nearlyOut = !exhausted && left !== null && left <= 5;
   const lifetime = period === 'total';
 
   const parts = [
-    minutesLeft !== null && `${minutesLeft} de ${monthlyMinutes} minutos`,
-    sessionsLeft !== null && `${sessionsLeft} de ${monthlySessions} conversaciones`,
+    left !== null && `${left} de ${monthlyMinutes} minutos`,
+    sessionsRemaining !== null && `${sessionsRemaining} de ${monthlySessions} conversaciones`,
   ].filter(Boolean);
 
   return (
