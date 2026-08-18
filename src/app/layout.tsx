@@ -226,6 +226,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 {item.label}
               </Link>
             ))}
+            {/*
+              In the footer and not in the header, on purpose.
+              
+              Somebody deciding whether to open a client's document in front of a
+              microphone goes looking for this, and looks at the bottom. Putting
+              it in the header would have it competing for attention with the
+              button the page exists to get pressed, from people who were not
+              asking the question.
+            */}
+            <Link href="/privacidad" className="rounded-sm hover:text-ink">
+              Privacidad
+            </Link>
             {PROFILE.email && (
               <a href={`mailto:${PROFILE.email}`} className="rounded-sm hover:text-ink">
                 {PROFILE.email}
