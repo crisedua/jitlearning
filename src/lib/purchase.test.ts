@@ -11,6 +11,8 @@
  * early sale will happen in, so they are as real as the rest.
  */
 import assert from 'node:assert/strict';
+import { LEVELS, WEEKLY_MAX, WEEKLY_MIN } from './curriculum';
+import { approximateSessions, FALLBACK_PLANS, formatMinutes } from './plans';
 import { describe, it } from 'node:test';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -172,5 +174,52 @@ describe('the offer under the measured hours', () => {
     // `perWeek` is theirs. Nothing here may scale it, project it, or annualise
     // it — the whole argument is that the figure came out of their own mouth.
     assert.doesNotMatch(progreso, /perWeek \* |perWeek \/ |perWeek \+ /);
+  });
+});
+
+/*
+ * The promise the price is attached to.
+ *
+ * The offer says the plan's minutes reach "las 3 a 5 tareas de tu semana y los
+ * otros 3 niveles, hasta el portafolio". That sentence is arithmetic between
+ * three constants that live in three files and never meet: the plan's monthly
+ * minutes, how long a class is, and how many weekly tasks the curriculum
+ * claims. Nothing compared them.
+ *
+ * They did not add up. At the 15 minutes the site used to advertise, a 300
+ * minute allowance is 20 classes, against 21 weekly tasks at the top of the
+ * claimed range — short before the other levels are counted at all. The
+ * sentence asking for money was promising an allowance that could not cover
+ * what it described.
+ *
+ * It holds now only because a class is 10 minutes. That is exactly the kind of
+ * thing that comes undone the next time one of the three moves.
+ */
+describe('the allowance against what the offer promises it covers', () => {
+  const WEEKS_PER_MONTH = 4.345;
+
+  it('covers the weekly tasks at the top of the claimed range, and then some', () => {
+    for (const plan of FALLBACK_PLANS.filter((p) => p.priceMinor > 0 && p.isPublic)) {
+      const classes = approximateSessions(plan.monthlyMinutes);
+      assert.ok(classes !== null, `${plan.name} has no countable classes`);
+
+      const tasksAtTop = Math.floor(WEEKLY_MAX * WEEKS_PER_MONTH);
+      assert.ok(
+        classes > tasksAtTop,
+        `${plan.name}: ${formatMinutes(plan.monthlyMinutes)} is ${classes} classes, but the ` +
+          `offer promises ${WEEKLY_MIN} to ${WEEKLY_MAX} weekly tasks (${tasksAtTop} a month) ` +
+          'plus the other levels',
+      );
+    }
+  });
+
+  it('leaves room for the levels beyond the weekly task', () => {
+    // The sentence names them: "y para los otros N niveles, hasta el portafolio".
+    const plan = FALLBACK_PLANS.find((p) => p.id === 'founder')!;
+    const spare = approximateSessions(plan.monthlyMinutes)! - Math.floor(WEEKLY_MAX * WEEKS_PER_MONTH);
+    assert.ok(
+      spare >= LEVELS.length - 1,
+      `only ${spare} class(es) left for ${LEVELS.length - 1} further levels`,
+    );
   });
 });
