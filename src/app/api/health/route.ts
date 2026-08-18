@@ -1,9 +1,21 @@
 /**
  * Configuration diagnostics.
  *
- * Answers "is this deployment actually wired up?" in one call: which
- * environment variables are present, whether the ElevenLabs key authenticates,
- * whether it carries the Conversational AI scope, and whether the agent exists.
+ * Answers "is this deployment actually wired up?" in one call, in two parts.
+ *
+ * `ready` is the learner path: somebody can sign in, have a class with the
+ * teacher this repo describes, and have it recorded. That last clause is the one
+ * that grew — it used to mean only that an agent existed, so `ready: true` was
+ * returned by deployments whose agent ran a persona several pushes old, opened
+ * with a fixed greeting instead of the learner's own record, and promised a
+ * search with no tool attached. All three are invisible from the repo and none
+ * of them errors.
+ *
+ * `selling` is the payment path, kept separate on purpose. A deployment with no
+ * Stripe keys falls back to writing to a person, which is supported rather than
+ * broken, so folding it into `ready` would make one boolean either false for a
+ * working product that is not selling yet, or true for one that takes money and
+ * grants nothing.
  *
  *   curl -X GET https://<app>.vercel.app/api/health \
  *     -H "x-ingest-secret: $INGEST_SECRET"
@@ -15,6 +27,7 @@ import { NextResponse } from 'next/server';
 import { getAgent, listDocuments } from '@/lib/elevenlabs';
 import { agentId, embeddingModel } from '@/lib/config';
 import { ownsDocument, TEACHER } from '@/lib/teacher';
+import { FIRST_MESSAGE, teacherSystemPrompt } from '@/lib/agent';
 import { requireSecret, UnauthorizedError } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { MIGRATION_SENSITIVE } from '@/lib/schema';
@@ -96,6 +109,46 @@ export async function GET(req: Request) {
       const prompt = agent.conversation_config?.agent?.prompt;
       const attached = prompt?.knowledge_base ?? [];
       const foreign = attached.filter((d) => !ownsDocument(d.name));
+
+      /*
+       * The three things that decide whether the teacher behaves as designed.
+       *
+       * All of them live on the agent, none of them is visible from the repo,
+       * and each fails silently: a persona a push behind runs old instructions,
+       * a fixed first message means nobody hears their own commitment, and an
+       * unattached tool means the teacher announces a search it cannot make —
+       * because the persona promises one.
+       *
+       * `ready` counted six checks and none of these, so it could be true of a
+       * deployment where every learner met an older teacher.
+       */
+      const live = (prompt?.prompt ?? '').trim();
+      checks.persona =
+        live === teacherSystemPrompt().trim()
+          ? { state: 'ok', detail: "The live agent runs this repo's persona, character for character" }
+          : {
+              state: 'fail',
+              detail: `The agent's persona differs from this deployment's code (${live.length} chars live). Run \`npm run sync:agent -- --push\`.`,
+            };
+
+      const first = (agent.conversation_config?.agent?.first_message ?? '').trim();
+      checks.opening =
+        first === FIRST_MESSAGE
+          ? { state: 'ok', detail: 'Sessions open on the learner\'s own record' }
+          : {
+              state: 'fail',
+              detail: `The agent opens with ${first ? `"${first}"` : 'nothing'} instead of ${FIRST_MESSAGE}, so nobody hears their own commitment.`,
+            };
+
+      const tools = prompt?.tool_ids ?? [];
+      checks.lookupTool =
+        tools.length > 0
+          ? { state: 'ok', detail: `${tools.length} tool(s) attached, including the lookup the persona promises` }
+          : {
+              state: 'fail',
+              detail:
+                'No tools attached while the persona tells learners it can search. Needs INGEST_SECRET deployed, then `npm run setup:tools -- --push`.',
+            };
 
       checks.agent =
         foreign.length > 0
@@ -196,10 +249,34 @@ export async function GET(req: Request) {
           };
   }
 
+  /*
+   * Two verdicts, because they answer different questions.
+   *
+   * `ready` is about the learner path: can somebody sign in, have a class with
+   * the teacher this repo describes, and have it recorded. `selling` is about
+   * the payment path, and it is deliberately not part of `ready` — a deployment
+   * with no Stripe keys falls back to writing to a person, which is a supported
+   * state and not a broken one.
+   *
+   * One boolean covering both would have to be false for a deployment that
+   * works perfectly and is not selling yet, or true for one that takes money and
+   * grants nothing. Neither is a useful answer.
+   */
   const ready = Object.values(checks).every((c) => c.state === 'ok');
+  const selling = Boolean(
+    process.env.STRIPE_SECRET_KEY?.trim() && process.env.STRIPE_WEBHOOK_SECRET?.trim(),
+  );
 
   return NextResponse.json(
-    { ready, embeddingModel: embeddingModel(), checks },
+    {
+      ready,
+      selling,
+      sellingDetail: selling
+        ? 'Stripe is configured; a completed payment can grant a plan.'
+        : 'No Stripe keys: paid plans fall back to writing to a person. Not counted against `ready`.',
+      embeddingModel: embeddingModel(),
+      checks,
+    },
     { status: ready ? 200 : 503 },
   );
 }

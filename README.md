@@ -114,8 +114,13 @@ curl -X POST $SITE/api/billing/setup -H "x-ingest-secret: $INGEST_SECRET"
 npm run doctor
 npm test
 curl $SITE/api/health -H "x-ingest-secret: $INGEST_SECRET"
+#    Two verdicts: `ready` covers the learner path — sign-in, the agent
+#    running this repo's persona and opening line, the lookup tool, the
+#    schema — and `selling` covers Stripe, separately, because a
+#    deployment that is not selling yet is not a broken one.
+#
 #    Then open $SITE/admin/estado, which answers for the deployment
-#    rather than for your laptop.
+#    rather than for your laptop, and needs no secret.
 ```
 
 Environment variables, all in Vercel (see [`.env.example`](.env.example) for what
