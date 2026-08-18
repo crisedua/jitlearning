@@ -1379,7 +1379,34 @@ async function main() {
       deploymentStale = true;
       bad(`${origin} is serving ${live}; this checkout is ${local}, ${behind} commit(s) ahead.`);
       note('Nothing you have pushed since then is live, including anything checked above.');
-      note('A few commits behind is usually a build still running. Check again before digging.');
+
+      /*
+       * How long the gap has lasted, which is the whole difference between a
+       * build still running and one that failed.
+       *
+       * This said "check again before digging" and left it there, so a
+       * deployment that had been stuck for an hour and a half read exactly like
+       * one that was thirty seconds from finishing. The age of the oldest
+       * undeployed commit separates them, and it is free to compute.
+       */
+      const oldest = execSync(
+        `git log --format=%ct --reverse ${live}..HEAD 2>/dev/null | head -1 || echo ''`,
+      )
+        .toString()
+        .trim();
+      const mins = oldest ? Math.round((Date.now() / 1000 - Number(oldest)) / 60) : null;
+
+      if (mins === null) {
+        note('A few commits behind is usually a build still running. Check again before digging.');
+      } else if (mins < 20) {
+        note(`The oldest of them is ${mins} min old, which is usually a build still running.`);
+        note('Check again in a few minutes before digging.');
+      } else {
+        note(`The oldest of them was pushed ${mins} min ago, which is too long to be a queue.`);
+        note('Look for a failed build in the Vercel dashboard, or a git integration that is');
+        note('no longer connected. `npx next build` passing here does not mean it passed there:');
+        note('the deployment builds with the project\'s environment variables, and this does not.');
+      }
       failures++;
     }
   } catch (err) {
