@@ -147,10 +147,11 @@ export async function GET() {
        * Minutes left, so the browser can tell the teacher when time is short.
        *
        * The record already carries this number as prose, and the persona is
-       * told to drop the map and finish the measurement when fewer than ten
-       * remain. Both are read once, at connect, by a model that has no clock and
-       * cannot notice the number going down. Null when this deployment does not
-       * meter, which is the case where no nudge is possible or needed.
+       * told to skip the map and finish the measurement when the class is
+       * shorter than fifteen minutes, which every class now is. Both are read
+       * once, at connect, by a model that has no clock and cannot notice the
+       * number going down. Null when this deployment does not meter, which is
+       * the case where no nudge is possible or needed.
        */
       minutesLeft: left,
     });

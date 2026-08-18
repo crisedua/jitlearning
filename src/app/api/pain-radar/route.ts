@@ -3,9 +3,10 @@
  *
  * Same shape as `pain-seed` — admin-gated, service-role write, Spanish
  * errors — with one difference that shapes everything: the run inside takes
- * one to three minutes (two LLM calls, 10–12 real web searches, a URL check
- * per finding), so the route declares `maxDuration = 300` and the button
- * warns about the wait.
+ * one to three minutes (six LLM calls, five parallel scans and one curation,
+ * with roughly 40 to 70 real web searches between them and a URL check per
+ * finding), so the route declares `maxDuration = 300` and the button warns
+ * about the wait.
  *
  * A single awaited request rather than fire-and-forget on purpose: a
  * serverless function may be frozen the moment the response is sent, so

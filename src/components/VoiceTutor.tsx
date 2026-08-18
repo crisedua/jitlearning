@@ -250,7 +250,7 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
    * Tell the teacher when time is running out, because it cannot tell.
    *
    * The record it opens on says how many minutes are left, and the persona is
-   * instructed to drop the map and spend what remains finishing the task and
+   * instructed to skip the map and spend what remains finishing the task and
    * measuring it. Both are read once, at connect, by a model with no clock: it
    * knows what it started with and never learns how much has gone. So the instruction that protects the most important outcome of a first
    * session could only ever fire on the value it was handed at the start.
@@ -262,8 +262,9 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
    * a subtraction that only exists if somebody asks for it before the end.
    *
    * Two contextual updates, which are silent and do not consume a spoken turn.
-   * Five minutes out is enough to close a task; one is enough to ask the second
-   * number and nothing else.
+   * The first lands with enough time to close a task, the second with enough to
+   * ask the second number and nothing else. How much time that is comes from
+   * `wrapUpAt`, because a fixed five minutes was most of a ten minute class.
    */
   useEffect(() => {
     if (status !== 'connected') return;
