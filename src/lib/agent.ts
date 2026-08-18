@@ -273,10 +273,46 @@ Nada de emojis.`;
 
   if (search) return full;
 
-  return full
-    .replace(SEARCH_PROMISE, NO_SEARCH)
-    .replace(SEARCH_ATTRIBUTION, NO_SEARCH_ATTRIBUTION)
-    .replace(SEARCH_EXCEPTION, '');
+  return swap(
+    swap(swap(full, SEARCH_PROMISE, NO_SEARCH), SEARCH_ATTRIBUTION, NO_SEARCH_ATTRIBUTION),
+    SEARCH_EXCEPTION,
+    '',
+  );
+}
+
+/**
+ * `String.replace` with the one guarantee it does not give: that it replaced.
+ *
+ * The no-search persona is the full one with three passages swapped out, so each
+ * constant below has to match the prompt body character for character. Editing
+ * the body and not the constant makes the swap a no-op, and a no-op here is not
+ * a missing improvement: it ships a teacher that offers to search when no tool
+ * is attached, which is the bug the variant exists to prevent.
+ *
+ * That happened while trimming a duplicated sentence out of the sourcing rules.
+ * The sentence lived in both places, one of them was edited, and everything kept
+ * working: the length changed, the compiler was happy, the build passed, the
+ * doctor reported the honesty rule and the session shape complete. The only
+ * objection came from a test asserting the variant makes no offer to look
+ * anything up, which caught the symptom rather than the cause.
+ *
+ * Throwing is right for a prompt. There is no degraded version of a persona
+ * worth shipping, and every path that renders one stops: the tests, `npm run
+ * doctor`, and `sync:agent` before it can push.
+ *
+ * `next build` does not, and that is worth knowing rather than assuming. The
+ * persona is built per request, so nothing renders it at build time and a
+ * deployment of this mistake would succeed. The suite is what stands between it
+ * and the agent, which is the argument for the test beside this rather than for
+ * trusting the guard alone.
+ */
+function swap(text: string, from: string, to: string): string {
+  if (!text.includes(from)) {
+    throw new Error(
+      `Persona substitution found nothing to replace. The prompt body no longer contains: "${from.slice(0, 60)}..."`,
+    );
+  }
+  return text.replace(from, to);
 }
 
 /** The three passages that only make sense when a lookup tool is attached. */

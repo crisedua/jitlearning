@@ -118,3 +118,32 @@ describe('what the doctor checks holds for both variants', () => {
     });
   }
 });
+
+/*
+ * The substitution has to find its target.
+ *
+ * The no-search persona is the full one with three passages swapped out, so each
+ * constant has to match the prompt body character for character. Edit the body
+ * and not the constant and the swap becomes a no-op, which ships a teacher
+ * offering a search it cannot run: the exact bug the variant exists to prevent.
+ *
+ * `swap` throws on a miss, so this is a check that the throw is wired to every
+ * passage rather than a check of the prompt's contents. It renders both forms,
+ * which is all it takes, and it matters because `next build` never renders a
+ * persona and would deploy the mistake happily.
+ */
+describe('the no-search substitution', () => {
+  it('replaces every passage it means to, or says so', () => {
+    assert.doesNotThrow(() => teacherSystemPrompt({ search: false }));
+    assert.doesNotThrow(() => teacherSystemPrompt({ search: true }));
+  });
+
+  it('actually shortens the prompt, so no swap was a silent no-op', () => {
+    const full = teacherSystemPrompt({ search: true });
+    const lean = teacherSystemPrompt({ search: false });
+    assert.ok(
+      full.length - lean.length > 200,
+      `only ${full.length - lean.length} chars removed, so a passage was probably not swapped`,
+    );
+  });
+});
