@@ -598,10 +598,20 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
             </span>
             <span className="text-ink/85">{withoutUpgradeMarker(error)}</span>
             {/*
-              The plan gate is the one error with somewhere to go. The message
-              comes from the server, which cannot render a link, so the mention
-              of /planes is turned into one here and stripped from the prose
-              above rather than being read twice.
+              The plan gate is the one error with somewhere to go.
+              
+              The message comes from the server, which cannot render a link, so
+              the marker it carries becomes one here. Only the marker is removed;
+              the sentence keeps its own mention of the plans, and that is
+              deliberate rather than an oversight — `gate.test.ts` requires every
+              gate message to still read as a sentence with the link pulled out,
+              because the same strings are logged, quoted in the doctor, and
+              could be shown anywhere that cannot render an anchor.
+              
+              The cost is that a reader sees "mira los planes" and then a link
+              saying much the same. That is the right side of the trade: a
+              sentence that depends on a link is broken everywhere the link is
+              absent, and this one is never absent by much.
             */}
             {offersUpgrade(error) && (
               <a

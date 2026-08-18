@@ -128,3 +128,31 @@ describe('what a learner is told when they run out', () => {
     }
   });
 });
+
+/*
+ * The marker is removed and the sentence is not.
+ *
+ * `VoiceTutor` used to say, in a comment, that the mention of the plans is
+ * stripped from the prose so it is not read twice. It is not stripped, and it
+ * must not be: the assertions above require every gate message to stand alone,
+ * because the same strings are logged, quoted by the doctor, and could be shown
+ * anywhere that cannot render an anchor.
+ *
+ * So this pins the behaviour the comment was wrong about, in both directions —
+ * the token goes, the words stay.
+ */
+describe('what the upgrade marker does to a message', () => {
+  it('removes the token and nothing else', () => {
+    const message = `Usaste los 20 minutos gratis. Mira los planes${UPGRADE_MARKER}.`;
+    const shown = withoutUpgradeMarker(message);
+
+    assert.doesNotMatch(shown, /​|UPGRADE|MARKER/i, 'the marker survived into the page');
+    assert.match(shown, /Mira los planes\./, 'the sentence lost the words it needs to stand alone');
+    assert.equal(shown.length, message.length - UPGRADE_MARKER.length);
+  });
+
+  it('leaves a message without a marker untouched', () => {
+    const plain = 'No se pudo conectar con el profesor.';
+    assert.equal(withoutUpgradeMarker(plain), plain);
+  });
+});
