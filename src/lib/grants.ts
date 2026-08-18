@@ -59,16 +59,37 @@ export async function grantPlan(
   const until = new Date();
   until.setMonth(until.getMonth() + months);
 
-  const { error } = await supabaseAdmin()
+  /*
+   * `count` because an update that matches nothing is not an error.
+   *
+   * Postgres reports zero rows changed and PostgREST returns success, so an id
+   * with no profile row produced "Listo: 3 meses de Fundador, hasta el ..." on
+   * screen and nothing at all in the database. The admin has just told somebody
+   * their plan is active, on the strength of a message that was never true, and
+   * the person finds out by running out of free minutes.
+   *
+   * This is the promise the site makes in public to its first ten people. It is
+   * the last place to accept a success that was not checked.
+   */
+  const { error, count } = await supabaseAdmin()
     .from('profiles')
-    .update({
-      plan_id: planId,
-      plan_granted_until: until.toISOString(),
-      plan_grant_reason: reason,
-    })
+    .update(
+      {
+        plan_id: planId,
+        plan_granted_until: until.toISOString(),
+        plan_grant_reason: reason,
+      },
+      { count: 'exact' },
+    )
     .eq('id', userId);
 
   if (error) return { ok: false, error: error.message };
+  if (count === 0) {
+    return {
+      ok: false,
+      error: 'no existe un perfil para esa cuenta, así que no se activó nada. Pídele que entre una vez a la clase y vuelve a intentarlo.',
+    };
+  }
   return { ok: true, until: until.toISOString() };
 }
 
@@ -154,4 +175,46 @@ export async function listGrants(): Promise<Grant[]> {
 export function seatsLeft(grants: readonly Grant[]): number {
   const used = grants.filter((g) => g.reason === FEEDBACK_REASON).length;
   return Math.max(0, FEEDBACK_REWARD.seats - used);
+}
+
+/**
+ * Accounts that exist for these addresses, keyed by lowercased email.
+ *
+ * Feedback is open to people who never signed in, because somebody who bounced
+ * has the feedback a signup flow never hears. The cost was that the row carries
+ * no `user_id`, so /admin/feedback said "pídele que entre con Google y vuelve a
+ * esta página" — an instruction that could never come true, because the row was
+ * stamped at submission and nothing rewrites it when the person signs up later.
+ * The operator would return to the page, see the same sentence, and have no way
+ * to keep a promise the site made in public.
+ *
+ * Matching on the address is the promise's own wording: the form says to use the
+ * email you will enter with. It grants nothing to the submitter either way, only
+ * to whoever owns that account, so a wrong or borrowed address cannot take a
+ * seat from its owner. And an admin still presses the button.
+ *
+ * `listUsers` pages rather than filters, so this reads at most `MAX_PAGES` of
+ * them. That is thousands of accounts, and it is the admin page for a product
+ * with ten seats on offer; if it is ever not enough, the count is the reason to
+ * change it rather than a silent truncation.
+ */
+export async function accountsByEmail(): Promise<Map<string, string>> {
+  const found = new Map<string, string>();
+  if (!serviceConfigured()) return found;
+
+  const PER_PAGE = 200;
+  const MAX_PAGES = 10;
+
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const { data, error } = await supabaseAdmin().auth.admin.listUsers({ page, perPage: PER_PAGE });
+    if (error) return found;
+
+    for (const user of data.users) {
+      const email = user.email?.trim().toLowerCase();
+      if (email && !found.has(email)) found.set(email, user.id);
+    }
+    if (data.users.length < PER_PAGE) break;
+  }
+
+  return found;
 }

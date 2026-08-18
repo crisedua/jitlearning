@@ -21,7 +21,7 @@ import { checkAdmin } from '@/lib/admin';
 import { signInPath } from '@/lib/paths';
 import { NotAdmin } from '@/components/NotAdmin';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
-import { listGrants, seatsLeft, type Grant } from '@/lib/grants';
+import { accountsByEmail, listGrants, seatsLeft, type Grant } from '@/lib/grants';
 import { FEEDBACK_REWARD } from '@/lib/site';
 import { GrantButton } from './GrantButton';
 
@@ -81,7 +81,20 @@ export default async function AdminFeedbackPage() {
     return <NotAdmin email={gate.email} path="/admin/feedback" />;
   }
 
-  const [entries, grants] = await Promise.all([loadFeedback(), listGrants()]);
+  const [entries, grants, accounts] = await Promise.all([
+    loadFeedback(),
+    listGrants(),
+    accountsByEmail(),
+  ]);
+
+  /*
+   * The account this row belongs to, whether or not it existed when the form was
+   * sent. `user_id` is stamped at submission, so a person who wrote first and
+   * signed in afterwards left a row that would say "sin cuenta" forever, which
+   * made the instruction beside it impossible to follow.
+   */
+  const accountFor = (entry: Entry): string | null =>
+    entry.userId ?? accounts.get(entry.email.trim().toLowerCase()) ?? null;
   const left = seatsLeft(grants);
   const granted = new Set(grants.map((g) => g.userId));
 
@@ -128,26 +141,30 @@ export default async function AdminFeedbackPage() {
               </p>
 
               <div className="mt-4 border-t border-line pt-3">
-                {!entry.userId ? (
+                {!accountFor(entry) ? (
                   /*
                    * Feedback is deliberately open to people who never signed in,
                    * because somebody who bounced has the feedback a signup flow
                    * never hears. The cost is that there is no account to put the
                    * plan on, and that is worth saying here rather than showing a
                    * button that cannot work.
+                   *
+                   * It is now only said when it is still true: an account matched
+                   * by email counts, so this sentence disappears by itself once
+                   * they do what it asks, which is what it always claimed.
                    */
                   <p className="text-[13px] leading-relaxed text-soft">
-                    Sin cuenta: escribió sin haber entrado. Pídele que entre con Google y vuelve a
-                    esta página.
+                    Sin cuenta: escribió sin haber entrado. Pídele que entre con Google con este
+                    mismo correo y vuelve a esta página.
                   </p>
-                ) : granted.has(entry.userId) ? (
-                  <GrantedNote grant={grants.find((g) => g.userId === entry.userId)!} />
+                ) : granted.has(accountFor(entry)!) ? (
+                  <GrantedNote grant={grants.find((g) => g.userId === accountFor(entry))!} />
                 ) : left <= 0 ? (
                   <p className="text-[13px] leading-relaxed text-soft">
                     No quedan cupos de los {FEEDBACK_REWARD.seats}.
                   </p>
                 ) : (
-                  <GrantButton userId={entry.userId} />
+                  <GrantButton userId={accountFor(entry)!} />
                 )}
               </div>
             </li>

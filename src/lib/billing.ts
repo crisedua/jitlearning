@@ -128,10 +128,26 @@ export async function customerFor(
     metadata: { user_id: userId },
   });
 
-  await supabaseAdmin()
+  /*
+   * This is the row the webhook will look this customer up by, so losing it
+   * loses the payment. The result was discarded entirely: an update matching no
+   * profile is not an error, so a missing row wrote nothing, returned nothing,
+   * and handed back a customer id that no profile carries. Checkout then
+   * succeeds, the subscription webhook finds no profile for that customer, and
+   * the person has paid for a plan nothing can attach to them.
+   */
+  const { error, count } = await supabaseAdmin()
     .from('profiles')
-    .update({ stripe_customer_id: customer.id })
+    .update({ stripe_customer_id: customer.id }, { count: 'exact' })
     .eq('id', userId);
+
+  if (error || count === 0) {
+    console.error(
+      `[billing] could not attach customer ${customer.id} to profile ${userId}:`,
+      error?.message ?? 'no profile row',
+    );
+    throw new Error('No pudimos preparar tu cuenta para el pago. Vuelve a intentarlo.');
+  }
 
   return customer.id;
 }
@@ -244,15 +260,18 @@ export async function applySubscription(subscription: Stripe.Subscription): Prom
   const endsAtSeconds = (subscription as unknown as { current_period_end?: number })
     .current_period_end;
 
-  const { error } = await supabaseAdmin()
+  const { error, count } = await supabaseAdmin()
     .from('profiles')
-    .update({
-      plan_id: nextPlan,
-      stripe_subscription_id: subscription.id,
-      subscription_status: subscription.status,
-      subscription_ends_at: endsAtSeconds ? new Date(endsAtSeconds * 1000).toISOString() : null,
-      updated_at: new Date().toISOString(),
-    })
+    .update(
+      {
+        plan_id: nextPlan,
+        stripe_subscription_id: subscription.id,
+        subscription_status: subscription.status,
+        subscription_ends_at: endsAtSeconds ? new Date(endsAtSeconds * 1000).toISOString() : null,
+        updated_at: new Date().toISOString(),
+      },
+      { count: 'exact' },
+    )
     .eq('stripe_customer_id', customerId);
 
   if (error) {
@@ -260,6 +279,26 @@ export async function applySubscription(subscription: Stripe.Subscription): Prom
     // return non-2xx so Stripe retries it, or somebody has paid for nothing.
     console.error('[billing] could not apply subscription:', error.message);
     throw new Error(error.message);
+  }
+
+  /*
+   * Matching no row is the same failure, and it did not throw.
+   *
+   * An update whose filter matches nothing is a success in Postgres and in
+   * PostgREST: no error, no rows. So a customer id with no profile against it
+   * wrote nothing, this returned cleanly, the route answered 200, and Stripe
+   * never retried. Somebody paid and stayed on the free plan, permanently, with
+   * a green tick in the Stripe dashboard.
+   *
+   * The rule three lines up already covers this case, it just never reached it.
+   * Throwing makes the delivery fail and retry, and if the profile genuinely has
+   * no customer id the retries end as a visible failed webhook, which is the
+   * outcome to want: an operator who can see a problem beats a customer who
+   * quietly got nothing.
+   */
+  if (count === 0) {
+    console.error(`[billing] no profile carries stripe_customer_id ${customerId}`);
+    throw new Error(`No profile for customer ${customerId}`);
   }
 }
 
