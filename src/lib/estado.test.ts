@@ -61,6 +61,27 @@ describe('what the deployment page says it is checking', () => {
     assert.ok(page.size >= 8, `only ${page.size} variables reported by the page`);
   });
 
+  /*
+   * And the other direction, which nothing asked.
+   *
+   * The checks below go README to page: everything documented as breaking
+   * something is reported somewhere. The reverse can fail too and is quieter. A
+   * variable the page checks and the README never mentions gives an operator a
+   * red row with no explanation of what it costs them, on the page they were
+   * told to read after every step of going live.
+   *
+   * It holds today, for all eleven. Nothing was keeping it that way.
+   */
+  it('explains every variable the page reports on', () => {
+    const readme = readFileSync(path.join(ROOT, 'README.md'), 'utf8');
+    const unexplained = [...page].filter((name) => !new RegExp(`\\b${name}\\b`).test(readme));
+    assert.deepEqual(
+      unexplained,
+      [],
+      `/admin/estado reports on these and the README never says what breaks without them: ${unexplained.join(', ')}`,
+    );
+  });
+
   for (const names of docs) {
     it(`${names.join(' / ')} is reported`, () => {
       assert.ok(
