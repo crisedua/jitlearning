@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 import { anonKey, authConfigured, supabaseUrl } from '@/lib/supabase/env';
 import { CheckoutButton } from '@/components/CheckoutButton';
+import { IntentLink } from '@/components/IntentLink';
 import { billingConfigured } from '@/lib/billing';
 import { PROFILE, WHATSAPP } from '@/lib/site';
 import {
@@ -197,26 +198,30 @@ function PlanAction({ plan, buyable }: { plan: Plan; buyable: boolean }) {
 
   return (
     <>
-      <a
+      <IntentLink
         href={`mailto:${PROFILE.email}?subject=${subject}&body=${body}`}
+        plan={plan.id}
+        channel="email"
         className="mt-7 inline-flex w-full items-center justify-center rounded-full bg-accent px-5 py-2.5 text-[15px] font-medium text-bg transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover"
       >
         Conversemos
-      </a>
+      </IntentLink>
       {/*
         WhatsApp beside it, carrying the same prefilled sentence. The floating
         button on every page opens a generic "tengo una consulta", which is not
         the same thing as naming the plan somebody just chose — and in the market
         this is sold in, WhatsApp is the channel people actually answer.
       */}
-      <a
+      <IntentLink
         href={whatsapp}
+        plan={plan.id}
+        channel="whatsapp"
         target="_blank"
         rel="noopener noreferrer"
         className="mt-2.5 text-center text-[13px] text-muted underline underline-offset-2 hover:text-accent"
       >
         o por WhatsApp
-      </a>
+      </IntentLink>
     </>
   );
 }

@@ -48,6 +48,12 @@ interface Funnel {
   finishedTask: number;
   measured: number;
   returned: number;
+  /**
+   * Clicks on a buy button, and how many came from somebody signed in.
+   * `null` when the migration has not been applied, which must not read as zero:
+   * see the same distinction made for `minutesUnavailable`.
+   */
+  intents: { total: number; identified: number } | null;
   paying: number;
   /** Total weekly minutes recovered across every learner who measured one. */
   minutesRecovered: number;
@@ -60,7 +66,7 @@ async function loadFunnel(): Promise<Funnel | null> {
   if (!serviceConfigured()) return null;
   const db = supabaseAdmin();
 
-  const [profiles, sessions, steps] = await Promise.all([
+  const [profiles, sessions, steps, intents] = await Promise.all([
     db.from('profiles').select('id, plan_id').limit(MAX_ROWS),
     db.from('coach_sessions').select('user_id, started_at').limit(MAX_ROWS),
     /*
@@ -83,6 +89,13 @@ async function loadFunnel(): Promise<Funnel | null> {
       .from('plan_steps')
       .select('user_id, level, status, minutes_before, minutes_after')
       .limit(MAX_ROWS),
+    /*
+     * The step the funnel used to stop one short of. Its table is the newest
+     * migration, so an operator who has not pasted it gets "sin datos" rather
+     * than a zero that would read as "nobody wanted to buy" — the single
+     * costliest wrong number this page could show.
+     */
+    db.from('purchase_intents').select('user_id').limit(MAX_ROWS),
   ]);
 
   if (profiles.error) return null;
@@ -140,12 +153,22 @@ async function loadFunnel(): Promise<Funnel | null> {
     minutesRecovered += Math.max(s.minutes_before - s.minutes_after, 0);
   }
 
+  const intentRows = intents.error
+    ? null
+    : ((intents.data ?? []) as Array<{ user_id: string | null }>);
+
   return {
     signedUp: people.length,
     talked: daysByUser.size,
     finishedTask: finished.size,
     measured: measured.size,
     returned: [...daysByUser.values()].filter((days) => days.size > 1).length,
+    intents: intentRows
+      ? {
+          total: intentRows.length,
+          identified: new Set(intentRows.filter((r) => r.user_id).map((r) => r.user_id)).size,
+        }
+      : null,
     paying: people.filter((p) => p.plan_id !== 'free').length,
     minutesRecovered,
     capped: people.length >= MAX_ROWS || rows.length >= MAX_ROWS,
@@ -211,6 +234,29 @@ export default async function EmbudoPage() {
               />
             )}
             <Step label="Volvió otro día" value={funnel.returned} of={funnel.signedUp} />
+            {funnel.intents === null ? (
+              <li className="rounded-lg border border-warning/35 bg-warning-soft/50 px-5 py-4">
+                <p className="text-[15px] font-medium">Dijo que quiere pagar</p>
+                <p className="mt-1 text-[13px] leading-relaxed text-ink/80">
+                  No se puede contar: falta la migración{' '}
+                  <code className="font-mono text-[12px]">
+                    20260816000000_purchase_intent.sql
+                  </code>
+                  . Esto no es cero, es desconocido, y es el paso que más caro sale confundir.
+                </p>
+              </li>
+            ) : (
+              <Step
+                label="Dijo que quiere pagar"
+                value={funnel.intents.total}
+                of={funnel.signedUp}
+                note={
+                  funnel.intents.identified > 0
+                    ? `${funnel.intents.identified} con cuenta, así que a esos les puedes escribir.`
+                    : 'Apretó el botón de contratar. Todavía no es una venta, pero es la intención.'
+                }
+              />
+            )}
             <Step
               label="Está pagando"
               value={funnel.paying}
