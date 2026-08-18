@@ -173,7 +173,7 @@ each one does):
 | `INGEST_SECRET` | Every privileged route refuses, including the lookup tool |
 | `ELEVENLABS_WEBHOOK_SECRET` | Sessions work; the plan and the hours never advance |
 | `ANTHROPIC_API_KEY` | The teacher cannot look anything up, and says so |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Paid plans fall back to "conversemos" |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Every buy button falls back to a prefilled WhatsApp or email message, on `/planes` and under the hours on `/progreso`, and the clicks are recorded in `purchase_intents` so an attempt is still visible. Somebody already on a comped plan is told how to reach you instead of being sent to a billing portal that does not exist |
 | `NEXT_PUBLIC_SITE_URL` (or `PUBLIC_BASE_URL`) | The search tool points at the compiled default, and the `.vercel.app` alias stays a live second front door |
 
 **One host, or sign-in breaks for half the people you send the link to.** This
@@ -243,12 +243,27 @@ Three things keep it honest:
   either one, and each is bounded at 40 hours in the schema and again in the
   parser. One misheard number would otherwise put hundreds of saved hours on the
   page, and that costs you every other number on it.
+- **And the learner can write them.** Speech does not always cooperate: a real
+  class produced nothing because the person answered "un día", and the extractor
+  would not turn that into minutes without assuming a working day's length. The
+  teacher now converts it with them out loud, and `/progreso` carries a box on
+  any weekly step still missing a figure. It refuses what it cannot trust rather
+  than coercing it, because `Number('')` is 0 and a task that never took any
+  time would poison the total. Nothing estimates: a number is there because
+  somebody typed it or said it.
 - **Only finished tasks count.** A task measured and left pending is a measurement
   of an experiment, not of a change to somebody's week.
 - **There is no cumulative total.** Weekly saving times weeks elapsed would be the
   biggest number on the page and the least defensible. The page shows the
   recurring figure with every contributing task listed under it, so the total can
   be audited rather than believed.
+
+Whether a class actually produced the pair is readable before any of this is
+wired up. The agent carries four success criteria — a real task finished, both
+numbers, a three-part commitment, and nothing invented — so every conversation
+comes back marked against what the product promises rather than against whether
+it went pleasantly. `npm run doctor` reports how many of the last classes ended
+with both numbers, and quotes the extractor when they did not.
 
 Run [20260812000000_hours_saved.sql](supabase/migrations/20260812000000_hours_saved.sql)
 for the two columns and the `weekly_minutes_saved` view. `npm run doctor` fails
@@ -313,8 +328,15 @@ npm run setup:tools            # report what would change
 npm run setup:tools -- --push  # register the tool and attach it to the agent
 ```
 
-`npm run doctor` fails when no tool is attached, because the persona promises a
-search it would otherwise be unable to run.
+`npm run doctor` fails when no tool is attached, because a teacher that cannot
+look anything up is a smaller product than the one on the page.
+
+It is not, any more, because the persona would be caught lying. The persona ships
+in two forms and `syncAgentKnowledge` picks between them from the agent's own
+`tool_ids`: with a tool it says to look things up, without one it says plainly
+that it cannot and to take the general criterion instead. So the order is safe in
+either direction. Attach the tool, run `npm run sync:agent -- --push`, and the
+promise comes back on its own.
 
 Built on the [ElevenLabs Agents Platform](https://elevenlabs.io/docs/eleven-agents):
 ElevenLabs handles speech-to-text, the LLM turn, text-to-speech, chunking,
@@ -523,10 +545,16 @@ agent is carrying one.
 
 Stripe Checkout, hosted. Three routes and one rule.
 
-**`profiles.plan_id` is written by the Stripe webhook and by nothing else.** Not
-by the browser, not by the checkout route, not optimistically after the redirect.
-`checkPlanAllowance` reads that column on every mint, so anything else would be a
-paywall you could walk through by closing the tab at the right moment.
+**`profiles.plan_id` is never written by the browser.** Not by the checkout route,
+not optimistically after the redirect. `checkPlanAllowance` reads that column on
+every mint, so a client-side write would be a paywall you could walk through by
+closing the tab at the right moment.
+
+Two things on the server write it, and both are deliberate: the Stripe webhook,
+which is the only thing that may turn a payment into a plan, and `grantPlan`,
+which is how the feedback deal is honoured. `grantPlan` always sets
+`plan_granted_until` beside it, so a comped plan is distinguishable from a bought
+one and expires on its own.
 
 | Route | What it does |
 |---|---|
@@ -550,13 +578,28 @@ Setup, in order:
 ### Granting a plan by hand
 
 The feedback deal (`/feedback`) promises 3 months of a paid plan to the first ten
-people. There is no code path for it, deliberately: ten grants do not justify an
-admin UI, and every extra way to write `plan_id` is another way to write it wrong.
+people. This used to say there was no code path for it, on the reasoning that ten
+grants do not justify an admin UI. There is one now, and the reason is the ledger
+rather than the clicks.
+
+[`/admin/feedback`](src/app/admin/feedback/page.tsx) lists what people wrote and
+grants beside it. It refuses a second grant to the same person, refuses the
+eleventh outright because ten is a number printed on a public page, and matches a
+submission to an account by email — feedback is open to people who never signed
+in, and their row carries no user id, so without that the page would say "pídele
+que entre con Google" forever and never change when they did.
+
+`grantPlan` writes `plan_id`, `plan_granted_until` and `plan_grant_reason`
+together, and `expireGrant` reverts to `free` on the next mint once the date
+passes. Raw SQL still works and skips all of that: no seat counted, no expiry, no
+record of why somebody is on a paid plan.
 
 ```sql
-update public.profiles set plan_id = 'founder' where email = 'someone@example.com';
--- and to take it back after three months:
-update public.profiles set plan_id = 'free'    where email = 'someone@example.com';
+-- Only if the page cannot: no account for that email yet, or a different reason.
+update public.profiles
+   set plan_id = 'founder', plan_granted_until = now() + interval '3 months',
+       plan_grant_reason = 'feedback'
+ where email = 'someone@example.com';
 ```
 
 A profile with a paid `plan_id` and no `stripe_customer_id` is a comped plan, and
