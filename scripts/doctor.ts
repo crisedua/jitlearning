@@ -1351,9 +1351,38 @@ async function main() {
     }
   }
 
-  note('For the deployment, and whether ElevenLabs is actually calling it:');
-  note('  curl -s -o /dev/null -w "%{http_code}" -X POST <app>/api/webhooks/elevenlabs -d "{}"');
-  note('  503 = the secret is missing there · 401 = set (this call just lacks a signature)');
+  /*
+   * Whether the deployment can actually receive what is now being sent.
+   *
+   * Registration and reception are separate halves and both have to be in
+   * place. This was a curl the reader was told to run, which is the same as not
+   * checking it. The call is safe to make from here: an unsigned body is
+   * refused before anything is read, which is exactly what makes it a test.
+   *
+   * The costly state is the one this project is in the moment the webhook is
+   * created: ElevenLabs delivering after every class to a route that answers
+   * 503 because the signing secret never reached the deployment. Nothing
+   * errors anywhere a person looks, and every class is still lost.
+   */
+  try {
+    const probe = await fetch(`${configuredOrigin() ?? DEFAULT_ORIGIN}/api/webhooks/elevenlabs`, {
+      method: 'POST',
+      body: '{}',
+    });
+    if (probe.status === 401) {
+      ok(`${configuredOrigin() ?? DEFAULT_ORIGIN} accepts deliveries (401 on an unsigned body, which is correct)`);
+    } else if (probe.status === 503) {
+      bad(`${configuredOrigin() ?? DEFAULT_ORIGIN} answers 503: ELEVENLABS_WEBHOOK_SECRET is not in the deployment.`);
+      note('Anything ElevenLabs sends after a class is refused, so classes are still lost.');
+      note('Put the signing secret in the Vercel project settings and redeploy.');
+      failures++;
+    } else {
+      note(`${configuredOrigin() ?? DEFAULT_ORIGIN} answered ${probe.status} to an unsigned delivery, which is neither`);
+      note('the 401 that means configured nor the 503 that means the secret is missing.');
+    }
+  } catch {
+    note(`Could not reach ${configuredOrigin() ?? DEFAULT_ORIGIN} to see whether it accepts deliveries.`);
+  }
 
   /*
    * The only check here that can tell the truth.
