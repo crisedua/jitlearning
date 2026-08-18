@@ -9,8 +9,10 @@ import {
   practiceModel,
   refusalFor,
   secondsForSpend,
+  MAX_UPLOAD_BYTES,
   sheetToText,
   textToPrompt,
+  tooLarge,
   USD_PER_MINUTE,
 } from './practica';
 import { teacherSystemPrompt } from './agent';
@@ -189,6 +191,39 @@ describe('which files the bench takes', () => {
     for (const ext of ACCEPTED_EXTENSIONS) {
       assert.ok(attachmentKind(`archivo${ext}`), `${ext} is offered but not handled`);
     }
+  });
+});
+
+/*
+ * Vercel rejects a request body over about 4.5 MB before the route runs, so a
+ * learner who attaches four big files gets "el banco no está disponible" and no
+ * clue why — the platform answered, not us. The ceiling has to be caught in the
+ * browser, where the files still exist and the message can say which ones.
+ */
+describe('when the attachments are too big to send', () => {
+  it('lets a normal set through', () => {
+    assert.equal(tooLarge([200_000, 500_000]), null);
+  });
+
+  it('stops the set that the platform would reject', () => {
+    const complaint = tooLarge([MAX_UPLOAD_BYTES, MAX_UPLOAD_BYTES]);
+    assert.ok(complaint, 'oversized attachments were allowed through');
+    assert.match(complaint, /MB/);
+  });
+
+  it('stays under the platform ceiling with room for the multipart framing', () => {
+    assert.ok(
+      MAX_UPLOAD_BYTES < 4.5 * 1024 * 1024,
+      `${MAX_UPLOAD_BYTES} bytes is at or over the body limit that rejects the request`,
+    );
+  });
+
+  /*
+   * The per-file cap has to be reachable: one file at the limit must still be
+   * sendable, or the size message names a number nobody can satisfy.
+   */
+  it('accepts one file at the per-file limit', () => {
+    assert.equal(tooLarge([3 * 1024 * 1024]), null);
   });
 });
 

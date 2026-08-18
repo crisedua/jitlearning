@@ -118,7 +118,21 @@ export function practiceModel(id: string): PracticeModel | null {
  */
 export const MAX_FILES = 5;
 /** Per file, before parsing. A weekly report that exceeds this is not a first exercise. */
-export const MAX_FILE_BYTES = 5 * 1024 * 1024;
+export const MAX_FILE_BYTES = 3 * 1024 * 1024;
+/**
+ * Across every file in one message, and this one is not a preference.
+ *
+ * Vercel refuses a request body over about 4.5 MB, and it refuses it *before*
+ * the route runs — `req.formData()` throws and the learner is told the bench is
+ * unavailable, with nothing in the logs naming a size. So the ceiling has to be
+ * enforced in the browser, where the files still exist and the message can name
+ * the actual problem.
+ *
+ * 4 MB rather than 4.5: multipart framing and the field names ride in the same
+ * body, and being refused at the platform edge costs the learner a class turn
+ * to discover.
+ */
+export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 /** Characters of extracted text per file, and across all of them. */
 export const MAX_FILE_CHARS = 40_000;
 export const MAX_TOTAL_CHARS = 120_000;
@@ -175,6 +189,23 @@ const BY_EXTENSION: Record<string, AttachmentKind> = {
 export function attachmentKind(filename: string): AttachmentKind | null {
   const ext = filename.toLowerCase().split('.').pop();
   return (ext && BY_EXTENSION[ext]) || null;
+}
+
+/**
+ * Whether this set of files can be sent at all, said as a sentence.
+ *
+ * Returns null when they fit. Checked in the browser because the platform
+ * rejects an oversized body before any of our code sees it — see
+ * `MAX_UPLOAD_BYTES`.
+ */
+export function tooLarge(sizes: readonly number[]): string | null {
+  const total = sizes.reduce((sum, n) => sum + n, 0);
+  if (total <= MAX_UPLOAD_BYTES) return null;
+  const mb = (n: number) => (n / (1024 * 1024)).toFixed(1).replace('.', ',');
+  return (
+    `Entre todo pesa ${mb(total)} MB y el máximo por mensaje es ${mb(MAX_UPLOAD_BYTES)} MB. ` +
+    'Manda menos archivos por vez, o si es una planilla, descarga solo la hoja que necesitas.'
+  );
 }
 
 /** The extensions, for the file input's `accept` and for the refusal message. */

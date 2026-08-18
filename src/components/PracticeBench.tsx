@@ -6,6 +6,7 @@ import {
   MAX_FILES,
   PRACTICE_MODELS,
   practiceModel,
+  tooLarge,
   type PracticeModelId,
 } from '@/lib/practica';
 
@@ -60,15 +61,32 @@ export function PracticeBench({
   const [turns, setTurns] = useState<Exchange[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** The cause, sent only to operators. See `detailFor` in /api/practica. */
+  const [detail, setDetail] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<readonly string[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
   const feed = useRef<HTMLDivElement>(null);
 
   const model = practiceModel(modelId)!;
 
+  /*
+   * The size check happens here, at selection, and not at send.
+   *
+   * Vercel rejects an oversized body before the route runs, so the server
+   * cannot produce a message about it that names the files — by then they are
+   * gone. Checking on selection means the learner is told while the picker is
+   * still fresh in mind and can drop one, rather than losing a class turn to
+   * "el banco no está disponible".
+   */
   const addFiles = useCallback((incoming: FileList | null) => {
     if (!incoming) return;
-    setFiles((current) => [...current, ...Array.from(incoming)].slice(0, MAX_FILES));
+    setFiles((current) => {
+      const next = [...current, ...Array.from(incoming)].slice(0, MAX_FILES);
+      const complaint = tooLarge(next.map((f) => f.size));
+      setError(complaint);
+      setDetail(null);
+      return complaint ? current : next;
+    });
   }, []);
 
   const send = useCallback(async () => {
@@ -80,6 +98,7 @@ export function PracticeBench({
 
     setBusy(true);
     setError(null);
+    setDetail(null);
     setWarnings([]);
     setTurns((t) => [...t, { role: 'user', content: text, files: names }]);
     setPrompt('');
@@ -107,11 +126,13 @@ export function PracticeBench({
         answer?: string;
         warnings?: string[];
         error?: string;
+        detail?: string;
       };
 
       if (!res.ok || data.error) {
         const reason = data.error ?? 'No se pudo enviar.';
         setError(reason);
+        setDetail(data.detail ?? null);
         onFailure(reason);
         return;
       }
@@ -300,12 +321,21 @@ export function PracticeBench({
       )}
 
       {error && (
-        <p
+        <div
           role="alert"
           className="mt-3 rounded-md border border-danger/25 bg-danger-soft/60 px-3.5 py-2.5 text-sm text-ink/85"
         >
-          {error}
-        </p>
+          <p>{error}</p>
+          {/*
+            Operators only, and the server decides who that is: `detail` is
+            simply absent from the response for everybody else. It is English,
+            it names our provider, and it is the difference between "the bench
+            is broken" and "the OpenRouter account has no credit".
+          */}
+          {detail && (
+            <p className="mt-2 break-words font-mono text-xs text-ink/60">{detail}</p>
+          )}
+        </div>
       )}
     </section>
   );

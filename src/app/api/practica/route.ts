@@ -29,6 +29,7 @@ import type { Row } from 'read-excel-file/node';
 import { currentUser } from '@/lib/supabase/server';
 import { supabaseAdmin, serviceConfigured } from '@/lib/supabase/admin';
 import { checkPlanAllowance } from '@/lib/account';
+import { isAdminEmail } from '@/lib/admin';
 import { chat, openrouterConfigured, type ChatMessage, type ContentPart } from '@/lib/openrouter';
 import {
   attachmentKind,
@@ -56,6 +57,24 @@ export const dynamic = 'force-dynamic';
  */
 export const maxDuration = 120;
 
+/**
+ * The reason, for the one person who can act on it.
+ *
+ * A learner gets a sentence and nothing else — the detail would be English, and
+ * about our API keys, in the middle of their class. But the operator testing
+ * this is signed in as an admin and reading the same screen, and until now the
+ * bench answered them with the same opaque sentence: the actual cause (a
+ * rejected key, an account with no credit, a model that has been retired) lived
+ * only in a Vercel function log, which is a different tab, a different login,
+ * and several minutes away from the click that caused it.
+ *
+ * `isAdminEmail` is the same gate the admin pages use, so this cannot leak to a
+ * learner without an operator's address being added to ADMIN_EMAILS first.
+ */
+function detailFor(email: string | null | undefined, reason: string): { detail?: string } {
+  return isAdminEmail(email) ? { detail: reason.slice(0, 500) } : {};
+}
+
 /** Every failure the learner has no action for resolves to one of these. */
 const UNAVAILABLE =
   'El banco de práctica no está disponible en este momento. Sigue con el profesor por voz y lo intentamos en un rato.';
@@ -73,7 +92,10 @@ export async function POST(req: Request) {
 
   if (!openrouterConfigured()) {
     console.error('[practica] OPENROUTER_API_KEY is not configured.');
-    return NextResponse.json({ error: OFF }, { status: 409 });
+    return NextResponse.json(
+      { error: OFF, ...detailFor(user.email, 'OPENROUTER_API_KEY is not set in this deployment.') },
+      { status: 409 },
+    );
   }
 
   /*
@@ -89,8 +111,23 @@ export async function POST(req: Request) {
   let form: FormData;
   try {
     form = await req.formData();
-  } catch {
-    return NextResponse.json({ error: UNAVAILABLE }, { status: 400 });
+  } catch (err) {
+    /*
+     * Almost always the body being too large. Vercel caps a request at roughly
+     * 4.5 MB and rejects it before this route runs at all, so reaching this
+     * branch usually means the browser's own ceiling (`MAX_UPLOAD_BYTES`) was
+     * bypassed rather than that anything here is broken.
+     */
+    const reason = err instanceof Error ? err.message : String(err);
+    console.error('[practica] could not read the request body:', reason);
+    return NextResponse.json(
+      {
+        error:
+          'No pude recibir el mensaje, casi siempre porque los archivos pesan demasiado juntos. Manda menos por vez.',
+        ...detailFor(user.email, reason),
+      },
+      { status: 400 },
+    );
   }
 
   const model = practiceModel(String(form.get('model') ?? ''));
@@ -294,7 +331,10 @@ export async function POST(req: Request) {
       error: message.slice(0, 500),
     });
 
-    return NextResponse.json({ error: UNAVAILABLE }, { status: 502 });
+    return NextResponse.json(
+      { error: UNAVAILABLE, ...detailFor(user.email, message) },
+      { status: 502 },
+    );
   }
 }
 

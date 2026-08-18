@@ -138,11 +138,22 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
          */
         usage: { include: true },
         /*
-         * Extract documents server-side for whichever model cannot do it
-         * natively, so a PDF behaves the same on all three. Named explicitly
-         * rather than left to the default: the default has changed before, and
-         * a PDF that silently stops being read looks to a learner like the
-         * model ignoring their file.
+         * PDF handling, left on OpenRouter's default on purpose, with the cost
+         * of that default written down because it is not obvious.
+         *
+         * With no `pdf.engine` named, OpenRouter uses the model's own file
+         * support first and falls back to `mistral-ocr` when there is none.
+         * All three families here take files natively, so the fallback should
+         * never fire — but if one is ever swapped for a model that does not,
+         * OCR is billed per page to our OpenRouter account whatever key is in
+         * play. It reaches us as part of `usage.cost`, so the learner's meter
+         * stays correct; what would change without anybody deciding it is how
+         * much a practice message costs.
+         *
+         * The alternative, pinning `cloudflare-ai`, is free and always parses —
+         * which also means never using the native support that reads a PDF
+         * better than an extraction of it. Native is the right default for
+         * these three; revisit if the model list changes.
          */
         plugins: [{ id: 'file-parser' }],
       }),
