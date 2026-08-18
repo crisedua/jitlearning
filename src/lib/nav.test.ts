@@ -55,3 +55,37 @@ describe('the header links', () => {
     });
   }
 });
+
+/*
+ * The floating contact is not in the classroom.
+ *
+ * A green circle in the bottom-right of a phone is where a thumb rests, and on
+ * `/coach` a tap there does not open a chat beside the lesson: it leaves the
+ * page, `pagehide` fires, `reportUsage` closes the session, and the class is
+ * over. An accidental tap costs a learner their class and the minutes it used.
+ *
+ * Pinned because the button lives in the root layout, which is the natural place
+ * for it and the reason it reached a page it should not be on. Somebody
+ * simplifying that component back to a server component would take the guard
+ * with it and nothing would look wrong.
+ */
+describe('the floating WhatsApp button', () => {
+  const source = readFileSync(
+    path.join(import.meta.dirname, '..', 'components', 'WhatsAppButton.tsx'),
+    'utf8',
+  );
+
+  it('hides itself on the page where a tap ends a class', () => {
+    assert.match(
+      source,
+      /pathname\?*\.?startsWith\('\/coach'\)/,
+      'the contact button no longer hides on /coach, where tapping it ends the session',
+    );
+  });
+
+  it('returns nothing there rather than hiding with a class', () => {
+    // `hidden` would still be tabbable and still be a target for a mistap on a
+    // browser that ignores the class. Rendering nothing is the whole fix.
+    assert.match(source, /return null;/, 'it must render nothing on /coach, not merely be invisible');
+  });
+});

@@ -1,3 +1,6 @@
+'use client';
+
+import { usePathname } from 'next/navigation';
 import { WHATSAPP } from '@/lib/site';
 
 /**
@@ -9,8 +12,23 @@ import { WHATSAPP } from '@/lib/site';
  *
  * `z-40` keeps it under the sticky header (z-50), so it never floats over the
  * navigation on short viewports.
+ *
+ * ## Not in the classroom
+ *
+ * On `/coach` it is hidden, and the reason is the thumb. A green circle in the
+ * bottom-right corner of a phone is exactly where a hand rests, and tapping it
+ * during a class does not open a chat beside the lesson: it leaves the page,
+ * `pagehide` fires, and the session closes. An accidental tap costs somebody
+ * their class and the minutes it used.
+ *
+ * Nothing is lost by hiding it there. Whoever is on that page is signed in and
+ * about to talk to the teacher, not looking for the sales channel, and the
+ * header and footer both still carry a way to write.
  */
 export function WhatsAppButton() {
+  const pathname = usePathname();
+  if (pathname?.startsWith('/coach')) return null;
+
   const href = `https://wa.me/${WHATSAPP.number}?text=${encodeURIComponent(WHATSAPP.message)}`;
 
   return (
