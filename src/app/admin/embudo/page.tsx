@@ -217,11 +217,27 @@ export default async function EmbudoPage() {
           <h2 className="text-[15px] font-semibold">Lo que dicen las clases</h2>
           <p className="mt-1.5 text-[15px] leading-relaxed text-ink/85">
             {classes.held} conversación(es) de más de un minuto.{' '}
-            {classes.analysed === 0
-              ? 'Ninguna de las recientes trae análisis todavía.'
-              : `De las ${classes.analysed} más recientes con análisis, ${classes.finished} terminó una tarea real y ${classes.measured} dejó los dos números.`}
+            {classes.analysed === 0 && 'Ninguna de las recientes trae análisis todavía.'}
+            {classes.analysed > 0 &&
+              (classes.measurable === 0
+                ? 'A ninguna de las recientes se le pidieron los dos números todavía, así que no dicen si la clase funciona.'
+                : `De las ${classes.measurable} a las que sí se les pidió, ${classes.measured} dejó los dos números.`)}
           </p>
-          {classes.analysed > 0 && classes.measured === 0 && (
+          {/*
+            Graded and ungraded are different answers.
+            
+            The success criteria are newer than every conversation on the agent,
+            so counting an ungraded one as "did not finish a task" would report a
+            failure where nobody had asked the question. The first version of
+            this panel did exactly that, one paragraph after warning that zero
+            reads as broken.
+          */}
+          <p className="mt-1 text-[14px] leading-relaxed text-muted">
+            {classes.graded === 0
+              ? 'Todavía ninguna clase viene calificada: los criterios son más nuevos que todas ellas.'
+              : `${classes.finished} de ${classes.graded} calificada(s) terminó una tarea real.`}
+          </p>
+          {classes.measurable > 0 && classes.measured === 0 && (
             <p className="mt-2 text-[14px] leading-relaxed text-warning">
               Sin los dos números nadie ve la oferta en su progreso, así que a nadie se le pide
               pagar.

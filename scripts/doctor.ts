@@ -34,6 +34,7 @@ import { PROMISES } from '../src/lib/site';
 import { FALLBACK_PLANS, formatMinutes, formatMoney } from '../src/lib/plans';
 import { buildPlan, LESSONS, LEVELS, lessonsForLevel, PATHS } from '../src/lib/curriculum';
 import { serviceConfigured, supabaseAdmin } from '../src/lib/supabase/admin';
+import { classReport } from '../src/lib/classes';
 import { billingConfigured, stripe as stripeClient } from '../src/lib/billing';
 import { breakEven, DEFAULT_INPUTS } from '../src/lib/costs';
 import { configuredOrigin, DEFAULT_ORIGIN } from '../src/lib/canonical';
@@ -1139,49 +1140,36 @@ async function main() {
        * The most recent few only. This is one request per conversation and the
        * doctor is run often; a trend needs the funnel, not a diagnostic.
        */
-      const recent = real.slice(0, 5);
-      if (recent.length > 0) {
-        let analysed = 0;
-        let measured = 0;
-        const reasons: string[] = [];
-
-        for (const c of recent) {
-          const id = (c as { conversation_id?: string }).conversation_id;
-          if (!id) continue;
-          const res = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${id}`, {
-            headers: { 'xi-api-key': apiKey },
-          });
-          if (!res.ok) continue;
-          const body = (await res.json()) as {
-            analysis?: {
-              data_collection_results?: Record<string, { value?: unknown; rationale?: string }>;
-            };
-          };
-          const fields = body.analysis?.data_collection_results;
-          if (!fields || Object.keys(fields).length === 0) continue;
-          analysed++;
-
-          const filled = (name: string) => {
-            const v = fields[name]?.value;
-            return v !== null && v !== undefined && v !== '';
-          };
-          if (filled('task_minutes_before') && filled('task_minutes_after')) measured++;
-          else {
-            const why = fields.task_minutes_before?.rationale ?? fields.task_minutes_after?.rationale;
-            if (why) reasons.push(why.replace(/\s+/g, ' ').slice(0, 150));
-          }
-        }
-
-        if (analysed === 0) {
-          note('None of the recent classes carries an analysis, so nothing can be read from them.');
-        } else if (measured === analysed) {
-          ok(`${measured} of the last ${analysed} class(es) ended with both numbers`);
-        } else {
-          note(`${measured} of the last ${analysed} class(es) ended with both numbers.`);
-          note('Without both, /progreso never shows the offer, so nobody is asked to pay.');
-          for (const r of reasons.slice(0, 2)) note(`  the extractor said: ${r}`);
-        }
+      /*
+       * The same question, asked by the same code as /admin/embudo.
+       *
+       * This had its own copy and its own bug: it counted every conversation
+       * carrying any analysis, so classes from before the minute fields existed
+       * were reported as classes that failed to produce them. Asked and answered
+       * are different, and two implementations of that distinction is one too
+       * many.
+       */
+      const report = await classReport();
+      if (!report) {
+        note('Could not read the conversations, so nothing here says whether a class worked.');
+      } else if (report.analysed === 0) {
+        note('No recent class carries an analysis, so nothing can be read from them.');
+      } else if (report.measurable === 0) {
+        note('No recent class was asked for the two numbers, so none of them says the product works.');
+      } else if (report.measured === report.measurable) {
+        ok(`${report.measured} of ${report.measurable} class(es) ended with both numbers`);
+      } else {
+        note(`${report.measured} of ${report.measurable} class(es) ended with both numbers.`);
+        note('Without both, /progreso never shows the offer, so nobody is asked to pay.');
+        if (report.whyNot) note(`  the extractor said: ${report.whyNot}`);
       }
+
+      if (report && report.graded === 0) {
+        note('None is graded yet: the success criteria are newer than every class on the agent.');
+      } else if (report) {
+        note(`${report.finished} of ${report.graded} graded class(es) finished a real task.`);
+      }
+
     } catch (err) {
       note(`Could not read usage: ${err instanceof Error ? err.message : err}`);
     }

@@ -26,9 +26,20 @@ export interface ClassReport {
   held: number;
   /** How many of the sampled ones carry an analysis at all. */
   analysed: number;
-  /** Of those, how many ended with both minute figures. */
+  /**
+   * How many were even asked for the two minute figures.
+   *
+   * The extraction fields arrived over several syncs, so an older conversation
+   * can carry three fields, or none. Counting those as "did not measure" reports
+   * a failure where the truth is that nobody asked, which is the distinction
+   * this file exists to respect and the one it got wrong first time.
+   */
+  measurable: number;
+  /** Of the measurable ones, how many ended with both figures. */
   measured: number;
-  /** Of those, how many finished a real task, per the success criteria. */
+  /** How many were graded at all. Zero until the success criteria were pushed. */
+  graded: number;
+  /** Of the graded ones, how many finished a real task. */
   finished: number;
   /** The extractor's own words on the most recent class that missed a number. */
   whyNot: string | null;
@@ -70,7 +81,9 @@ async function read(): Promise<ClassReport | null> {
   const newest = Math.max(0, ...real.map((c) => (c.start_time_unix_secs ?? 0) * 1000));
 
   let analysed = 0;
+  let measurable = 0;
   let measured = 0;
+  let graded = 0;
   let finished = 0;
   let whyNot: string | null = null;
 
@@ -95,21 +108,35 @@ async function read(): Promise<ClassReport | null> {
       const v = fields[name]?.value;
       return v !== null && v !== undefined && v !== '';
     };
-    if (filled('task_minutes_before') && filled('task_minutes_after')) measured++;
-    else if (!whyNot) {
-      const why = fields.task_minutes_before?.rationale ?? fields.task_minutes_after?.rationale;
-      whyNot = why ? why.replace(/\s+/g, ' ').slice(0, 220) : null;
+
+    // Asked is not the same as answered. A conversation from before these fields
+    // existed carries no key for them, and reading that as an empty answer would
+    // blame the class for a question nobody put to it.
+    const wasAsked = 'task_minutes_before' in fields && 'task_minutes_after' in fields;
+    if (wasAsked) {
+      measurable++;
+      if (filled('task_minutes_before') && filled('task_minutes_after')) measured++;
+      else if (!whyNot) {
+        const why = fields.task_minutes_before?.rationale ?? fields.task_minutes_after?.rationale;
+        whyNot = why ? why.replace(/\s+/g, ' ').slice(0, 220) : null;
+      }
     }
 
-    if (body.analysis?.evaluation_criteria_results?.tarea_terminada?.result === 'success') {
-      finished++;
+    // Same rule for the verdict: the criteria are newer than every conversation
+    // on this agent, so an ungraded one is unmarked, not failed.
+    const verdicts = body.analysis?.evaluation_criteria_results;
+    if (verdicts && Object.keys(verdicts).length > 0) {
+      graded++;
+      if (verdicts.tarea_terminada?.result === 'success') finished++;
     }
   }
 
   return {
     held: real.length,
     analysed,
+    measurable,
     measured,
+    graded,
     finished,
     whyNot,
     personaChangedSince: newest > 0 && newest < changed,
