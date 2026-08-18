@@ -15,7 +15,63 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { contrast, over, palette, parseHex, type Rgb } from './contrast';
+
+/*
+ * The arithmetic lives here rather than in `src/lib`.
+ *
+ * It is WCAG 2.1 relative luminance and contrast ratio, and nothing but this
+ * test has ever called it. A module in `lib` that only its own test imports
+ * looks like production code and is not, which is the shape that let a module
+ * sit unwired for a day while its commit message said otherwise.
+ */
+type Rgb = readonly [number, number, number];
+
+function parseHex(hex: string): Rgb {
+  const h = hex.trim().replace('#', '');
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  return [
+    parseInt(full.slice(0, 2), 16),
+    parseInt(full.slice(2, 4), 16),
+    parseInt(full.slice(4, 6), 16),
+  ] as const;
+}
+
+/**
+ * What a colour at `alpha` looks like over another, which is what Tailwind's
+ * `/50` modifiers produce. Contrast is a property of what reaches the eye, so
+ * comparing the declared colours would answer a question nobody is asking.
+ */
+function over(fg: Rgb, bg: Rgb, alpha: number): Rgb {
+  return [
+    Math.round(fg[0] * alpha + bg[0] * (1 - alpha)),
+    Math.round(fg[1] * alpha + bg[1] * (1 - alpha)),
+    Math.round(fg[2] * alpha + bg[2] * (1 - alpha)),
+  ] as const;
+}
+
+function luminance([r, g, b]: Rgb): number {
+  const channel = (value: number) => {
+    const c = value / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
+
+function contrast(a: Rgb, b: Rgb): number {
+  const la = luminance(a);
+  const lb = luminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+/** The custom properties in `globals.css`, by name without the `--color-` prefix. */
+function palette(css: string): Map<string, string> {
+  const found = new Map<string, string>();
+  for (const m of css.matchAll(/--color-([a-z-]+):\s*(#[0-9a-f]{3,8})\s*;/gi)) {
+    found.set(m[1]!.toLowerCase(), m[2]!);
+  }
+  return found;
+}
+
 
 const css = readFileSync(
   path.join(import.meta.dirname, '..', 'app', 'globals.css'),
