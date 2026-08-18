@@ -28,6 +28,14 @@ import { UPGRADE_MARKER, offersUpgrade, withoutUpgradeMarker } from './gate';
 
 /** Every gate message, as `account.ts` builds them. */
 const MESSAGES = {
+  /*
+   * The courtesy plan ending was missing from this list while the scan below
+   * counted it, so it was checked for the marker and never read as a sentence.
+   * It is the highest-intent message the product has: somebody who spent three
+   * months and several hundred minutes and has just been stopped. If any of
+   * these has to read well, it is that one.
+   */
+  grantEnded: `Se acabaron tus meses de cortesía. Lo que mediste sigue en tu página de progreso: para seguir con tus clases, mira los planes${UPGRADE_MARKER}.`,
   freeLifetime: `Usaste los 20 minutos gratis. Para seguir con tu plan de clases, mira los planes${UPGRADE_MARKER}.`,
   monthlyMinutes: `Alcanzaste los 300 minutos de tu plan este mes. El contador vuelve a cero el día 1, o puedes subir de plan${UPGRADE_MARKER}.`,
   monthlySessions: `Alcanzaste las 40 conversaciones de tu plan este mes. El contador vuelve a cero el día 1, o puedes subir de plan${UPGRADE_MARKER}.`,
@@ -93,6 +101,20 @@ describe('what a learner is told when they run out', () => {
     const errors = [...body.matchAll(/`([^`]*)`/g)].map((m) => m[1]!);
 
     assert.ok(errors.length >= 4, `found ${errors.length} gate messages, expected at least 4`);
+
+    /*
+     * And the fixtures above have to keep pace with them.
+     *
+     * The scan checks every message for the marker; the fixtures check that each
+     * one reads as a sentence and offers a way out. A message in the source and
+     * not in the fixtures gets the cheap half of that and not the half that
+     * matters, which is what happened to the courtesy-plan message.
+     */
+    assert.equal(
+      errors.length,
+      Object.keys(MESSAGES).length,
+      `account.ts has ${errors.length} gate messages and this file lists ${Object.keys(MESSAGES).length}`,
+    );
 
     for (const message of errors) {
       assert.ok(
