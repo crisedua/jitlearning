@@ -13,6 +13,7 @@ import { ingest } from '@/lib/knowledge';
 import { listDocumentViews } from '@/lib/catalog';
 import { syncAgentKnowledge } from '@/lib/agent';
 import { requireSecret, UnauthorizedError } from '@/lib/auth';
+import { ownsDocument, TEACHER } from '@/lib/teacher';
 import type { IngestSource } from '@/lib/knowledge';
 import type { UsageMode } from '@/lib/types';
 
@@ -76,7 +77,30 @@ export async function POST(req: Request) {
       }
     }
 
-    const document = await ingest(source, { name, usageMode });
+    /*
+     * A name with no folder is a document the teacher can never read.
+     *
+     * ElevenLabs has no folders: a document is its name, and the prefix on that
+     * name is the entire corpus boundary — `ownsDocument` is what decides
+     * whether a document may be attached to the agent, and the doctor reports
+     * anything outside it. `scripts/ingest.ts` derives the prefix from the
+     * directory and refuses to produce one without it. This route took whatever
+     * the caller sent.
+     *
+     * So `{"name": "guia.md"}` uploaded fine, indexed fine, answered 200, and
+     * produced a document that could never be attached to anything. Nothing
+     * failed; the material simply was not there when the teacher looked, and the
+     * only signal was a doctor line days later about documents outside the live
+     * corpus.
+     *
+     * Prepending the live prefix is what the caller meant, and it is what the
+     * script does from a directory name. The response says which name was used,
+     * so nothing is renamed behind anybody's back.
+     */
+    const prefix = TEACHER.sources[0] ?? '';
+    const stored = name && !ownsDocument(name) ? `${prefix}${name.replace(/^\/+/, '')}` : name;
+
+    const document = await ingest(source, { name: stored, usageMode });
 
     // Pinned docs are usable immediately, so attach them now. Retrieved docs
     // are still indexing and would be attached in an unusable state — the
@@ -92,7 +116,22 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ document, attached, syncError }, { status: 201 });
+    return NextResponse.json(
+      {
+        document,
+        attached,
+        syncError,
+        // Named explicitly when it differs from what was sent, so a corrected
+        // prefix is visible rather than a silent rename.
+        ...(stored && stored !== name
+          ? {
+              renamedTo: stored,
+              why: `A document outside ${prefix} can never be attached to the agent, so the prefix was added.`,
+            }
+          : {}),
+      },
+      { status: 201 },
+    );
   } catch (err) {
     return errorResponse(err);
   }
