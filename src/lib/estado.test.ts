@@ -14,7 +14,7 @@
  * and anything on it is something whose absence they need told.
  */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { TEACHER } from './teacher';
@@ -132,4 +132,50 @@ describe('what the doctor says it is checking', () => {
       );
     });
   }
+});
+
+/*
+ * No administrative page is indexable.
+ *
+ * `/knowledge` was: unlinked from the navigation, gated at the API by
+ * INGEST_SECRET, and missing the one line every other admin surface carries. A
+ * page headed "Administración" with a secret field was eligible to appear in a
+ * search for this product's name. Nothing leaks through it, and that is not the
+ * whole of the cost — it invites people to try, and it is the sort of result
+ * that makes somebody deciding whether to pay wonder what else is loose.
+ *
+ * Derived rather than listed: every page under `admin/`, plus any other page
+ * whose own copy calls it administration. A new one inherits the rule instead of
+ * needing to be remembered.
+ */
+describe('administrative pages', () => {
+  const appDir = path.join(ROOT, 'src', 'app');
+
+  function pages(dir: string, found: string[] = []): string[] {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith('.') || entry.name === 'api') continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) pages(full, found);
+      else if (entry.name === 'page.tsx') found.push(full);
+    }
+    return found;
+  }
+
+  const all = pages(appDir);
+
+  it('found the pages it is meant to check', () => {
+    assert.ok(all.length >= 8, `only ${all.length} pages found under src/app`);
+  });
+
+  it('are all noindex', () => {
+    const leaky: string[] = [];
+    for (const file of all) {
+      const source = readFileSync(file, 'utf8');
+      const isAdmin =
+        file.includes(`${path.sep}admin${path.sep}`) || /Administración/.test(source);
+      if (!isAdmin) continue;
+      if (!/robots:\s*\{[^}]*index:\s*false/.test(source)) leaky.push(path.relative(ROOT, file));
+    }
+    assert.deepEqual(leaky, [], `administrative pages a search engine may index: ${leaky.join(', ')}`);
+  });
 });

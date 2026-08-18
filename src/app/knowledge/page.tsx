@@ -1,4 +1,24 @@
+import type { Metadata } from 'next';
 import { KnowledgeManager } from '@/components/KnowledgeManager';
+
+/**
+ * Unlinked, and now also unindexed.
+ *
+ * The route is deliberately reachable without a sign-in: whoever administers the
+ * corpus needs it, every call it makes carries INGEST_SECRET, and the page
+ * itself holds nothing — without the secret the APIs answer 401, or 503 when the
+ * deployment has none. That reasoning is sound and it stopped one step short.
+ *
+ * Every other administrative surface here says `index: false`, and this one did
+ * not, so a page headed "Administración" with a secret field on it was eligible
+ * to appear in a search for this product's name. Nothing is exposed by that. It
+ * invites people to try, and it is the sort of result that makes a stranger
+ * deciding whether to pay wonder what else is loose.
+ */
+export const metadata: Metadata = {
+  title: 'Base de conocimiento · ModoJIT',
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = 'force-dynamic';
 
