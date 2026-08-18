@@ -35,6 +35,7 @@ import { getAgent } from '@/lib/elevenlabs';
 import { agentId } from '@/lib/config';
 import { FIRST_MESSAGE, teacherSystemPrompt } from '@/lib/agent';
 import { ownsDocument } from '@/lib/teacher';
+import { withDeadline } from '@/lib/deadline';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -109,10 +110,34 @@ function environment(): { label: string; set: boolean; missing: string }[] {
  * a document from a retired corpus is a confident answer about a subject nobody
  * maintains.
  */
-async function agentState(): Promise<{ label: string; ok: boolean; detail: string }[] | null> {
+/**
+ * How long this page will wait for ElevenLabs before rendering without it.
+ *
+ * Four seconds, which is longer than the two and a half the mint allows: a
+ * learner is looking at a button they pressed, an operator is reading a report.
+ * Past it the section says it could not check rather than leaving the page
+ * hanging, because a diagnostic that does not load is worse than one that
+ * reports a gap — and what is making it hang is quite possibly what they came
+ * to diagnose.
+ */
+const AGENT_DEADLINE_MS = 4_000;
+
+type AgentRow = { label: string; ok: boolean; detail: string };
+
+async function agentState(): Promise<AgentRow[] | null> {
   const id = agentId();
   if (!id || !process.env.ELEVENLABS_API_KEY?.trim()) return null;
 
+  return withDeadline(readAgent(id), [TIMED_OUT], AGENT_DEADLINE_MS);
+}
+
+const TIMED_OUT: AgentRow = {
+  label: 'El agente',
+  ok: false,
+  detail: 'ElevenLabs no respondió a tiempo. Vuelve a cargar: el resto de esta página es válido.',
+};
+
+async function readAgent(id: string): Promise<AgentRow[]> {
   try {
     const agent = await getAgent(id);
     const prompt = agent.conversation_config?.agent?.prompt;

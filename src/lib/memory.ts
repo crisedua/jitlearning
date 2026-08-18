@@ -22,6 +22,7 @@ import { ElevenLabsError, getConversation } from './elevenlabs';
 import { mapWithConcurrency } from './config';
 import { commitmentContext, openCommitment, storeCommitment } from './commitments';
 import { serviceConfigured, supabaseAdmin } from './supabase/admin';
+import { withDeadline } from './deadline';
 
 /** Rows considered per start. Only the newest of them are ever replayed. */
 const RECENT_ROWS = 5;
@@ -54,20 +55,6 @@ const SUMMARY_CHARS = 900;
  */
 const DEADLINE_MS = 2_500;
 
-/**
- * Resolve to `fallback` if `work` has not finished in time.
- *
- * The losing promise is not cancelled. It is one GET whose result is discarded,
- * and a request already in flight costs nothing to let finish; adding
- * cancellation would mean threading an AbortSignal through every layer to save
- * nothing measurable.
- */
-function withDeadline<T>(work: Promise<T>, fallback: T): Promise<T> {
-  return Promise.race([
-    work,
-    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), DEADLINE_MS)),
-  ]);
-}
 
 interface SessionRow {
   id: string;
@@ -180,7 +167,22 @@ async function recentSessions(
  * behaviour rule.
  */
 export async function learnerContext(userId: string): Promise<string | null> {
-  return withDeadline(buildContext(userId), null);
+  /*
+   * Slow is handled by the deadline; broken is handled here.
+   *
+   * `/api/signed-url` says of this call that it "degrades to null (a cold
+   * start) rather than ever failing the mint", and that was true of every error
+   * the pieces below catch for themselves and untrue of anything they missed:
+   * one unhandled rejection and the whole mint returns 500, so a learner is
+   * told there is no class because a summary could not be fetched.
+   *
+   * Memory is the right thing to lose. The record the teacher opens on is a
+   * database read and arrives separately.
+   */
+  return withDeadline(buildContext(userId), null, DEADLINE_MS).catch((err) => {
+    console.error('[memory] context lookup failed, starting cold:', err);
+    return null;
+  });
 }
 
 async function buildContext(userId: string): Promise<string | null> {
