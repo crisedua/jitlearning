@@ -51,6 +51,12 @@ export interface Plan {
    * The Stripe price this plan charges against, or null when it has not been
    * created yet. Null is what makes the pricing page fall back to writing to a
    * person instead of opening a checkout that cannot complete.
+   *
+   * **This and `priceMinor` are two records of the same fact and nothing keeps
+   * them in step.** The pages quote `priceMinor`; a card is charged whatever
+   * Stripe holds against this id. Changing a price means changing both, and the
+   * failure if you do not is silent and one-directional: the page advertises one
+   * number and the customer is charged another.
    */
   stripePriceId: string | null;
   sortOrder: number;
@@ -273,17 +279,6 @@ export function dominatedBy(plan: Plan, all: readonly Plan[]): Plan | null {
   return cheaper.sort((a, b) => a.priceMinor - b.priceMinor)[0] ?? null;
 }
 
-/**
- * Checkout exists now: `plans.stripe_price_id` names the Stripe price, the button
- * on /planes opens a Checkout Session, and `profiles.plan_id` is written by the
- * Stripe webhook and by nothing else. See `src/lib/billing.ts`.
- *
- * `priceMinor` remains the number shown on the page, and Stripe's price is the
- * number actually charged. **They are two records of the same fact and nothing
- * keeps them in step**, so changing a price means changing it in both places. The
- * pricing page reads this one; a card reads the other.
- */
-export const CHECKOUT_READY = true;
 
 /** The plan given prominence on the page. */
 export const RECOMMENDED_PLAN_ID = 'founder';

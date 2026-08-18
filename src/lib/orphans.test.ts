@@ -98,6 +98,37 @@ describe('exported functions', () => {
   const runtime = all.filter((f) => !f.endsWith('.test.ts'));
   const modules = runtime.filter((f) => f.startsWith(path.join(ROOT, 'src', 'lib')));
 
+  /*
+   * Constants too, and they rot differently.
+   *
+   * A dead function is inert. A dead constant is usually configuration that was
+   * read once and is not any more, and it keeps a docstring that describes how
+   * the system works. `CHECKOUT_READY = true` was that: nothing read it, and its
+   * comment still said `profiles.plan_id` is written by the Stripe webhook and
+   * by nothing else, which stopped being true when the feedback grant was built.
+   *
+   * The value in it was one sentence — that `priceMinor` and the Stripe price
+   * are two records of one fact with nothing keeping them in step — and that
+   * moved onto the field it is about rather than dying with the constant.
+   */
+  it('exported constants are read from somewhere', () => {
+    const sources = new Map(runtime.map((f) => [f, readFileSync(f, 'utf8')]));
+    const dead: string[] = [];
+
+    for (const file of modules) {
+      const text = sources.get(file)!;
+      for (const m of text.matchAll(/^export const ([A-Z_][A-Z0-9_]*)/gm)) {
+        const name = m[1]!;
+        const used = new RegExp(`\\b${name}\\b`);
+        const own = (text.match(new RegExp(`\\b${name}\\b`, 'g')) ?? []).length - 1;
+        const elsewhere = [...sources].some(([f, s]) => f !== file && used.test(s));
+        if (own <= 0 && !elsewhere) dead.push(`${path.relative(ROOT, file)}: ${name}`);
+      }
+    }
+
+    assert.deepEqual(dead, [], `exported and never read: ${dead.join(', ')}`);
+  });
+
   it('are called from somewhere', () => {
     const sources = new Map(runtime.map((f) => [f, readFileSync(f, 'utf8')]));
     const dead: string[] = [];
