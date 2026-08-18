@@ -16,10 +16,17 @@
 const BASE_URL = 'https://api.openai.com/v1';
 
 /**
- * Chosen for cost: a radar run makes two calls with 10–12 web searches and
- * tens of thousands of tokens, and the discovery quality comes from the
- * search results and the prompt rules more than from model depth. Swap to
+ * Chosen for cost: a radar run makes six calls — five parallel scans and one
+ * curation — with roughly 40 to 70 web searches between them and tens of
+ * thousands of tokens. The searches dominate the bill at about ten dollars per
+ * thousand, so the model is the cheap half and the discovery quality comes from
+ * the search results and the prompt rules more than from model depth. Swap to
  * gpt-5 if the curation stage starts missing obvious noise.
+ *
+ * This said "two calls with 10–12 web searches", which was true of the first
+ * version and made the operator's warning look five times too expensive. The
+ * button quotes about US$0,75 a run, and somebody checking that figure against
+ * this comment would have concluded it was wrong and pressed on.
  */
 const MODEL = 'gpt-5-mini';
 
