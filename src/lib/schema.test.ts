@@ -206,9 +206,25 @@ describe('the columns the health endpoint watches', () => {
         'i',
       ).test(sql);
 
+      /*
+       * Views count too. `plan_usage_total` is one, and it is the entry whose
+       * absence costs money rather than a feature, so leaving it unwatched
+       * because the parser only understood tables would be the wrong trade.
+       * A projected column appears in the select list, either aliased or as
+       * `alias.column`.
+       */
+      const view = new RegExp(
+        `create\\s+(?:or\\s+replace\\s+)?view\\s+(?:public\\.)?${table}\\s+as([\\s\\S]*?);`,
+        'i',
+      ).exec(sql);
+      const projected = view
+        ? new RegExp(`(?:^|[\\s.,])${column}\\b`, 'im').test(view[1]!)
+        : false;
+
       assert.ok(
-        inBody || added,
-        `no migration creates ${table}.${column}, so /api/health would report every deployment broken`,
+        inBody || added || projected,
+        `no migration creates ${table}.${column} (checked as table, added column and view), ` +
+          `so /api/health would report every deployment broken`,
       );
     });
   }

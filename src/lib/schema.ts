@@ -35,4 +35,21 @@ export const MIGRATION_SENSITIVE: ReadonlyArray<{
     column: 'subscription_status',
     why: 'nobody who measured their hours is ever shown the offer',
   },
+  {
+    /*
+     * A view rather than a table, and the only entry here that costs money when
+     * it is absent. `checkPlanAllowance` reads it to learn that the free tier is
+     * a lifetime allowance; without it the code falls through to the monthly
+     * view and hands every free learner twenty fresh minutes on the 1st,
+     * forever. The comment in `account.ts` names that outcome and the fall-
+     * through produces it silently.
+     *
+     * The conversion cost is the larger half. Running out is the moment somebody
+     * decides whether this is worth paying for, and a tier that never runs out
+     * never produces it.
+     */
+    table: 'plan_usage_total',
+    column: 'period',
+    why: 'the free tier never runs out, so nobody is ever asked to upgrade',
+  },
 ];
