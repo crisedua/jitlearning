@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { SessionBar } from '@/components/SessionBar';
 import { currentUser } from '@/lib/supabase/server';
 import { signInPath } from '@/lib/paths';
+import { isAdminEmail } from '@/lib/admin';
 import {
   careerProfile,
   currentStep,
@@ -135,7 +136,7 @@ export default async function ProgresoPage({
         <Suscripcion subscription={subscription} />
       )}
 
-      {!profile && <FirstVisit lastSession={lastSession} />}
+      {!profile && <FirstVisit lastSession={lastSession} isAdmin={isAdminEmail(user.email)} />}
 
       {profile && <Mapa profile={profile} />}
 
@@ -465,7 +466,13 @@ function Recuperado({ saved }: { saved: TimeSaved }) {
  * and it is the one where a person deserves to be told to write to somebody
  * rather than to keep refreshing.
  */
-function FirstVisit({ lastSession }: { lastSession: Date | null }) {
+function FirstVisit({
+  lastSession,
+  isAdmin,
+}: {
+  lastSession: Date | null;
+  isAdmin: boolean;
+}) {
   const minutesAgo = lastSession
     ? Math.floor((Date.now() - lastSession.getTime()) / 60_000)
     : null;
@@ -500,6 +507,25 @@ function FirstVisit({ lastSession }: { lastSession: Date | null }) {
           </a>{' '}
           y lo arreglamos el mismo día.
         </p>
+        {/*
+          An operator reading their own product deserves the cause, not the
+          apology. This is the state a deployment sits in before the post-call
+          webhook is registered, and the person most likely to have the first
+          class is whoever is setting it up: without this they would read their
+          own failure as a learner would, and go looking for a bug in the class.
+        */}
+        {isAdmin && (
+          <p className="mt-3 max-w-2xl rounded-md border border-line bg-surface px-4 py-3 text-[14px] leading-relaxed text-muted">
+            Estás viendo esto como administrador. La causa casi siempre es que el webhook
+            post_call_transcription no está registrado en ElevenLabs, o que{' '}
+            <code className="font-mono text-[13px]">ELEVENLABS_WEBHOOK_SECRET</code> no está en el
+            despliegue.{' '}
+            <Link href="/admin/estado" className="underline underline-offset-2 hover:text-accent">
+              Revísalo en estado
+            </Link>
+            .
+          </p>
+        )}
       </section>
     );
   }
