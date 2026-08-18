@@ -634,7 +634,13 @@ function Step({
           <span className="font-semibold">{step.minutesAfter} min</span>
           {step.minutesBefore > step.minutesAfter && (
             <span className="text-success">
-              ahorras {step.minutesBefore - step.minutesAfter} min cada semana
+              {/*
+                A sentence, so it reads the way a person says it. The pair above
+                it — "90 min → 25 min" — is a measurement and stays compact; this
+                is prose and was borrowing the compact form, which is the same
+                mix-up round 99 found under the hero button.
+              */}
+              ahorras {spellMinutes(step.minutesBefore - step.minutesAfter)} cada semana
             </span>
           )}
         </p>
