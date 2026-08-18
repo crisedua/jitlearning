@@ -52,6 +52,8 @@ interface Funnel {
   /** Total weekly minutes recovered across every learner who measured one. */
   minutesRecovered: number;
   capped: boolean;
+  /** True when plan_steps has no minute columns, so "measured" cannot be counted. */
+  minutesUnavailable: boolean;
 }
 
 async function loadFunnel(): Promise<Funnel | null> {
@@ -61,6 +63,22 @@ async function loadFunnel(): Promise<Funnel | null> {
   const [profiles, sessions, steps] = await Promise.all([
     db.from('profiles').select('id, plan_id').limit(MAX_ROWS),
     db.from('coach_sessions').select('user_id, started_at').limit(MAX_ROWS),
+    /*
+     * The minute columns are three migrations newer than plan_steps, and this
+     * select is all-or-nothing: without them the read fails with 42703 and the
+     * handler below turns that into an empty array.
+     *
+     * Empty here does not read as "unknown", it reads as zero. This page would
+     * have reported that nobody finished a task and nobody measured anything —
+     * two of its six numbers, flatly wrong, on the instrument built to answer
+     * the one question this repository cannot answer about itself. An operator
+     * would conclude the product does not work and be looking at a missing
+     * migration.
+     *
+     * So it retries without them. Four of the six numbers do not depend on
+     * minutes at all, and a page that says "measured: unavailable" is honest in
+     * a way that "measured: 0" is not.
+     */
     db
       .from('plan_steps')
       .select('user_id, level, status, minutes_before, minutes_after')
@@ -86,7 +104,23 @@ async function loadFunnel(): Promise<Funnel | null> {
     daysByUser.set(r.user_id, set);
   }
 
-  const planSteps = (steps.error ? [] : (steps.data ?? [])) as Array<{
+  let stepRows: Record<string, unknown>[] | null = steps.error
+    ? null
+    : ((steps.data ?? []) as unknown as Record<string, unknown>[]);
+  let minutesUnavailable = false;
+
+  if (steps.error?.code === '42703') {
+    const retry = await db
+      .from('plan_steps')
+      .select('user_id, level, status')
+      .limit(MAX_ROWS);
+    if (!retry.error) {
+      stepRows = (retry.data ?? []) as unknown as Record<string, unknown>[];
+      minutesUnavailable = true;
+    }
+  }
+
+  const planSteps = (stepRows ?? []) as unknown as Array<{
     user_id: string;
     level: string;
     status: string;
@@ -115,6 +149,7 @@ async function loadFunnel(): Promise<Funnel | null> {
     paying: people.filter((p) => p.plan_id !== 'free').length,
     minutesRecovered,
     capped: people.length >= MAX_ROWS || rows.length >= MAX_ROWS,
+    minutesUnavailable,
   };
 }
 
@@ -157,12 +192,24 @@ export default async function EmbudoPage() {
               of={funnel.signedUp}
               note="El momento en que el producto cumple lo que promete."
             />
-            <Step
-              label="Midió lo que ahorra"
-              value={funnel.measured}
-              of={funnel.signedUp}
-              note="Sin este número no hay argumento de venta."
-            />
+            {funnel.minutesUnavailable ? (
+              <li className="rounded-lg border border-warning/35 bg-warning-soft/50 px-5 py-4">
+                <p className="text-[15px] font-medium">Midió lo que ahorra</p>
+                <p className="mt-1 text-[13px] leading-relaxed text-ink/80">
+                  No se puede contar: falta la migración{' '}
+                  <code className="font-mono text-[12px]">20260812000000_hours_saved.sql</code>. Sin
+                  esas dos columnas nadie puede medir nada, así que este paso no es cero, es
+                  desconocido.
+                </p>
+              </li>
+            ) : (
+              <Step
+                label="Midió lo que ahorra"
+                value={funnel.measured}
+                of={funnel.signedUp}
+                note="Sin este número no hay argumento de venta."
+              />
+            )}
             <Step label="Volvió otro día" value={funnel.returned} of={funnel.signedUp} />
             <Step
               label="Está pagando"
