@@ -167,6 +167,78 @@ const AGENT_DEADLINE_MS = 4_000;
 
 type AgentRow = { label: string; ok: boolean; detail: string };
 
+/**
+ * Whether the post-call webhook is actually landing, asked of the data.
+ *
+ * Everything else on this page checks configuration, and configuration is not
+ * what fails here. The secret can be set in both places and the webhook still
+ * never arrive: registered against the wrong URL, pointed at a preview
+ * deployment, switched off, or subscribed to the wrong event. All of those look
+ * identical from inside the app, and all of them produce silence.
+ *
+ * The silence is not merely lost data. `buildRecord` correctly treats a learner
+ * with no history as new, so a returning learner is diagnosed from scratch every
+ * time, and what /planes sells as memory between sessions simply does not
+ * happen. The learner does not conclude that a webhook is misconfigured. They
+ * conclude it does not remember them.
+ *
+ * A finished conversation with no summary is that failure on the record.
+ */
+async function delivery(): Promise<AgentRow | null> {
+  if (!serviceConfigured()) return null;
+
+  const [convos, summaries] = await Promise.all([
+    supabaseAdmin()
+      .from('coach_sessions')
+      .select('conversation_id, started_at')
+      .not('conversation_id', 'is', null)
+      .order('started_at', { ascending: false })
+      .limit(200),
+    supabaseAdmin().from('session_summaries').select('conversation_id').limit(500),
+  ]);
+
+  const label = 'La memoria entre clases';
+  if (convos.error || summaries.error) {
+    return {
+      label,
+      ok: false,
+      detail: 'No se pudo leer las conversaciones, así que no se puede confirmar que llegue nada.',
+    };
+  }
+
+  // A call that just ended has not had time to arrive, and calling it lost would
+  // fail on the one load an operator does right after their first class.
+  const cutoff = Date.now() - 15 * 60_000;
+  const settled = (convos.data ?? []).filter(
+    (c) => new Date(c.started_at as string).getTime() < cutoff,
+  );
+  const landed = new Set((summaries.data ?? []).map((r) => r.conversation_id));
+  const missing = settled.filter((c) => !landed.has(c.conversation_id));
+
+  if (settled.length === 0) {
+    return {
+      label,
+      ok: true,
+      detail: 'Todavía no termina ninguna conversación, así que esto no prueba nada aún.',
+    };
+  }
+  if (missing.length === 0) {
+    return {
+      label,
+      ok: true,
+      detail: `${settled.length} conversación(es) terminadas y todas dejaron resumen.`,
+    };
+  }
+  return {
+    label,
+    ok: false,
+    detail:
+      `${missing.length} de ${settled.length} conversaciones terminaron sin resumen. ` +
+      'Quien vuelva va a ser tratado como desconocido. Revisa que el webhook ' +
+      'post_call_transcription apunte a esta instalación en el panel de ElevenLabs.',
+  };
+}
+
 async function agentState(): Promise<AgentRow[] | null> {
   const id = agentId();
   if (!id || !process.env.ELEVENLABS_API_KEY?.trim()) return null;
@@ -248,7 +320,7 @@ export default async function EstadoPage() {
     return <NotAdmin email={gate.email} path="/admin/estado" />;
   }
 
-  const [rows, agent] = await Promise.all([probe(), agentState()]);
+  const [rows, agent, memory] = await Promise.all([probe(), agentState(), delivery()]);
   const env = environment();
   const brokenRows = rows?.filter((r) => !r.ok) ?? [];
   const missingEnv = env.filter((e) => !e.set);
@@ -320,6 +392,27 @@ export default async function EstadoPage() {
               <p className="mt-1 text-[15px] leading-relaxed text-muted">{row.detail}</p>
             </li>
           ))}
+        </ul>
+      )}
+
+      {/*
+        Outside the agent list on purpose: this one needs the service key rather
+        than the ElevenLabs key, so it is still answerable on a deployment where
+        the block above says there is no agent to inspect.
+      */}
+      {memory && (
+        <ul className="mt-2 space-y-2">
+          <li
+            className={`rounded-lg border px-5 py-3.5 ${
+              memory.ok ? 'border-line bg-surface' : 'border-danger/25 bg-surface'
+            }`}
+          >
+            <p className="text-[15px] font-medium">
+              {memory.ok ? '' : '· '}
+              {memory.label}
+            </p>
+            <p className="mt-1 text-[15px] leading-relaxed text-muted">{memory.detail}</p>
+          </li>
         </ul>
       )}
 

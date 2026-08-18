@@ -31,7 +31,7 @@ import {
 import { PROMISES } from '../src/lib/site';
 import { FALLBACK_PLANS, formatMinutes, formatMoney } from '../src/lib/plans';
 import { buildPlan, LESSONS, LEVELS, lessonsForLevel, PATHS } from '../src/lib/curriculum';
-import { supabaseAdmin } from '../src/lib/supabase/admin';
+import { serviceConfigured, supabaseAdmin } from '../src/lib/supabase/admin';
 import { billingConfigured, stripe as stripeClient } from '../src/lib/billing';
 import { breakEven, DEFAULT_INPUTS } from '../src/lib/costs';
 import { configuredOrigin, DEFAULT_ORIGIN } from '../src/lib/canonical';
@@ -908,6 +908,76 @@ async function main() {
   note('  curl -s -o /dev/null -w "%{http_code}" -X POST <app>/api/webhooks/elevenlabs -d "{}"');
   note('  503 = the secret is missing there · 401 = set (this call just lacks a signature)');
   note('Registering the webhook in the ElevenLabs dashboard is a separate step.');
+
+  /*
+   * The only check here that can tell the truth.
+   *
+   * Everything above verifies configuration, and configuration is not the thing
+   * that fails. The secret can be set in both places, the probe can return 401,
+   * and the webhook can still never arrive: registered against the wrong URL,
+   * pointed at a preview deployment, switched off, or registered for the wrong
+   * event. Every one of those is invisible to an env-var check and produces the
+   * same silence.
+   *
+   * What the silence does is worse than losing data. `buildRecord` treats a
+   * learner with no history as new, correctly, so a returning learner is
+   * diagnosed again from scratch every single time. The memory that /planes
+   * sells, and the reason to come back at all, quietly never happens, and the
+   * learner's conclusion is not "the webhook is misconfigured", it is "this
+   * thing does not remember me" — which is the one thing a teacher must do.
+   *
+   * A conversation with an id and no summary is that failure, on the record. It
+   * is the same principle the persona push learned: read back what landed
+   * rather than trust that sending worked.
+   */
+  if (serviceConfigured()) {
+    const [convos, summaries] = await Promise.all([
+      supabaseAdmin()
+        .from('coach_sessions')
+        .select('conversation_id, started_at')
+        .not('conversation_id', 'is', null)
+        .order('started_at', { ascending: false })
+        .limit(200),
+      supabaseAdmin().from('session_summaries').select('conversation_id').limit(500),
+    ]);
+
+    if (convos.error) {
+      note(`Could not read coach_sessions (${convos.error.message}), so delivery is unverified.`);
+    } else if (summaries.error) {
+      note(`Could not read session_summaries (${summaries.error.message}).`);
+    } else {
+      /*
+       * A conversation that ended a minute ago has not had time to be
+       * delivered, and counting it as lost would make this check cry wolf on
+       * the one run an operator does immediately after their first class.
+       */
+      const GRACE_MINUTES = 15;
+      const cutoff = Date.now() - GRACE_MINUTES * 60_000;
+      const settled = (convos.data ?? []).filter(
+        (c) => new Date(c.started_at as string).getTime() < cutoff,
+      );
+      const landed = new Set((summaries.data ?? []).map((r) => r.conversation_id));
+      const missing = settled.filter((c) => !landed.has(c.conversation_id));
+
+      if (settled.length === 0) {
+        note('No conversation has finished yet, so nothing here proves the webhook works.');
+      } else if (missing.length === 0) {
+        ok(`${settled.length} finished conversation(s), every one of them summarised`);
+      } else {
+        bad(
+          `${missing.length} of ${settled.length} finished conversation(s) left no summary. ` +
+            'Returning learners are being met as strangers.',
+        );
+        note('The secret can be set in both places and the webhook still never arrive:');
+        note('  wrong URL, a preview deployment, switched off, or the wrong event subscribed.');
+        note('In the ElevenLabs dashboard the event is `post_call_transcription`.');
+        failures++;
+      }
+    }
+  } else {
+    note('No service key here, so delivery cannot be checked locally.');
+    note('/admin/estado runs the same check inside the deployment, where the key is.');
+  }
 
   console.log('\nCanonical origin\n');
   const configured = configuredOrigin();
