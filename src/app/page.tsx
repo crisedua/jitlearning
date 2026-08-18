@@ -212,8 +212,15 @@ export default function HomePage() {
             <p className="reveal text-xs font-semibold uppercase tracking-[0.14em] text-accent">
               Cómo funciona
             </p>
+            {/*
+              This headline was "15 minutos, caminando", which sold the mode the
+              first class works worst in. Walking is genuinely supported and is
+              most of the point later on, when the lesson is the lesson. The
+              first session is different: it ends with a task done and two
+              numbers measured, and both need a screen.
+            */}
             <h2 className="reveal mt-4 font-serif text-[clamp(2rem,4.5vw,3rem)] font-normal leading-[1.08] tracking-[-0.02em]">
-              15 minutos, caminando
+              15 minutos, y algo tuyo queda hecho
             </h2>
           </div>
 
@@ -262,8 +269,19 @@ export default function HomePage() {
                 className="h-[7px] w-[7px] rounded-full bg-gold [animation:ring_2.2s_ease-out_infinite]"
               />
             </Link>
+            {/*
+              "Frente al computador" earns its place here rather than reading as
+              a requirement. The first class ends with a task actually done, and
+              that only happens if there is a screen to do it on: the teacher
+              asks "¿estás frente al computador o caminando?" and, for somebody
+              walking, dictates the work to be finished afterwards. Which is a
+              good session and not the one the hero above promises, and it
+              cannot produce the second number, so it cannot reach the offer.
+              Said here, at the moment somebody decides how to start.
+            */}
             <span className="text-sm text-bg/75">
-              Se abre en el navegador · necesita micrófono · 20 minutos gratis
+              Se abre en el navegador · necesita micrófono · 20 minutos gratis · la primera vez,
+              mejor frente al computador
             </span>
           </div>
         </div>

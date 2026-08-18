@@ -108,7 +108,7 @@ export const STEPS = [
   },
   {
     title: 'Mides los dos números',
-    body: 'Cuánto tardabas y cuánto tardaste. La resta es lo que recuperas cada semana, y queda anotada en tu página de progreso.',
+    body: 'Cuánto tardabas y cuánto tardaste. La resta es lo que recuperas cada semana, y queda anotada en tu página de progreso. Si la dictaste caminando, los números se cierran en la clase siguiente.',
   },
   {
     title: 'Recién ahí, tu plan',
