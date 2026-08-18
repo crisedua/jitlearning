@@ -37,26 +37,35 @@ nothing anyone retains.
 
 ## Going live
 
-Everything below is idempotent and safe to re-run. `npm run doctor` is the check
-after each step and names what is still missing.
+Everything below is idempotent and safe to re-run. `npm run doctor` checks the
+machine you run it from; `/admin/estado` checks the deployment, signed in as an
+admin, and is the one that matters after every step here.
+
+Ordered by dependency, not by importance. Each step fails in a way that looks
+like the *next* thing is broken, which is why the order is worth following.
 
 ```bash
-# 0. INGEST_SECRET in the deployment, before anything else here.
-#    Every privileged route checks it first and returns 503 without it,
-#    so steps 3, 4 and 5 below fail in a way that looks like the routes
-#    are broken. Check which state a deployment is in without holding
-#    the value:
-#      curl -o /dev/null -w "%{http_code}\n" https://<app>.vercel.app/api/health
-#      503 = missing there · 401 = set (and this call simply lacks it)
+# 0. Secrets in Vercel, before any command below.
 #
-#    /admin/estado answers the same question with no secret at all: sign
-#    in as an admin and it lists what this deployment is missing and what
-#    each gap turns off. Use it after every step below.
+#    INGEST_SECRET        every privileged route checks it first and
+#                         returns 503 without it, so steps 3, 5 and 6
+#                         fail looking like the routes are broken
+#    NEXT_PUBLIC_SITE_URL the canonical origin, e.g. https://www.modojit.com.
+#                         Decides where the search tool points, every
+#                         Stripe return URL, the OAuth redirect, and the
+#                         redirect that stops a second hostname from
+#                         breaking sign-in. One value, four jobs.
+#
+#    Which state a deployment is in, without holding the secret:
+#      curl -o /dev/null -w "%{http_code}\n" https://www.modojit.com/api/health
+#      503 = INGEST_SECRET missing there · 401 = set (this call simply lacks it)
+
+export SITE=https://www.modojit.com     # for the curls below
 
 # 1. The database, as one paste. Run ALL of it, to the last line: the
-#    final migration fixes a check constraint that otherwise rejects
-#    every plan the app writes, silently. The output header lists and
-#    counts the files, so it stays right when one is added.
+#    final migrations fix a check constraint that otherwise rejects every
+#    plan the app writes and add columns without which the offer never
+#    renders. The output header lists and counts the files.
 npm run sql | pbcopy        # then run it in the Supabase SQL editor
 
 # 2. The agent: persona, curriculum, extraction fields, attachment list.
@@ -70,24 +79,42 @@ npm run sync:agent -- --push
 #    carries on. Attach the tool first and add the key when you have it.
 npm run setup:tools -- --push
 
-# 4. Stripe prices, created from price_minor so the two never disagree,
-#    and the customer portal, without which cancelling fails and the
-#    offer's "cancelas cuando quieras" is a promise the app cannot keep.
-curl -X POST https://<app>.vercel.app/api/billing/setup \
-  -H "x-ingest-secret: $INGEST_SECRET"
+# 4. The post-call webhook, in the ElevenLabs dashboard.
+#    Conversational AI -> Settings -> Webhooks
+#      URL:    $SITE/api/webhooks/elevenlabs
+#      Events: post_call_transcription
+#    Copy the signing secret into ELEVENLABS_WEBHOOK_SECRET in Vercel.
+#
+#    This is the step that turns talking into a product. Without it every
+#    conversation happens and none of it is recorded: no profile, no plan,
+#    no minutes measured, so no hours on /progreso and no offer beside
+#    them. Sessions look perfect and nothing accumulates.
 
-# 4b. In the Stripe dashboard: More -> Tax -> finish setup.
-#     Not optional. Every checkout session is created with automatic tax
-#     because Chile bills IVA on digital services, and Stripe refuses to
-#     create one on an account where Tax is not active. Skip this and the
-#     pay button opens nothing, for everybody, and it looks like a bug in
-#     this app rather than a setting in someone else's dashboard.
-#     `npm run doctor` checks it.
+# 5. Stripe. STRIPE_SECRET_KEY in Vercel first, or this returns 503.
+#    Then, in the dashboard: More -> Tax -> finish setup. Not optional:
+#    every checkout enables automatic tax because Chile bills IVA on
+#    digital services, and Stripe refuses to create a session on an
+#    account where Tax is not active. Skip it and the pay button opens
+#    nothing, for everybody, and it reads as a bug in this app.
+#
+#    Then create the prices from price_minor, and the customer portal,
+#    without which cancelling fails and the offer's "cancelas cuando
+#    quieras" is a promise the app cannot keep:
+curl -X POST $SITE/api/billing/setup -H "x-ingest-secret: $INGEST_SECRET"
 
-# 5. Confirm.
+#    And the payment webhook: Developers -> Webhooks -> Add endpoint
+#      URL:    $SITE/api/webhooks/stripe
+#      Events: checkout.session.completed
+#              customer.subscription.created / .updated / .deleted
+#    Copy the signing secret into STRIPE_WEBHOOK_SECRET. Without it a
+#    card is charged and no plan is ever granted.
+
+# 6. Confirm.
 npm run doctor
 npm test
-curl https://<app>.vercel.app/api/health -H "x-ingest-secret: $INGEST_SECRET"
+curl $SITE/api/health -H "x-ingest-secret: $INGEST_SECRET"
+#    Then open $SITE/admin/estado, which answers for the deployment
+#    rather than for your laptop.
 ```
 
 Environment variables, all in Vercel (see [`.env.example`](.env.example) for what
@@ -541,8 +568,24 @@ domains in Supabase itself — every gate reads the same session.
    Credentials → OAuth client ID → Web application**) the authorized redirect
    URI is Supabase's, not this app's:
    `https://<your-project>.supabase.co/auth/v1/callback`
-3. **Authentication → URL Configuration**: add `http://localhost:3000/**` and
-   `https://<app>.vercel.app/**` as redirect URLs.
+3. **Authentication → URL Configuration**: set **Site URL** to the canonical
+   origin — the same value as `NEXT_PUBLIC_SITE_URL`, e.g.
+   `https://www.modojit.com` — and add `http://localhost:3000/**` and
+   `https://www.modojit.com/**` as redirect URLs.
+
+   This step used to name only the `.vercel.app` alias, which is now the one
+   origin sign-in never begins on: production redirects every other hostname to
+   the canonical one before a request is served. An allow-list that covers the
+   alias and not the custom domain means Supabase quietly ignores the
+   `redirect_to` we send and delivers the code to the Site URL instead. When the
+   Site URL is the canonical origin that is survivable — the middleware forwards
+   the stray code to `/auth/callback` and the exchange succeeds, because the PKCE
+   verifier is a cookie and the flow began on that same origin. When it is not,
+   the verifier is on the other domain and sign-in cannot complete at all.
+
+   So: one origin in `NEXT_PUBLIC_SITE_URL`, the same one as Site URL, and the
+   same one in the redirect list. Add the alias too if you want it to keep
+   working; nothing needs it once the redirect is on.
 4. Run [`supabase/migrations/`](supabase/migrations/) in the SQL editor.
 
 `/api/health` and `npm run doctor` both report which of these is missing.
