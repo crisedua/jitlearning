@@ -55,6 +55,30 @@ export interface Account {
 export async function syncProfile(user: User): Promise<void> {
   if (!serviceConfigured()) return;
 
+  /*
+   * The best-effort promise above, made true against a throw as well.
+   *
+   * The returned error was handled and a rejection was not, and this is awaited
+   * bare in `/auth/callback`, so a rejection here propagates out of the route:
+   * the code exchange has already succeeded, and the person is bounced with a
+   * 500 instead of being let in. That is the exact trade the comment above says
+   * is the wrong one, on the path that gates every other page.
+   *
+   * Not hypothetical. `supabaseAdmin()` builds its client from
+   * NEXT_PUBLIC_SUPABASE_URL, and `createClient` throws outright on a URL with
+   * no scheme, which is the ordinary way that value gets pasted wrong and the
+   * same mistake that used to stop `npm run doctor` mid-run. One mistyped
+   * variable in Vercel would have taken sign-in down for everybody, with the
+   * profile mirror as the thing that broke it.
+   */
+  try {
+    await upsertProfile(user);
+  } catch (err) {
+    console.error('[account] profile upsert threw, sign-in continues:', err);
+  }
+}
+
+async function upsertProfile(user: User): Promise<void> {
   const meta = user.user_metadata ?? {};
   const { error } = await supabaseAdmin()
     .from('profiles')
