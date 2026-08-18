@@ -208,8 +208,10 @@ function PlanAction({ plan, buyable }: { plan: Plan; buyable: boolean }) {
   /*
    * A message that is already written.
    *
-   * While checkout is not configured this link is the only way anybody can say
-   * they want to pay, and it used to open an empty draft with a subject line.
+   * While checkout is not configured this link is one of the two ways anybody can
+   * say they want to pay — the other is the offer under the measured hours on
+   * /progreso, which came later and does the same thing — and it used to open an
+   * empty draft with a subject line.
    * That asks somebody who has just decided to buy to compose a message to a
    * stranger, at the exact moment their intent is highest and most perishable.
    * Plenty of people close that window.
