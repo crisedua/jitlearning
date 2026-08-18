@@ -130,13 +130,30 @@ export function CostProjector({ live }: { live: LiveUsage }) {
     [input],
   );
 
-  /** Seed the inputs from what actually happened this month. */
+  /**
+   * Seed the inputs from what actually happened this month.
+   *
+   * Uses the confirmed minutes, which is what the paragraph above this button
+   * tells the reader to decide money on. It used `live.minutes`, the total,
+   * which includes rows whose duration the browser reported and nobody has
+   * reconciled — so the page said "para decidir sobre dinero sirve el primer
+   * número" and its own button loaded the second one straight into the cost
+   * model.
+   *
+   * Falls back to the total when nothing has been synced yet, because a
+   * projection seeded with zero minutes per person is worse than one seeded with
+   * an estimate. The button label says which it used, so the number in the box is
+   * never anonymous.
+   */
+  const usingConfirmed = live.syncedMinutes > 0;
+  const seedMinutes = usingConfirmed ? live.syncedMinutes : live.minutes;
+
   const useRealData = () => {
     const users = live.activeUsers || live.totalUsers;
     setInput((prev) => ({
       ...prev,
       users: users || prev.users,
-      minutesPerUser: users > 0 ? Math.round((live.minutes / users) * 10) / 10 : prev.minutesPerUser,
+      minutesPerUser: users > 0 ? Math.round((seedMinutes / users) * 10) / 10 : prev.minutesPerUser,
     }));
   };
 
@@ -179,8 +196,22 @@ export function CostProjector({ live }: { live: LiveUsage }) {
               onClick={useRealData}
               className="mt-5 inline-flex items-center rounded-full border border-line-strong px-4 py-2 text-[14px] font-medium text-ink transition hover:border-accent hover:text-accent"
             >
-              Usar estos datos en la proyección
+              {usingConfirmed
+                ? 'Usar los minutos confirmados en la proyección'
+                : 'Usar los minutos reportados en la proyección'}
             </button>
+            {!usingConfirmed && (
+              /*
+               * Said next to the button rather than only in the paragraph above,
+               * because this is the moment somebody is about to treat an
+               * estimate as a measurement.
+               */
+              <p className="mt-2 text-[13px] leading-relaxed text-warning">
+                Todavía no hay minutos confirmados. La proyección va a partir de lo que reportó el
+                navegador: corre <code className="font-mono text-[12px]">npm run sync:usage</code>{' '}
+                antes de decidir un precio con esto.
+              </p>
+            )}
           </>
         ) : (
           <p className="mt-4 max-w-[70ch] text-[15px] leading-relaxed text-muted">
