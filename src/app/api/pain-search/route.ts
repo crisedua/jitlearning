@@ -1,5 +1,11 @@
 /**
- * What people are complaining about, searchable by the coach mid-conversation.
+ * What people are complaining about, searchable by an agent mid-conversation.
+ *
+ * Nothing calls it today. It was built for the emprendedores coach, which was
+ * retired when the product became one voice teacher, and no tool on the current
+ * agent points here. The route works and is left standing; `/admin/radar` says
+ * the same thing on the page, so a filling table does not read as a live
+ * feature.
  *
  * This is an ElevenLabs *server tool*: the agent calls it during a call, so the
  * budget is a second or two, not the forty-odd seconds an Apify run takes. That

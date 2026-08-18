@@ -106,11 +106,31 @@ export default async function RadarAdminPage() {
         <h1 className="mt-3 font-serif text-[clamp(1.9rem,4vw,2.5rem)] font-normal leading-tight tracking-[-0.02em]">
           Radar de dolores
         </h1>
+        {/*
+          This page described a consumer that no longer exists.
+          
+          It said "lo que el coach de emprendedores puede encontrar", and that
+          coach was retired when the product became one voice teacher. Nothing
+          queries this table today: /api/pain-search is still there and still
+          works, and no agent tool points at it, so the data goes nowhere until
+          somebody wires it up again.
+          
+          Kept rather than removed, because the collection still works and the
+          rows are real. Said plainly rather than left reading as live, because
+          an operator looking at a filling table has every reason to assume
+          something is using it.
+        */}
         <p className="mt-3 max-w-[60ch] text-[16px] leading-relaxed text-muted">
-          Lo que el coach de emprendedores puede encontrar cuando alguien le pregunta de qué se
-          queja la gente. El botón carga las {(seed as unknown[]).length} señales curadas de los
-          barridos ya hechos; se puede apretar las veces que quieras, porque cada fila se
-          identifica por su enlace y se actualiza en vez de duplicarse.
+          Señales de gente quejándose de algo, recogidas para saber qué duele antes de construir
+          nada. El botón carga las {(seed as unknown[]).length} señales curadas de los barridos ya
+          hechos; se puede apretar las veces que quieras, porque cada fila se identifica por su
+          enlace y se actualiza en vez de duplicarse.
+        </p>
+        <p className="mt-3 max-w-[60ch] rounded-md border border-warning/30 bg-warning-soft/40 px-4 py-3 text-[15px] leading-relaxed text-ink/80">
+          Hoy nadie consulta esto. Se construyó para el coach de emprendedores, que se retiró
+          cuando el producto pasó a ser un solo profesor. <code className="font-mono">
+          /api/pain-search</code> sigue en pie y funciona; ninguna herramienta del agente apunta
+          ahí, así que lo que juntes acá se queda acá hasta que lo vuelvas a conectar.
         </p>
       </header>
 
@@ -198,8 +218,8 @@ export default async function RadarAdminPage() {
         Dos formas de alimentar el radar: el botón de arriba (o{' '}
         <code className="font-mono">npm run radar</code>) usa IA con búsqueda web y cuesta
         centavos por corrida; <code className="font-mono">npm run scrape:pains</code> barre Reddit
-        vía Apify y consume su crédito mensual. Ambos escriben en la misma tabla y el coach no
-        distingue el origen.
+        vía Apify y consume su crédito mensual. Ambos escriben en la misma tabla y nada en la
+        tabla distingue el origen.
       </p>
     </div>
   );
