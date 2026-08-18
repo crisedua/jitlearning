@@ -376,18 +376,50 @@ async function main() {
   // --------------------------------------------------------------- Supabase
   console.log('\nSupabase (sign-in, usage, memory)\n');
 
+  let urlUnusable = false;
   const missingAuth = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'].filter(
     (name) => !process.env[name]?.trim(),
   );
   if (missingAuth.length === 0) {
-    ok('Project URL and anon key are set, learners can sign in');
+    /*
+     * Set is not the same as usable.
+     *
+     * `createClient` throws "Invalid supabaseUrl: Must be a valid HTTP or HTTPS
+     * URL" from its constructor, which is an unhandled exception here: the run
+     * stops mid-section with one bare line, no failure list and no next step.
+     * The tool people reach for when something is broken should not be the thing
+     * that breaks on a URL missing its scheme, which is the ordinary way this
+     * value gets pasted wrong.
+     *
+     * The same distinction NEXT_PUBLIC_SITE_URL already gets below.
+     */
+    const raw = process.env.NEXT_PUBLIC_SUPABASE_URL!.trim();
+    let parsed: URL | null = null;
+    try {
+      parsed = new URL(raw);
+    } catch {
+      parsed = null;
+    }
+
+    if (!parsed || (parsed.protocol !== 'https:' && parsed.protocol !== 'http:')) {
+      bad(`NEXT_PUBLIC_SUPABASE_URL is "${raw}", which is not an http(s) URL.`);
+      note('It needs the scheme: https://xxxx.supabase.co, not xxxx.supabase.co.');
+      note('Everything below this needs a client, so the rest of this section is skipped.');
+      supabaseFailures++;
+      urlUnusable = true;
+    } else {
+      ok('Project URL and anon key are set, learners can sign in');
+    }
   } else {
     bad(`${missingAuth.join(', ')} missing. Nobody can sign in, so /coach is unreachable.`);
     note('Supabase dashboard -> Project Settings -> API.');
     supabaseFailures++;
   }
 
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+  if (urlUnusable) {
+    // Nothing below can build a client, and a cascade of connection failures
+    // would bury the one line that explains them.
+  } else if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
     bad('SUPABASE_SERVICE_ROLE_KEY missing. Sessions will not be recorded.');
     supabaseFailures++;
   } else if (missingAuth.length === 0) {
@@ -1225,11 +1257,76 @@ async function main() {
      * somebody fixes the two they were told about, re-runs, and is told about
      * more, with no way to know when it ends.
      *
-     * Listed in the order they were found, which is roughly the order to fix
-     * them: connectivity before schema, schema before billing.
+     * Listed in the order they were found, which is not the order to fix them:
+     * the sections run agent-first, so "nobody can sign in" lands below a
+     * missing search tool and a pricing decision sorts above a missing webhook.
+     * The list is left alone, because renumbering it every run makes two runs
+     * hard to compare, and `startHere` below names the one that unblocks the
+     * others instead.
      */
     console.error(`\n${failed.length} check(s) failed:\n`);
     failed.forEach((m, i) => console.error(`  ${i + 1}. ${m}`));
+
+    /*
+     * Which one to do first.
+     *
+     * Five failures is a list, not a plan, and they are not independent: with no
+     * public Supabase keys nobody can reach a page that needs an account, so
+     * fixing the search tool above it changes nothing anybody can see. Ordered
+     * by what the next fix makes possible, and only ever one is printed, because
+     * the reason to have a first step is that it is the only one being asked
+     * for.
+     */
+    const set = (name: string) => Boolean(process.env[name]?.trim());
+    /*
+     * Present is not the same as usable, and this list is about what to do
+     * next, so it has to ask the same question the section above did. A URL
+     * without its scheme is set, and it is also the reason nobody can sign in.
+     */
+    const usableUrl = (name: string) => {
+      const raw = process.env[name]?.trim();
+      if (!raw) return false;
+      try {
+        const u = new URL(raw);
+        return u.protocol === 'https:' || u.protocol === 'http:';
+      } catch {
+        return false;
+      }
+    };
+
+    const startHere: Array<[boolean, string, string]> = [
+      [
+        !usableUrl('NEXT_PUBLIC_SUPABASE_URL') || !set('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+        'Set NEXT_PUBLIC_SUPABASE_URL (with https://) and NEXT_PUBLIC_SUPABASE_ANON_KEY.',
+        'Until then nobody can sign in, so nothing below it is reachable.',
+      ],
+      [
+        !set('SUPABASE_SERVICE_ROLE_KEY'),
+        'Set SUPABASE_SERVICE_ROLE_KEY, and paste the migrations: `npm run sql | pbcopy`.',
+        'People can sign in, and nothing they do is recorded.',
+      ],
+      [
+        !set('ELEVENLABS_WEBHOOK_SECRET'),
+        'Set ELEVENLABS_WEBHOOK_SECRET and register post_call_transcription.',
+        'Classes happen and are forgotten, so everyone who returns is met as a stranger.',
+      ],
+      [
+        !set('INGEST_SECRET'),
+        'Set INGEST_SECRET, then run `npm run setup:tools -- --push`.',
+        'The teacher works; it just cannot look anything up. Its persona already says so.',
+      ],
+      [
+        !set('STRIPE_SECRET_KEY'),
+        'Set the Stripe keys and POST /api/billing/setup.',
+        'Everything teaches. Nobody can pay without you doing it by hand.',
+      ],
+    ];
+
+    const next = startHere.find(([applies]) => applies);
+    if (next) {
+      console.error(`\nStart here: ${next[1]}`);
+      console.error(`  ${next[2]}`);
+    }
 
     // The section counters still decide the closing line, because which half is
     // broken changes what the reader should do next.
