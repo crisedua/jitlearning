@@ -19,7 +19,7 @@ import { createClient } from '@supabase/supabase-js';
 import { anonKey, authConfigured, supabaseUrl } from '@/lib/supabase/env';
 import { CheckoutButton } from '@/components/CheckoutButton';
 import { billingConfigured } from '@/lib/billing';
-import { PROFILE } from '@/lib/site';
+import { PROFILE, WHATSAPP } from '@/lib/site';
 import {
   FALLBACK_PLANS,
   PLAN_COLUMNS,
@@ -159,15 +159,47 @@ function PlanAction({ plan, buyable }: { plan: Plan; buyable: boolean }) {
     );
   }
 
-  const subject = encodeURIComponent(`Plan ${plan.name}`);
+  /*
+   * A message that is already written.
+   *
+   * While checkout is not configured this link is the only way anybody can say
+   * they want to pay, and it used to open an empty draft with a subject line.
+   * That asks somebody who has just decided to buy to compose a message to a
+   * stranger, at the exact moment their intent is highest and most perishable.
+   * Plenty of people close that window.
+   *
+   * Prefilled, the click produces a complete sendable message that also tells
+   * the reader which plan and which price, so no one has to go back and look.
+   */
+  const subject = encodeURIComponent(`Quiero el plan ${plan.name}`);
+  const body = encodeURIComponent(
+    `Hola, quiero contratar el plan ${plan.name} (${formatMoney(plan.priceMinor, plan.currency)} al mes). ¿Cómo seguimos?`,
+  );
+  const whatsapp = `https://wa.me/${WHATSAPP.number}?text=${body}`;
 
   return (
-    <a
-      href={`mailto:${PROFILE.email}?subject=${subject}`}
-      className="mt-7 inline-flex w-full items-center justify-center rounded-full bg-accent px-5 py-2.5 text-[15px] font-medium text-bg transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover"
-    >
-      Conversemos
-    </a>
+    <>
+      <a
+        href={`mailto:${PROFILE.email}?subject=${subject}&body=${body}`}
+        className="mt-7 inline-flex w-full items-center justify-center rounded-full bg-accent px-5 py-2.5 text-[15px] font-medium text-bg transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover"
+      >
+        Conversemos
+      </a>
+      {/*
+        WhatsApp beside it, carrying the same prefilled sentence. The floating
+        button on every page opens a generic "tengo una consulta", which is not
+        the same thing as naming the plan somebody just chose — and in the market
+        this is sold in, WhatsApp is the channel people actually answer.
+      */}
+      <a
+        href={whatsapp}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-2.5 text-center text-[13px] text-muted underline underline-offset-2 hover:text-accent"
+      >
+        o por WhatsApp
+      </a>
+    </>
   );
 }
 
