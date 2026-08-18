@@ -314,13 +314,55 @@ export async function careerProfile(userId: string): Promise<CareerProfile | nul
 export async function planSteps(userId: string): Promise<PlanStep[]> {
   if (!serviceConfigured()) return [];
 
-  const { data, error } = await supabaseAdmin()
-    .from('plan_steps')
-    .select(
-      'id, lesson_id, level, title, linked_task, status, evidence, commitment, commitment_date, position, minutes_before, minutes_after',
-    )
-    .eq('user_id', userId)
-    .order('position', { ascending: true });
+  /*
+   * The two minute columns are newer than the table they sit on.
+   *
+   * `plan_steps` arrives with 20260810000000_teacher_memory.sql;
+   * `minutes_before` and `minutes_after` with 20260812000000_hours_saved.sql,
+   * two files later in a bundle of nine that gets pasted by hand. A database
+   * with the first and not the second holds a complete plan that this function
+   * could not read at all: the select failed with 42703, `pending` swallowed it
+   * by design, and the caller got an empty array.
+   *
+   * Empty is not a small degradation here. The notebook renders nothing, so the
+   * learner sees no plan; `currentStep` is null; `timeSaved` is zero so no offer
+   * appears; and `advanceStep` returns early on `steps.length === 0`, which
+   * means no lesson is ever marked done and no minutes are ever written. The
+   * plan exists in Postgres the entire time and the product behaves as though
+   * the person had never started.
+   *
+   * So a missing column costs the two numbers, and nothing else.
+   */
+  const FULL =
+    'id, lesson_id, level, title, linked_task, status, evidence, commitment, commitment_date, position, minutes_before, minutes_after';
+  const WITHOUT_MINUTES =
+    'id, lesson_id, level, title, linked_task, status, evidence, commitment, commitment_date, position';
+
+  type Rows = {
+    data: Record<string, unknown>[] | null;
+    error: { code?: string; message: string } | null;
+  };
+
+  const read = (columns: string) =>
+    supabaseAdmin()
+      .from('plan_steps')
+      .select(columns)
+      .eq('user_id', userId)
+      .order('position', { ascending: true });
+
+  let { data, error } = (await read(FULL)) as unknown as Rows;
+
+  if (error?.code === MISSING_COLUMN) {
+    const retry = (await read(WITHOUT_MINUTES)) as unknown as Rows;
+    data = retry.data;
+    error = retry.error;
+    if (!error) {
+      console.error(
+        '[progress] plan_steps has no minutes columns; run 20260812000000_hours_saved.sql. ' +
+          'The plan renders, nothing can be measured, and no offer will appear.',
+      );
+    }
+  }
 
   if (error) {
     if (!pending(error.code)) console.error('[progress] plan read failed:', error.message);
