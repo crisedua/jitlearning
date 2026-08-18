@@ -17,7 +17,12 @@
  * prompt.
  */
 import './env';
-import { currentAgent, teacherSystemPrompt, syncAgentKnowledge } from '../src/lib/agent';
+import {
+  currentAgent,
+  FIRST_MESSAGE,
+  syncAgentKnowledge,
+  teacherSystemPrompt,
+} from '../src/lib/agent';
 import { TEACHER } from '../src/lib/teacher';
 
 /** First line that differs, so a drift report points at something readable. */
@@ -64,7 +69,46 @@ async function main() {
   }
 
   const result = await syncAgentKnowledge();
-  console.log(`\n✓ Pushed persona · ${result.attached} document(s) attached\n`);
+
+  /*
+   * Confirm rather than announce.
+   *
+   * This printed "✓ Pushed persona" on the strength of the request not
+   * throwing, which is "we sent it" and not "it is live" — the distinction the
+   * doctor's parity check exists for, and the one that matters here because
+   * every claim this repo makes about the teacher's behaviour is a claim about
+   * the agent, not about the file.
+   *
+   * A push that is accepted and not applied leaves the operator believing the
+   * opposite of the truth, and the only thing that would have told them is a
+   * separate command they may not run. Re-reading costs one request.
+   */
+  const after = await currentAgent();
+  const livePrompt = (after?.conversation_config.agent.prompt.prompt ?? '').trim();
+  const liveFirst = (after?.conversation_config.agent.first_message ?? '').trim();
+
+  if (livePrompt !== next.trim()) {
+    console.error(
+      `\n! The push was accepted and the live persona still differs ` +
+        `(${livePrompt.length} chars live, ${next.length} here).\n` +
+        '  Nothing you change in agent.ts is reaching learners. Try again, and\n' +
+        '  check the agent has not been edited in the ElevenLabs dashboard.\n',
+    );
+    process.exit(1);
+  }
+
+  if (liveFirst !== FIRST_MESSAGE) {
+    console.error(
+      `\n! The persona is live, and the opening line is ${liveFirst ? `"${liveFirst}"` : 'empty'}\n` +
+        `  rather than ${FIRST_MESSAGE}. Sessions would not open on the learner's own record.\n`,
+    );
+    process.exit(1);
+  }
+
+  console.log(
+    `\n✓ Live and verified · persona ${livePrompt.length} chars · ` +
+      `${result.attached} document(s) attached\n`,
+  );
 }
 
 main().catch((err) => {
