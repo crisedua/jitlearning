@@ -94,3 +94,72 @@ describe('what reaches the logs', () => {
     );
   });
 });
+
+/*
+ * The rest of what the privacy page claims, held to the code.
+ *
+ * That page says four things a reader cannot check and one they can: it names
+ * who is in the path, and it says the audio is not ours. Both stop being true
+ * quietly. An outbound call added to a route a learner reaches puts a company on
+ * that path without putting it on the page, and a column added to hold audio
+ * makes a flat sentence false.
+ *
+ * Neither is a likely mistake. Both are cheap to hold, and the page is worth
+ * more for being enforced than for being careful.
+ */
+describe('what the privacy page claims about the code', () => {
+  const page = readFileSync(path.join(ROOT, 'src', 'app', 'privacidad', 'page.tsx'), 'utf8');
+
+  it('names every company a class actually reaches', () => {
+    const runtime = sources(path.join(ROOT, 'src'));
+    const hosts = new Set<string>();
+    for (const file of runtime) {
+      // Test fixtures use invented hosts; this reads only shipped code.
+      for (const m of readFileSync(file, 'utf8').matchAll(/https:\/\/([a-z0-9.-]+\.(?:com|io|co|ai))/g)) {
+        hosts.add(m[1]!);
+      }
+    }
+
+    /*
+     * Named on the page, or deliberately absent from it. OpenAI and Apify hold
+     * credentials here and belong to the retired radar, which only an admin can
+     * run: listing them would tell a learner their class touches them.
+     */
+    const ADMIN_ONLY = ['api.openai.com', 'api.apify.com'];
+    const OURS = ['www.modojit.com'];
+
+    const unnamed = [...hosts]
+      .filter((h) => !ADMIN_ONLY.includes(h) && !OURS.includes(h))
+      .filter((h) => {
+        const company = h.replace(/^api\./, '').split('.')[0]!;
+        return !new RegExp(company, 'i').test(page);
+      });
+
+    assert.deepEqual(
+      unnamed,
+      [],
+      `these are called from shipped code and the privacy page does not name them: ${unnamed.join(', ')}`,
+    );
+  });
+
+  it('stores no audio, which is what the page says', () => {
+    const dir = path.join(ROOT, 'supabase', 'migrations');
+    const sql = readdirSync(dir)
+      .filter((f) => f.endsWith('.sql'))
+      .map((f) => readFileSync(path.join(dir, f), 'utf8').replace(/--[^\n]*/g, ''))
+      .join('\n');
+
+    /*
+     * Not `\baudio\b`. An underscore is a word character, so that pattern
+     * misses `audio_url`, which is the exact column somebody would add — as the
+     * first version of this test proved by passing a planted migration that
+     * added one.
+     */
+    assert.doesNotMatch(
+      sql,
+      /audio/i,
+      'a migration mentions audio, and /privacidad says "No guardamos el audio"',
+    );
+    assert.match(page, /No guardamos el audio/, 'the page no longer makes the claim this checks');
+  });
+});
