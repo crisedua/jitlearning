@@ -8,6 +8,7 @@ import { agentId } from '@/lib/config';
 import { TEACHER } from '@/lib/teacher';
 import { currentUser } from '@/lib/supabase/server';
 import { signInPath } from '@/lib/paths';
+import { checkAdmin } from '@/lib/admin';
 import { getUsageBalance } from '@/lib/account';
 import { openCommitment } from '@/lib/commitments';
 
@@ -43,6 +44,8 @@ export default async function CoachPage() {
   // Only the agent id is read here — the document list is behind the ingest
   // secret, so this page must not try to fetch it.
   const configured = Boolean(agentId());
+  // Who is allowed to see why it is not configured, rather than just that it is not.
+  const gate = await checkAdmin();
   const [balance, commitment] = await Promise.all([
     getUsageBalance(user.id, user.email),
     openCommitment(user.id),
@@ -63,8 +66,9 @@ export default async function CoachPage() {
           {TEACHER.label}
         </h1>
         <p className="mt-3 max-w-2xl text-[17px] leading-relaxed text-muted">
-          Te pregunta qué haces, te muestra qué es posible para alguien con tu experiencia y
-          te enseña paso a paso con tus propias tareas. Puedes escucharlo caminando.
+          Te pregunta qué haces, eligen la tarea de tu semana que más te pesa y la resuelven
+          ahora, con tus propias cosas. Al final mides cuánto tardabas y cuánto tardaste. El
+          mapa y el plan vienen después.
         </p>
 
         {/*
@@ -95,6 +99,25 @@ export default async function CoachPage() {
 
       {configured ? (
         <VoiceTutor />
+      ) : !gate.ok ? (
+        /*
+         * A learner is not an operator, and this page had them confused.
+         *
+         * The block below names an environment variable, prints a curl against
+         * /api/agent/provision and points at /api/health. It rendered for anybody
+         * signed in, so a deployment missing its agent id would hand every person
+         * who arrived the shape of its configuration and a set of instructions
+         * they cannot act on. Same failure /api/signed-url had, fixed there and
+         * left standing here: internal detail is for the function log or for
+         * somebody who can do something about it.
+         */
+        <section className="max-w-2xl rounded-lg border border-warning/25 bg-warning-soft/60 p-5 text-sm">
+          <p className="font-semibold text-warning">La clase no está disponible ahora mismo.</p>
+          <p className="mt-1 leading-relaxed text-ink/80">
+            Estamos arreglándolo. Vuelve a intentarlo en un rato y, si sigue igual, escríbenos y
+            lo revisamos.
+          </p>
+        </section>
       ) : (
         <section className="max-w-2xl space-y-4 rounded-lg border border-warning/25 bg-warning-soft/60 p-5 text-sm">
           <div>
