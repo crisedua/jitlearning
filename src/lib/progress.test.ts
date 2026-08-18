@@ -596,6 +596,24 @@ describe('what the teacher carries between sessions', () => {
     });
   }
 
+  it('says the map was already given, which is why it is captured', () => {
+    /*
+     * Three extraction fields exist for this, under a comment reading "the map,
+     * so it is never given twice", and the persona promises "una sola vez.
+     * Después no se repite". Neither was enforceable while the record stayed
+     * silent about it.
+     */
+    const said = recordFor({
+      ...full,
+      map: { value: 'dónde gana valor lo tuyo', categories: 'asistentes; datos', paths: 'mejorar' },
+    });
+    assert.ok(said.includes('Ya le diste el mapa'), said);
+  });
+
+  it('does not claim a map that was never given', () => {
+    assert.ok(!recordFor({ ...full, map: {} }).includes('Ya le diste el mapa'));
+  });
+
   it('says nothing about fields the learner never gave', () => {
     // Empty is not "unknown said out loud": a record padded with blanks spends
     // the budget that the plan and the commitment need.

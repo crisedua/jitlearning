@@ -606,6 +606,28 @@ export function buildRecord({
    */
   if (known.aiUsage) blocks.push(`Con IA: ${known.aiUsage}.`);
   /*
+   * That the map has already been given.
+   *
+   * Three extraction fields exist for this, under a comment in `agent.ts` that
+   * says so in as many words: "the map, so it is never given twice". They were
+   * captured, stored and rendered on the notebook, and the record said nothing —
+   * so the teacher opened every later session with no idea it had already done
+   * it.
+   *
+   * The persona commits to the same thing: "seis bloques hablados cortos como
+   * máximo, y una sola vez. Después no se repite." Unenforceable without this
+   * line. And "cuéntame qué es posible para alguien que hace lo que yo hago" is
+   * a one-tap button on /coach, so asking for it again is the easy path — six
+   * spoken blocks, out of an allowance that is twenty minutes for a lifetime,
+   * spent repeating something already written down on their own page.
+   *
+   * Phrased as the persona phrases the remedy, so the teacher does the thing it
+   * was already told to do rather than being given a second rule.
+   */
+  if (known.map.value || known.map.categories || known.map.paths) {
+    blocks.push('Ya le diste el mapa: no lo repitas, retómalo por partes cuando el plan llegue a una categoría.');
+  }
+  /*
    * The saving goes near the front of the record, because it is the best thing
    * the teacher can open on: a person who hears "ya recuperas tres horas a la
    * semana" is being told what they got, in their own numbers, before being
