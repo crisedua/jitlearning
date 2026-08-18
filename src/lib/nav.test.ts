@@ -89,3 +89,45 @@ describe('the floating WhatsApp button', () => {
     assert.match(source, /return null;/, 'it must render nothing on /coach, not merely be invisible');
   });
 });
+
+/*
+ * Nothing in the header invites a learner out of a running class.
+ *
+ * "Empezar la clase" sat in the sticky header on every page, `/coach` included.
+ * A learner mid-class read a pulsing button offering to start the thing they
+ * were doing, and tapping it navigated to the page they were already on: React
+ * remounts, `pagehide` fires, the session closes, and the class ends.
+ *
+ * Same fault as the floating contact button and more prominent, because this one
+ * is styled to be pressed and animated to catch the eye. Both live in the root
+ * layout, which is the correct home for a header and the reason both reached a
+ * page they should not be on.
+ */
+describe('the header call to action', () => {
+  const source = readFileSync(
+    path.join(import.meta.dirname, '..', 'components', 'StartClassLink.tsx'),
+    'utf8',
+  );
+
+  it('is absent from the classroom', () => {
+    assert.match(
+      source,
+      /pathname\?*\.?startsWith\('\/coach'\)/,
+      'the header still offers to start a class on the page where one is running',
+    );
+    assert.match(source, /return null;/, 'it must render nothing there, not merely be hidden');
+  });
+
+  it('is what the layout renders, so the guard cannot be bypassed', () => {
+    const layout = readFileSync(
+      path.join(import.meta.dirname, '..', 'app', 'layout.tsx'),
+      'utf8',
+    );
+    assert.match(layout, /<StartClassLink \/>/, 'the layout no longer uses the guarded component');
+    assert.doesNotMatch(
+      layout,
+      /href="\/coach"[\s\S]{0,200}Empezar/,
+      'the layout links to /coach with its own markup again, so the guard is bypassed',
+    );
+  });
+});

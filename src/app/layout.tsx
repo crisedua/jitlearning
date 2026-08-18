@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Instrument_Sans, Instrument_Serif, JetBrains_Mono } from 'next/font/google';
 import Link from 'next/link';
 import { BrandMark, Wordmark } from '@/components/BrandMark';
+import { StartClassLink } from '@/components/StartClassLink';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { PROFILE, TAGLINE, hasContact } from '@/lib/site';
 import { configuredOrigin, DEFAULT_ORIGIN } from '@/lib/canonical';
@@ -188,19 +189,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               )}
             </ul>
 
-            <Link
-              href="/coach"
-              className="ml-auto inline-flex shrink-0 items-center gap-2.5 rounded-full bg-accent px-5 py-2.5 text-[15px] font-medium text-bg transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover"
-            >
-              {/* One flex item, or the parent's gap opens between the two words. */}
-              <span>
-                Empezar<span className="hidden xs:inline"> la clase</span>
-              </span>
-              <span
-                aria-hidden
-                className="h-[7px] w-[7px] rounded-full bg-gold [animation:ring_2.2s_ease-out_infinite]"
-              />
-            </Link>
+            <StartClassLink />
 
             {/*
               No link to /knowledge. The route still works for whoever
