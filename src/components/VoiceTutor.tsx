@@ -1,5 +1,6 @@
 'use client';
 
+import { wrapUpAt } from '@/lib/class-length';
 import { micMessage } from '@/lib/mic';
 import { liveCallMessage } from '@/lib/errors';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -266,20 +267,29 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
    */
   useEffect(() => {
     if (status !== 'connected') return;
-    const left = minutesLeftRef.current;
-    if (left === null || left <= 2) return;
+    /*
+     * Against the end of the call, not the end of the balance.
+     *
+     * These were scheduled off `minutesLeft` alone, so on the free tier they
+     * fired at 15 and 19 minutes and on a paid tier at 295 and 299 — and the
+     * platform hangs up at CLASS_CAP_MINUTES. Neither ever ran for anybody, so
+     * no class was ever told to close, ask the second number, or take a
+     * commitment. See `wrapUpAt`.
+     */
+    const when = wrapUpAt(minutesLeftRef.current);
+    if (!when) return;
 
     const at = (minutes: number, message: string) =>
       window.setTimeout(() => sendContextualUpdate(message), minutes * 60_000);
 
     const timers = [
       at(
-        Math.max(left - 5, 0.5),
+        when.close,
         'Quedan unos 5 minutos de esta clase. Cierra la tarea con lo que ya tienen y pregúntale ' +
           'cuánto tardó, para poder decirle la resta antes de terminar. El mapa y el plan pueden esperar.',
       ),
       at(
-        Math.max(left - 1, 1),
+        when.last,
         'Queda 1 minuto. Si todavía no tienes los dos números, pídele el de ahora y dile la resta ' +
           'en una frase. Después cierra con un compromiso corto y dile que lo que sigue está en su página de progreso.',
       ),

@@ -37,6 +37,7 @@
  * built persona. That check is the only thing standing between "no inventa" as a
  * behaviour and "no inventa" as a slogan.
  */
+import { CLASS_CAP_SECONDS } from './class-length';
 import {
   createAgent,
   getAgent,
@@ -597,6 +598,20 @@ export async function provisionAgent(): Promise<string> {
         turn_eagerness: 'normal',
         speculative_turn: false,
         turn_timeout: 8.0,
+      },
+      /*
+       * How long a class can run before the platform hangs up.
+       *
+       * This was never set, so the agent carried ElevenLabs' own default and
+       * nothing in this repo knew the number. The classroom schedules its two
+       * wrap-up prompts against the learner's balance, and with the default
+       * sitting well below every balance both prompts were unreachable: no
+       * class was ever told to close the task, ask what it takes now, or take a
+       * commitment. Stated here so the ceiling and the prompts come from one
+       * figure. See `CLASS_CAP_MINUTES`.
+       */
+      conversation: {
+        max_duration_seconds: CLASS_CAP_SECONDS,
       },
       tts: {
         // Turbo, not flash: flash is the lowest-latency tier but audibly the

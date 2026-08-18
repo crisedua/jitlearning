@@ -253,6 +253,15 @@ export interface AgentConfig {
       /** Seconds of silence before the agent fills the gap. */
       turn_timeout?: number;
     };
+    conversation?: {
+      /**
+       * Seconds before the platform ends the call, whatever either side is
+       * saying. Left unset this takes ElevenLabs' own default, which is how a
+       * ceiling nothing in this repo had chosen came to sit below every
+       * wrap-up prompt the classroom schedules.
+       */
+      max_duration_seconds?: number;
+    };
   };
   platform_settings?: {
     data_collection?: DataCollectionConfig;

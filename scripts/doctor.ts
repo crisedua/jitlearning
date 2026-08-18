@@ -33,7 +33,8 @@ import {
   teacherSystemPrompt,
 } from '../src/lib/agent';
 import { PROMISES } from '../src/lib/site';
-import { FALLBACK_PLANS, formatMinutes, formatMoney } from '../src/lib/plans';
+import { CLASS_CAP_MINUTES } from '../src/lib/class-length';
+import { ASSUMED_SESSION_MINUTES, FALLBACK_PLANS, formatMinutes, formatMoney } from '../src/lib/plans';
 import { buildPlan, LESSONS, LEVELS, lessonsForLevel, PATHS } from '../src/lib/curriculum';
 import { serviceConfigured, supabaseAdmin } from '../src/lib/supabase/admin';
 import { classReport } from '../src/lib/classes';
@@ -783,6 +784,30 @@ async function main() {
    * makes sense before anybody has behaved at all.
    */
   console.log('\nPlans as an offer\n');
+
+  /*
+   * How long a class is, said twice, in two systems that cannot see each other.
+   *
+   * `ASSUMED_SESSION_MINUTES` is what the landing page and the pricing page tell
+   * people a class takes, and what divides an allowance into a class count.
+   * `CLASS_CAP_MINUTES` is when ElevenLabs hangs up. If the first is larger, the
+   * product is promising a class it cuts off, and every class count on the
+   * pricing page is low by the same ratio.
+   */
+  if (ASSUMED_SESSION_MINUTES > CLASS_CAP_MINUTES) {
+    bad(
+      `The site says a class takes ${ASSUMED_SESSION_MINUTES} minutes and the agent ends it at ` +
+        `${CLASS_CAP_MINUTES}.`,
+    );
+    note('Either raise CLASS_CAP_MINUTES to what the copy promises, which costs more per class,');
+    note('or lower ASSUMED_SESSION_MINUTES to what a class really is, which promises more classes.');
+    note('A learner reaching the cap loses the subtraction, which is the thing they came for.');
+    failures++;
+  } else {
+    ok(
+      `A class is advertised at ${ASSUMED_SESSION_MINUTES} min and ends at ${CLASS_CAP_MINUTES}`,
+    );
+  }
 
   const publicPaid = FALLBACK_PLANS.filter((p) => p.isPublic && p.priceMinor > 0);
   /** null means unlimited, which beats every number. */
