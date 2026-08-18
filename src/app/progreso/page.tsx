@@ -140,7 +140,13 @@ export default async function ProgresoPage({
 
       {profile && <Mapa profile={profile} />}
 
-      {steps.length > 0 && <Plan steps={steps} currentId={current?.step.id ?? null} />}
+      {steps.length > 0 && (
+        <Plan
+          steps={steps}
+          currentId={current?.step.id ?? null}
+          outOfMinutes={minutesLeft(balance) === 0}
+        />
+      )}
 
       {profile && steps.length === 0 && <PlanPending profile={profile} />}
 
@@ -658,7 +664,15 @@ function PlanPending({ profile }: { profile: CareerProfile }) {
 }
 
 /** Steps grouped by level, in curriculum order, with the current one marked. */
-function Plan({ steps, currentId }: { steps: PlanStep[]; currentId: string | null }) {
+function Plan({
+  steps,
+  currentId,
+  outOfMinutes,
+}: {
+  steps: PlanStep[];
+  currentId: string | null;
+  outOfMinutes: boolean;
+}) {
   const done = steps.filter((s) => s.status === 'done').length;
 
   return (
@@ -709,7 +723,12 @@ function Plan({ steps, currentId }: { steps: PlanStep[]; currentId: string | nul
               <ol className="mt-3 space-y-2.5">
                 {own.map((step) => (
                   <li key={step.id}>
-                    <Step step={step} isCurrent={step.id === currentId} level={level.id} />
+                    <Step
+                      step={step}
+                      isCurrent={step.id === currentId}
+                      level={level.id}
+                      outOfMinutes={outOfMinutes}
+                    />
                   </li>
                 ))}
               </ol>
@@ -731,10 +750,13 @@ function Step({
   step,
   isCurrent,
   level,
+  outOfMinutes,
 }: {
   step: PlanStep;
   isCurrent: boolean;
   level: LevelId;
+  /** No free minutes left, so "have a class" is not an available instruction. */
+  outOfMinutes: boolean;
 }) {
   const detail = stepDetail(step);
 
@@ -841,8 +863,34 @@ function Step({
           </p>
           <p className="mt-1 text-[13px] leading-relaxed text-muted">
             En minutos. Si lo hablaste en la clase y no quedó anotado, ponlo tú.
+            {/*
+              The instruction has to be one they can follow.
+              
+              This always said the number counts once a class marks the step
+              done, which is true and becomes a dead end for the person most
+              likely to be typing here: somebody whose first session ran out
+              before the task closed. They have no minutes, so "have a class" is
+              not something they can do, and the offer that would sell them one
+              is hidden because `timeSaved` counts only finished steps.
+              
+              The measurement rule stays as it is — a plan somebody can edit into
+              "done" measures nothing. What changes is that the sentence points
+              at the plans rather than at a class they cannot have.
+            */}
             {step.status !== 'done' &&
-              ' Entra en tu total cuando la clase dé este paso por hecho.'}
+              (outOfMinutes ? (
+                <>
+                  {' '}
+                  Queda guardado, y entra en tu total cuando una clase dé este paso por hecho. Ya
+                  usaste tus minutos gratis, así que para eso necesitas un{' '}
+                  <Link href="/planes" className="underline underline-offset-2 hover:text-accent">
+                    plan
+                  </Link>
+                  .
+                </>
+              ) : (
+                ' Entra en tu total cuando la clase dé este paso por hecho.'
+              ))}
           </p>
           <div className="mt-2.5 flex flex-wrap items-end gap-2.5">
             <label className="text-[13px] text-muted">

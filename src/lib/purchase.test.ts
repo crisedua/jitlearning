@@ -111,3 +111,35 @@ describe('the feedback deal when the seats run out', () => {
     assert.match(form, /esto no viene con plan/);
   });
 });
+
+/*
+ * The learner who ran out before the task closed.
+ *
+ * `timeSaved` counts only finished weekly steps, deliberately: a plan somebody
+ * can edit into "done" measures nothing. So a first session that runs out of
+ * minutes mid-task leaves a step at `in_progress`, and the numbers the learner
+ * types afterwards count for nothing — which is correct, and left them reading
+ * "entra en tu total cuando la clase dé este paso por hecho" with no minutes to
+ * have that class and no offer on the page, because the offer needs a saving.
+ *
+ * An instruction somebody cannot follow, on the one screen that sells.
+ */
+describe('the minutes box when the free tier is spent', () => {
+  const progreso = read('src', 'app', 'progreso', 'page.tsx');
+
+  it('knows whether there are minutes left', () => {
+    assert.match(progreso, /outOfMinutes=\{minutesLeft\(balance\) === 0\}/);
+  });
+
+  it('points at the plans instead of at a class they cannot have', () => {
+    assert.match(
+      progreso,
+      /outOfMinutes \? \([\s\S]{0,400}href="\/planes"/,
+      'the note still tells a learner with no minutes to go and have a class',
+    );
+  });
+
+  it('keeps the ordinary instruction for somebody who still has minutes', () => {
+    assert.match(progreso, /Entra en tu total cuando la clase dé este paso por hecho/);
+  });
+});
