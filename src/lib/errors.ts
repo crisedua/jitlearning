@@ -43,3 +43,54 @@ export function connectionMessage(err: unknown): string | null {
 
   return null;
 }
+
+/**
+ * Something broke while the class was running.
+ *
+ * The voice SDK reports faults as a plain string, in English, written for
+ * whoever integrated it: a socket that closed, an audio worklet that failed, a
+ * server that hung up. That string went straight into the error box, mid-class,
+ * to somebody who was in the middle of a sentence.
+ *
+ * ## Why this one translates by default and `micMessage` does not
+ *
+ * The rule elsewhere in this file is to leave an unrecognised fault in its own
+ * words, because a confident wrong sentence sends people to fix the wrong thing.
+ * That rule earns its keep when the original could still help: a denied
+ * microphone names a permission somebody can go and grant.
+ *
+ * Nothing here is like that. A learner cannot act on a WebSocket close code, and
+ * the only move available to them is the same one in every case, which is to
+ * press the button again. So the default is the sentence that says exactly that,
+ * and the original goes to the console where somebody who can act on it will
+ * look. Losing it entirely would be the mistake; showing it to a person
+ * mid-class is a different one.
+ */
+export function liveCallMessage(raw: string): string {
+  const said = raw.trim();
+  if (!said) return 'La clase se cortó. Aprieta el botón otra vez para retomarla.';
+
+  /*
+   * No pass-through for "already Spanish", deliberately.
+   *
+   * The first version of this looked for accented characters and returned the
+   * string untouched, so that a message of ours would reach the reader as
+   * written. Its own test disproved it: "Se te acabaron los minutos del plan
+   * gratis" carries no accent at all, and plenty of Spanish does not.
+   *
+   * The heuristic was also answering a question that does not arise. The plan
+   * gate refuses before the socket opens, at `/api/signed-url`, and that message
+   * reaches the error box through `start`. Nothing of ours is sent into a live
+   * conversation, so everything arriving here was written by the platform, in
+   * English, for a developer. Guessing the language of a string is a worse
+   * mechanism than knowing where it came from.
+   */
+  if (/microphone|audio|worklet|media/i.test(said)) {
+    return 'Se perdió el micrófono durante la clase. Revisa que ninguna otra aplicación lo esté usando y aprieta el botón otra vez.';
+  }
+  if (/websocket|connection|network|timeout|closed|disconnect/i.test(said)) {
+    return 'Se cortó la conexión con el profesor. Aprieta el botón otra vez y sigues donde ibas.';
+  }
+
+  return 'La clase se cortó. Aprieta el botón otra vez para retomarla.';
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { micMessage } from '@/lib/mic';
+import { liveCallMessage } from '@/lib/errors';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConversationProvider, useConversation } from '@elevenlabs/react';
 import { KnownTopics } from './KnownTopics';
@@ -176,7 +177,12 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
         return prev;
       });
     },
-    onError: (message: string) => setError(message),
+    onError: (message: string) => {
+      // The original goes where somebody who can act on it will look; the
+      // learner gets the one move available to them. See `liveCallMessage`.
+      console.error('[clase] live session error:', message);
+      setError(liveCallMessage(message));
+    },
   });
 
   // A closed tab is the most common way a session ends. `pagehide` is the last
