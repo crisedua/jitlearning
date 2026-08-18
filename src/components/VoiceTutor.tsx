@@ -499,10 +499,30 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
             <StatusPill connected={connected} isSpeaking={isSpeaking} status={status} />
           </div>
 
+          {/*
+            The privacy link belongs here rather than only in the footer.
+            
+            This is the sentence somebody reads with their finger over the
+            button, and the question it raises — who hears this — is the one the
+            page answers. A footer link is discoverable by whoever already
+            decided to look; this is for the person deciding whether to open a
+            client's document in front of a microphone, which is the decision
+            actually being made at this moment.
+            
+            Six words and no panel, because a privacy notice that interrupts is
+            a privacy notice people click past.
+          */}
           {!connected && (
             <p className="mt-3 text-xs text-muted">
               Se pedirá permiso para usar el micrófono. Si prefieres escribir, puedes
-              hacerlo una vez empezada la sesión.
+              hacerlo una vez empezada la sesión.{' '}
+              <a
+                href="/privacidad"
+                className="underline underline-offset-2 transition-colors duration-150 hover:text-accent"
+              >
+                Qué se guarda de la clase
+              </a>
+              .
             </p>
           )}
         </section>
