@@ -302,8 +302,30 @@ describe('the platform tools nothing here configures', () => {
   const agent = read('src', 'lib', 'agent.ts');
 
   it('carries them through a sync rather than clearing them', () => {
-    assert.match(agent, /built_in_tools: liveBuiltIn/);
+    assert.match(agent, /built_in_tools: builtInTools\(liveBuiltIn\)/);
     assert.match(agent, /live\.conversation_config\.agent\.prompt\.built_in_tools/);
+  });
+
+  it('merges what this repo owns over what is already there', () => {
+    // A tool switched on in the dashboard has to survive a sync; the one named
+    // here has to win.
+    assert.match(agent, /\.\.\.\(live \?\? \{\}\)/);
+  });
+
+  it('gives the teacher skip_turn and not end_call', () => {
+    assert.match(agent, /skip_turn: \{\s*name: 'skip_turn'/);
+    assert.match(agent, /system_tool_type: 'skip_turn'/);
+    assert.doesNotMatch(agent, /system_tool_type: 'end_call'/);
+  });
+
+  it('says when to wait in terms of what the learner is doing', () => {
+    // The platform default fires when somebody asks for a moment out loud,
+    // which is not this case: they were handed a step and went quiet doing it.
+    assert.match(agent, /está trabajando: abriendo un archivo/);
+  });
+
+  it('puts the same tools on a freshly provisioned agent', () => {
+    assert.equal((agent.match(/built_in_tools: builtInTools\(/g) ?? []).length, 2);
   });
 
   it('reads them from the same live agent as the tools and the model', () => {

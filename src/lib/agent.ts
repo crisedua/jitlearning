@@ -537,6 +537,47 @@ export function dataCollection(): DataCollectionConfig {
 }
 
 /**
+ * The platform tools this teacher should have, over whatever else is set.
+ *
+ * Only `skip_turn`, which lets the agent stop talking and wait without saying
+ * anything. That is the mechanism the persona's working mode already describes,
+ * "un paso por turno, esperando que confirme": the teacher names a step, the
+ * learner goes and does it, and nothing useful can be said until they come
+ * back. Without it the only lever is the silence timeout, and a timeout long
+ * enough to cover pasting a draft is also long enough to make the teacher feel
+ * broken after a question.
+ *
+ * The description is written rather than left empty, and the default is the
+ * reason why. It fires when somebody asks for a moment out loud, which is the
+ * general case and not this one: here the learner has been handed a step and
+ * has gone quiet doing it, and people working do not narrate that they are
+ * about to be quiet.
+ *
+ * `end_call` stays off deliberately. It would let a class finish when the
+ * commitment is made rather than run to the ceiling, and hand the unused
+ * minutes back, but it also lets a teacher hang up on somebody who had one more
+ * thing to say. Not a trade to make before a single real class has happened.
+ *
+ * Merged over the live value rather than replacing it, so a tool switched on in
+ * the dashboard survives a sync. What this repo names, it owns; the rest is
+ * carried.
+ */
+function builtInTools(live: Record<string, unknown> | null): Record<string, unknown> {
+  return {
+    ...(live ?? {}),
+    skip_turn: {
+      name: 'skip_turn',
+      params: { system_tool_type: 'skip_turn' },
+      description:
+        'Úsala cuando le pediste que hiciera algo y está trabajando: abriendo un archivo, ' +
+        'escribiendo, leyendo lo que le salió. Espera en silencio en vez de repetir la ' +
+        'pregunta. También cuando pide un momento. Un silencio mientras trabaja no es una ' +
+        'pausa que haya que llenar, es la clase avanzando.',
+    },
+  };
+}
+
+/**
  * Turn-taking, as one source for both the agent this repo creates and the agent
  * it already has.
  *
@@ -613,6 +654,7 @@ export async function provisionAgent(): Promise<string> {
           prompt: teacherSystemPrompt({ search: false }),
           // Omitted entirely when unset, so ElevenLabs picks its workspace default.
           ...(llm ? { llm } : {}),
+          built_in_tools: builtInTools(null),
           knowledge_base: [],
           rag: ragConfig(),
         },
@@ -759,7 +801,7 @@ export async function syncAgentKnowledge(
            * that tool the next time anyone ingested a document. Tools are owned
            * by `setup:tools`; this write must leave them alone.
            */
-          ...(liveBuiltIn ? { built_in_tools: liveBuiltIn } : {}),
+          built_in_tools: builtInTools(liveBuiltIn),
           tool_ids: toolIds,
         },
       },
