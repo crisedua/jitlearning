@@ -147,3 +147,27 @@ describe('the no-search substitution', () => {
     );
   });
 });
+
+/*
+ * The page promises something for a learner who is not at a screen.
+ *
+ * "Si vas caminando, la dictan y la terminas después" and "los números se
+ * cierran en la clase siguiente" are on the landing page, in the numbered steps
+ * somebody reads before deciding. The persona said only that a learner might be
+ * walking and then assumed a screen for the rest of the session, so the teacher
+ * could not perform either half.
+ *
+ * This is the same contract `PROMISE_MARKERS` enforces for the four headline
+ * promises, applied to a claim that sits in the how-it-works steps instead. A
+ * promise is a promise wherever it is printed.
+ */
+describe('the learner who has no screen', () => {
+  for (const search of [true, false]) {
+    it(`is handled in the ${search ? 'searching' : 'no-search'} persona`, () => {
+      const persona = teacherSystemPrompt({ search });
+      assert.match(persona, /Si no tiene pantalla a mano/, 'no instruction for a walking learner');
+      assert.match(persona, /dicta los pasos/, 'does not say to dictate the steps');
+      assert.match(persona, /cierra los números la clase siguiente/, 'does not close the numbers later');
+    });
+  }
+});
