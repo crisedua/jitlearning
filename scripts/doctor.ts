@@ -1612,10 +1612,20 @@ async function main() {
     const copy = rung ? STEP_COPY[rung.id] : undefined;
 
     if (deploymentStale) {
-      console.error('\nStart here: find out why the last push did not deploy.');
+      /*
+       * Said the way the note under the check says it.
+       *
+       * This headline read "find out why the last push did not deploy", which
+       * is an alarm, while the line beside the failure said a small gap is
+       * usually a build still running. Both were mine and they disagreed, and
+       * the headline is the one somebody acts on: it sent me looking for a
+       * failed deployment on Vercel for two days when the answer was to wait.
+       */
+      console.error('\nStart here: check whether the last push is still building.');
       console.error('  Everything else waits on it. A variable set in Vercel applies to the');
-      console.error('  next deployment, so with none happening it changes nothing and looks');
-      console.error('  like it should have.');
+      console.error('  next deployment, so while none has landed it changes nothing and looks');
+      console.error('  like it should have. If the gap has not closed in a few minutes, then');
+      console.error('  look for a failed or paused deployment.');
       if (copy) console.error(`  After that: ${copy[0]}`);
     } else if (copy) {
       console.error(`\nStart here: ${copy[0]}`);

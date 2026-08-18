@@ -153,9 +153,9 @@ git rev-parse --short origin/main          # what GitHub has
 curl -s $SITE/api/health -H "x-ingest-secret: $INGEST_SECRET" | grep commit
 ```
 
-Run it twice, a few minutes apart. If the commit moves, it was a queue. If GitHub
-has the commit and the site has not moved after a while, the repository is still
-probably not the problem. A
+Run it twice, a few minutes apart. If the commit moves, it was a queue and there
+is nothing to fix. If GitHub has the commit and the site has not moved after a
+while, the repository is still probably not the problem: a
 clean clone of this project installs from the lockfile and builds with no
 environment variables at all, which is worth knowing because it rules out the
 two explanations people reach for first. Look at the Vercel dashboard for a
