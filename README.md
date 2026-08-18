@@ -894,7 +894,7 @@ leaves no plan and says so on the progress page.
 | Variable | What it carries |
 |---|---|
 | `apertura` | The first thing said out loud, composed server-side. On a first session it asks what they do; on a later one it names the step and the commitment. |
-| `registro` | The compact record: profile, chosen path, current step, last commitment with its status, days since the last session. Capped at 800 characters. |
+| `registro` | The compact record: profile, chosen path, current step, last commitment with its status, days since the last session. Budgeted at 800 characters, by dropping whole lines worst-first rather than by slicing — see below. |
 | `primera_sesion` | `sí` or `no`, which is what tells the persona to run the diagnostic instead of opening on a plan that does not exist. |
 
 The first message is spoken before any LLM turn, so an opening that names the
@@ -902,6 +902,22 @@ step cannot be a fixed string and must not depend on a model remembering to
 perform it. Placeholders for all three are declared on the agent, because a
 prompt referencing a variable nothing supplies fails the whole conversation, and
 that is exactly what a test from the ElevenLabs dashboard would do.
+
+**The 800 characters are budgeted, not sliced.** They used to be a `.slice()`
+over the joined lines, spent first-come-first-served — and the order those lines
+read best in is very nearly the reverse of the order they matter in. The profile
+echo goes first and is three extraction fields, each capped at 400 characters, so
+a learner whose role, field and sector came back verbose got a record that was
+800 characters of who they are and nothing else: no saving, no plan, no
+commitment. Nothing errors and the class still happens; it happens with a teacher
+that never mentions the commitment, for exactly the learners whose own answers
+ran longest.
+
+Each line now carries what it is worth — the commitment first, because the
+persona says so in as many words, then the step, then the saving, then the days,
+then who they are — and the record sheds whole lines rather than cutting one in
+half. The commitment and the step title are trimmed to the same word-boundary
+budgets the spoken opening uses on the same sentences.
 
 ### The post-call webhook
 

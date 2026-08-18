@@ -55,6 +55,31 @@ function pending(code: string | undefined): boolean {
 /** The whole injected record. See the note above on why this is capped. */
 const RECORD_CHARS = 800;
 
+/** One line of the record, and what it is worth when the budget runs out. */
+interface RecordLine {
+  text: string;
+  /** Lower goes first. See `KEEP`. */
+  keep: number;
+}
+
+/**
+ * What the teacher can least afford to lose, in the persona's own order.
+ *
+ * "Lo primero que vale de ese registro es el compromiso", so that outranks
+ * everything; then what the session is for; then the saving, which is what the
+ * opening is told it may lead with; then how long it has been. Context about who
+ * the learner is goes last — not because it does not matter, but because
+ * `apertura` already carries the part of it that gets said out loud, and it is
+ * the only group here made of unbounded learner text.
+ */
+const KEEP = {
+  context: 0,
+  days: 1,
+  saving: 2,
+  plan: 3,
+  commitment: 4,
+} as const;
+
 /** Per-field cap, so a runaway extraction stays a sentence. */
 const FIELD_CHARS = 400;
 
@@ -615,22 +640,43 @@ export function buildRecord({
   const lastCommitment = history.find((h) => h.commitment);
   const saved = timeSaved(steps);
 
-  const blocks: string[] = [];
+  /*
+   * The record is budgeted, not sliced.
+   *
+   * `RECORD_CHARS` used to be a `.slice(0, 800)` over the joined string, spent
+   * first-come-first-served — and the order these are assembled in is the order
+   * they read best, which is very nearly the reverse of the order they matter
+   * in. The profile echo goes first and is three extraction fields long, each
+   * capped at `FIELD_CHARS`, so a learner whose role, field and sector came back
+   * verbose produced a record that was 800 characters of who they are and
+   * nothing else: no saving, no plan, no commitment.
+   *
+   * That is the whole of what the teacher is told, and the persona opens on the
+   * two pieces the slice was reaching last. "Lo primero que vale de ese registro
+   * es el compromiso" — and a commitment that fell off the end is a commitment
+   * nobody asks about, which is the one behaviour this product sells hardest,
+   * failing silently for exactly the learners whose extractions ran long.
+   *
+   * So each line carries what it is worth, and what does not fit is dropped
+   * whole rather than cut mid-sentence.
+   */
+  const blocks: RecordLine[] = [];
+  const context = (text: string) => blocks.push({ text, keep: KEEP.context });
 
   const who = [known.role, known.field, known.sector].filter(Boolean).join(', ');
   if (who) {
-    blocks.push(
+    context(
       `Perfil: ${who}${
         known.experienceYears ? `, ${known.experienceYears} años de experiencia` : ''
       }.`,
     );
   }
-  if (known.goal) blocks.push(`Busca: ${known.goal}.`);
-  if (known.chosenPath) blocks.push(`Camino elegido: ${known.chosenPath}.`);
+  if (known.goal) context(`Busca: ${known.goal}.`);
+  if (known.chosenPath) context(`Camino elegido: ${known.chosenPath}.`);
   if (known.weeklyTasks.length > 0) {
-    blocks.push(`Sus tareas: ${known.weeklyTasks.slice(0, 5).join(', ')}.`);
+    context(`Sus tareas: ${known.weeklyTasks.slice(0, 5).join(', ')}.`);
   }
-  if (known.tools.length > 0) blocks.push(`Ya usa: ${known.tools.slice(0, 5).join(', ')}.`);
+  if (known.tools.length > 0) context(`Ya usa: ${known.tools.slice(0, 5).join(', ')}.`);
   /*
    * Whether they already work with AI, which the teacher asks for and then
    * forgot.
@@ -648,7 +694,7 @@ export function buildRecord({
    * without it and asks again. Being asked the same question twice by something
    * that claims to remember you is worse than never being asked.
    */
-  if (known.aiUsage) blocks.push(`Con IA: ${known.aiUsage}.`);
+  if (known.aiUsage) context(`Con IA: ${known.aiUsage}.`);
   /*
    * That the map has already been given.
    *
@@ -669,7 +715,7 @@ export function buildRecord({
    * was already told to do rather than being given a second rule.
    */
   if (known.map.value || known.map.categories || known.map.paths) {
-    blocks.push('Ya le diste el mapa: no lo repitas, retómalo por partes cuando el plan llegue a una categoría.');
+    context('Ya le diste el mapa: no lo repitas, retómalo por partes cuando el plan llegue a una categoría.');
   }
   /*
    * The saving goes near the front of the record, because it is the best thing
@@ -678,12 +724,16 @@ export function buildRecord({
    * asked for anything.
    */
   if (saved.perWeek > 0) {
-    blocks.push(
-      `Ya recupera ${spellMinutes(saved.perWeek)} por semana, medidos por ella en ${saved.tasksMeasured} tarea(s). Puedes abrir con eso.`,
-    );
+    blocks.push({
+      text: `Ya recupera ${spellMinutes(saved.perWeek)} por semana, medidos por ella en ${saved.tasksMeasured} tarea(s). Puedes abrir con eso.`,
+      keep: KEEP.saving,
+    });
   }
   if (current) {
-    blocks.push(`Plan: paso ${current.number} de ${steps.length}, "${current.step.title}".`);
+    blocks.push({
+      text: `Plan: paso ${current.number} de ${steps.length}, "${toWord(current.step.title, ECHO_TITLE)}".`,
+      keep: KEEP.plan,
+    });
     /*
      * Half a measurement, which is the most useful thing a record can carry.
      *
@@ -700,10 +750,12 @@ export function buildRecord({
      * subtraction, which is the only thing here worth paying for.
      */
     if (current.step.minutesBefore !== null && current.step.minutesAfter === null) {
-      blocks.push(
-        `Ya te dijo que esa tarea le toma ${spellMinutes(current.step.minutesBefore)}, y falta ` +
+      blocks.push({
+        text:
+          `Ya te dijo que esa tarea le toma ${spellMinutes(current.step.minutesBefore)}, y falta ` +
           'el segundo número: termínala y pregúntale cuánto tardó ahora.',
-      );
+        keep: KEEP.plan,
+      });
     }
   } else if (steps.length > 0) {
     /*
@@ -720,11 +772,13 @@ export function buildRecord({
      * finished task make room for the next one, and this is the sentence that
      * makes the teacher go and get it.
      */
-    blocks.push(
-      `Plan: los ${steps.length} pasos están hechos. Sigue con otra tarea de su semana, ` +
+    blocks.push({
+      text:
+        `Plan: los ${steps.length} pasos están hechos. Sigue con otra tarea de su semana, ` +
         'como en el nivel 1: cuál le pesa ahora, cuánto tarda, háganla en la sesión y ' +
         'cierra con cuánto tardó. Aparece sola en su plan.',
-    );
+      keep: KEEP.plan,
+    });
   }
   if (lastCommitment?.commitment) {
     const state =
@@ -733,25 +787,69 @@ export function buildRecord({
         : lastCommitment.commitmentDone === false
           ? 'marcado como no hecho'
           : 'sin confirmar';
-    blocks.push(`Último compromiso: ${lastCommitment.commitment} (${state}).`);
+    /*
+     * Trimmed to the same budget the spoken opening uses on the same sentence.
+     *
+     * A commitment arrives capped at `FIELD_CHARS`, so a verbose one is over half
+     * this record on its own — and it is the line that must never be the one to
+     * go, which would make everything else go instead. The record is a summary;
+     * 140 characters of it is the promise, and the learner is about to be asked
+     * whether they kept it in any case.
+     */
+    blocks.push({
+      text: `Último compromiso: ${toWord(lastCommitment.commitment, ECHO_COMMITMENT)} (${state}).`,
+      keep: KEEP.commitment,
+    });
   }
   const days = history[0] ? daysSince(history[0].createdAt) : null;
   if (days !== null) {
-    blocks.push(
-      days === 0
-        ? 'Habló contigo hoy.'
-        : `Última sesión: hace ${days} día${days === 1 ? '' : 's'}.`,
-    );
+    blocks.push({
+      text:
+        days === 0
+          ? 'Habló contigo hoy.'
+          : `Última sesión: hace ${days} día${days === 1 ? '' : 's'}.`,
+      keep: KEEP.days,
+    });
   }
 
   return {
     apertura: opening(known, current, lastCommitment ?? null, saved.perWeek, steps.length),
-    registro: (
-      blocks.join(' ') ||
-      'Ya hablaron antes, pero no quedó registro de quién es: pregúntaselo de nuevo.'
-    ).slice(0, RECORD_CHARS),
+    registro:
+      fitRecord(blocks, RECORD_CHARS) ||
+      'Ya hablaron antes, pero no quedó registro de quién es: pregúntaselo de nuevo.',
     primera_sesion: 'no',
   };
+}
+
+/**
+ * The record, cut down to its budget by dropping whole lines.
+ *
+ * Sheds the least valuable line first, and among equals the one that reads last,
+ * so the profile echo survives the tools list and the map note survives nothing.
+ * A line is never cut in half: half of "Último compromiso: mandar el resumen del
+ * comité" is worse than not naming it, because the teacher reads it out and asks
+ * about something the learner never said.
+ *
+ * The final slice is the guard for a single line longer than the whole budget,
+ * which the per-line trims above should already have prevented.
+ */
+function fitRecord(lines: readonly RecordLine[], limit: number): string {
+  const kept = [...lines];
+  const size = () => kept.reduce((n, l) => n + l.text.length + 1, -1);
+
+  while (kept.length > 1 && size() > limit) {
+    let worst = 0;
+    for (let i = 1; i < kept.length; i++) {
+      // `<=`, so ties are broken towards the later line.
+      if (kept[i]!.keep <= kept[worst]!.keep) worst = i;
+    }
+    kept.splice(worst, 1);
+  }
+
+  return kept
+    .map((l) => l.text)
+    .join(' ')
+    .slice(0, limit);
 }
 
 function daysSince(iso: string): number {

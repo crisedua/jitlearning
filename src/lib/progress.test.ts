@@ -865,6 +865,37 @@ describe('when every step of the plan is done', () => {
     assert.ok(said.includes('¿Lo hiciste?'), said);
   });
 
+  it('the instruction survives a record that fills its budget', () => {
+    /*
+     * `registro` is sliced at 800 characters and this block sits in the middle
+     * of it, after the profile, the tasks, the tools and the map note — each of
+     * which is learner text up to FIELD_CHARS long. Truncation is silent, and
+     * what it would drop here is the only sentence saying the session has a
+     * purpose.
+     */
+    const long = (word: string) => word.repeat(80).slice(0, 400);
+    const full: CareerProfile = {
+      role: long('contadora '),
+      field: long('finanzas '),
+      sector: long('retail '),
+      experienceYears: 12,
+      weeklyTasks: Array.from({ length: 5 }, (_, i) => long(`tarea${i} `)),
+      tools: Array.from({ length: 5 }, (_, i) => long(`herramienta${i} `)),
+      aiUsage: long('usa chatgpt '),
+      goal: long('quiere ascender '),
+      chosenPath: 'mejorar',
+      map: { value: 'algo', categories: 'algo', paths: 'algo' },
+      updatedAt: null,
+    };
+
+    const record = buildRecord({ profile: full, steps: finished, history: [] });
+    assert.ok(record.registro.length <= 800);
+    assert.ok(
+      /otra tarea de su semana/i.test(record.registro),
+      `the instruction was truncated away: ${record.registro}`,
+    );
+  });
+
   it('says nothing of the sort when the plan was never built', () => {
     const said = opening(blank, null, null, 0, 0);
     assert.ok(!/tarea de tu semana/i.test(said), said);
@@ -872,4 +903,86 @@ describe('when every step of the plan is done', () => {
     assert.ok(!/otra tarea de su semana/i.test(record.registro), record.registro);
   });
 
+});
+
+
+/**
+ * What the record keeps when it cannot keep everything.
+ *
+ * 800 characters used to be a `.slice()` over the joined string, spent in the
+ * order the lines read rather than the order they matter — and those are very
+ * nearly opposite. The profile echo goes first and is three extraction fields
+ * long, each capped at 400 characters, so a learner whose role, field and sector
+ * came back verbose got a record that was 800 characters of who they are and
+ * nothing else.
+ *
+ * Nothing errors, and the class still happens. It just happens with a teacher
+ * that never mentions the commitment, never names the step, and never opens on
+ * the number — for the learners whose own answers were longest.
+ */
+describe('the record when it does not all fit', () => {
+  const long = (word: string) => `${word} `.repeat(120).slice(0, 400);
+
+  const verbose: CareerProfile = {
+    role: long('contadora'),
+    field: long('finanzas'),
+    sector: long('retail'),
+    experienceYears: 12,
+    weeklyTasks: Array.from({ length: 5 }, (_, i) => long(`tarea${i}`)),
+    tools: Array.from({ length: 5 }, (_, i) => long(`herramienta${i}`)),
+    aiUsage: long('usa chatgpt'),
+    goal: long('quiere ascender'),
+    chosenPath: 'mejorar',
+    map: { value: 'algo', categories: 'algo', paths: 'algo' },
+    updatedAt: null,
+  };
+
+  const withCommitment: SessionRecord = {
+    id: 'h1',
+    createdAt: new Date().toISOString(),
+    lessonId: null,
+    taught: null,
+    commitment: 'mandar el resumen del comité el jueves',
+    commitmentDate: null,
+    commitmentDone: null,
+  };
+
+  const open = [step({ status: 'pending', minutesBefore: null, minutesAfter: null })];
+
+  it('keeps the commitment, whatever else it has to drop', () => {
+    const record = buildRecord({ profile: verbose, steps: open, history: [withCommitment] });
+    assert.ok(record.registro.length <= 800);
+    assert.ok(
+      record.registro.includes('mandar el resumen del comité'),
+      `the one thing the next session opens on: ${record.registro}`,
+    );
+  });
+
+  it('keeps the step the session is for', () => {
+    const record = buildRecord({ profile: verbose, steps: open, history: [withCommitment] });
+    assert.ok(/Plan: paso 1 de 1/.test(record.registro), record.registro);
+  });
+
+  it('keeps the saving the opening is allowed to lead with', () => {
+    const record = buildRecord({
+      profile: verbose,
+      steps: [step(), ...open],
+      history: [withCommitment],
+    });
+    assert.ok(record.registro.includes('Ya recupera'), record.registro);
+  });
+
+  it('drops whole lines rather than half a sentence', () => {
+    const record = buildRecord({ profile: verbose, steps: open, history: [withCommitment] });
+    // Every line this builds ends in a full stop, so a record that does not is
+    // one that was cut mid-sentence.
+    assert.ok(record.registro.trimEnd().endsWith('.'), record.registro.slice(-80));
+  });
+
+  it('still says who the learner is when there is room', () => {
+    const modest: CareerProfile = { ...verbose, role: 'contadora', field: 'finanzas', sector: 'retail', weeklyTasks: ['correos'], tools: ['excel'], aiUsage: 'chatgpt a veces', goal: 'ascender' };
+    const record = buildRecord({ profile: modest, steps: open, history: [withCommitment] });
+    assert.ok(record.registro.includes('Perfil: contadora'), record.registro);
+    assert.ok(record.registro.includes('Ya usa: excel'), record.registro);
+  });
 });
