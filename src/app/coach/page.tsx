@@ -8,7 +8,7 @@ import { agentId } from '@/lib/config';
 import { TEACHER } from '@/lib/teacher';
 import { currentUser } from '@/lib/supabase/server';
 import { signInPath } from '@/lib/paths';
-import { checkAdmin } from '@/lib/admin';
+import { isAdminEmail } from '@/lib/admin';
 import { getUsageBalance } from '@/lib/account';
 import { openCommitment } from '@/lib/commitments';
 
@@ -44,8 +44,20 @@ export default async function CoachPage() {
   // Only the agent id is read here — the document list is behind the ingest
   // secret, so this page must not try to fetch it.
   const configured = Boolean(agentId());
-  // Who is allowed to see why it is not configured, rather than just that it is not.
-  const gate = await checkAdmin();
+  /*
+   * Who may be told *why* it is not configured, decided without a second trip.
+   *
+   * This called `checkAdmin()`, which calls `currentUser()`, which revalidates
+   * the token with Supabase over the network — on a page that had already done
+   * exactly that four lines above, serially, before anything else could start.
+   * A second auth round-trip on the screen immediately before the microphone,
+   * and its result thrown away in the normal case, since it only decides what to
+   * render when the agent is missing.
+   *
+   * The user is already in hand and `isAdminEmail` is a pure comparison, so the
+   * answer costs nothing.
+   */
+  const isOperator = isAdminEmail(user.email);
   const [balance, commitment] = await Promise.all([
     getUsageBalance(user.id, user.email),
     openCommitment(user.id),
@@ -99,7 +111,7 @@ export default async function CoachPage() {
 
       {configured ? (
         <VoiceTutor />
-      ) : !gate.ok ? (
+      ) : !isOperator ? (
         /*
          * A learner is not an operator, and this page had them confused.
          *
