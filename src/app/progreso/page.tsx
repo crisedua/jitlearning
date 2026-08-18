@@ -24,7 +24,7 @@ import {
   type LevelId,
   type PathId,
 } from '@/lib/curriculum';
-import { subscriptionFor, type Subscription } from '@/lib/billing';
+import { billingConfigured, subscriptionFor, type Subscription } from '@/lib/billing';
 import { getUsageBalance } from '@/lib/account';
 import { minutesLeft } from '@/lib/balance';
 import {
@@ -37,6 +37,8 @@ import {
 import { recommendedPlan } from '@/lib/offer';
 import { BillingLink } from '@/components/BillingLink';
 import { CheckoutButton } from '@/components/CheckoutButton';
+import { IntentLink } from '@/components/IntentLink';
+import { PROFILE, WHATSAPP } from '@/lib/site';
 import { saveEvidence, setCommitmentDone } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -120,7 +122,12 @@ export default async function ProgresoPage({
         on the page it would be an ad; here it is arithmetic the reader can do.
       */}
       {subscription?.planId === 'free' && saved.perWeek > 0 && offer && (
-        <Ofrecer saved={saved} minutesLeft={minutesLeft(balance)} plan={offer} />
+        <Ofrecer
+          saved={saved}
+          minutesLeft={minutesLeft(balance)}
+          plan={offer}
+          buyable={billingConfigured() && Boolean(offer.stripePriceId)}
+        />
       )}
 
       {subscription && subscription.planId !== 'free' && (
@@ -173,10 +180,12 @@ function Ofrecer({
   saved,
   minutesLeft,
   plan,
+  buyable,
 }: {
   saved: TimeSaved;
   minutesLeft: number | null;
   plan: Plan;
+  buyable: boolean;
 }) {
   const outOfMinutes = minutesLeft !== null && minutesLeft <= 5;
 
@@ -211,14 +220,57 @@ function Ofrecer({
        * button buys exactly what the paragraph describes.
        */}
       <div className="mt-5 max-w-[22rem]">
-        <CheckoutButton
-          plan={plan.id}
-          label={`Activar ${plan.name} · ${formatMoney(plan.priceMinor, plan.currency)} al mes`}
-          recommended
-        />
+        {/*
+          When checkout is not configured, this button used to be the only thing
+          here, and pressing it returned "los pagos todavía no están habilitados
+          en este despliegue" — a sentence about a deployment, shown to somebody
+          who had just read their own measured hours and decided to pay.
+
+          /planes has always degraded to a prefilled message. This did not, and
+          this is the higher-intent of the two by a distance: the argument was
+          made in their numbers one paragraph ago. Turning that person away with
+          jargon is the most expensive thing this page could do.
+        */}
+        {buyable ? (
+          <CheckoutButton
+            plan={plan.id}
+            label={`Activar ${plan.name} · ${formatMoney(plan.priceMinor, plan.currency)} al mes`}
+            recommended
+          />
+        ) : (
+          <IntentLink
+            href={`https://wa.me/${WHATSAPP.number}?text=${encodeURIComponent(
+              `Hola, quiero contratar el plan ${plan.name} (${formatMoney(plan.priceMinor, plan.currency)} al mes). ¿Cómo seguimos?`,
+            )}`}
+            plan={plan.id}
+            channel="whatsapp"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex w-full items-center justify-center rounded-full bg-accent px-5 py-2.5 text-[15px] font-medium text-bg transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover"
+          >
+            Quiero {plan.name} · {formatMoney(plan.priceMinor, plan.currency)} al mes
+          </IntentLink>
+        )}
       </div>
       <p className="mt-3 text-[13px] leading-relaxed text-soft">
-        Cancelas cuando quieras, desde esta misma página.{' '}
+        {buyable ? (
+          'Cancelas cuando quieras, desde esta misma página. '
+        ) : (
+          <>
+            Te escribimos para activarlo. También por correo:{' '}
+            <IntentLink
+              href={`mailto:${PROFILE.email}?subject=${encodeURIComponent(`Quiero el plan ${plan.name}`)}&body=${encodeURIComponent(
+                `Hola, quiero contratar el plan ${plan.name} (${formatMoney(plan.priceMinor, plan.currency)} al mes). ¿Cómo seguimos?`,
+              )}`}
+              plan={plan.id}
+              channel="email"
+              className="underline underline-offset-2 hover:text-accent"
+            >
+              {PROFILE.email}
+            </IntentLink>
+            .{' '}
+          </>
+        )}
         <Link href="/planes" className="underline underline-offset-2 hover:text-accent">
           Ver todos los planes
         </Link>
@@ -320,7 +372,30 @@ function Suscripcion({ subscription }: { subscription: Subscription }) {
           </p>
         )}
       </div>
-      {!comped && <BillingLink />}
+      {/*
+        The portal only exists if Stripe does.
+        
+        A paying learner today was sold to by hand: the plan was set on the
+        profile after a WhatsApp conversation, because checkout is not
+        configured. Showing them "gestionar mi suscripción" sends the person who
+        already paid to a 503 about a deployment. They are the last person in
+        this product who should meet that sentence.
+      */}
+      {!comped &&
+        (billingConfigured() ? (
+          <BillingLink />
+        ) : (
+          <p className="mt-4 text-[13px] leading-relaxed text-soft">
+            Para cambiar o dar de baja tu plan, escríbenos a{' '}
+            <a
+              href={`mailto:${PROFILE.email}`}
+              className="underline underline-offset-2 hover:text-accent"
+            >
+              {PROFILE.email}
+            </a>{' '}
+            y lo hacemos el mismo día.
+          </p>
+        ))}
     </section>
   );
 }
