@@ -85,7 +85,12 @@ export const config = {
      * Everything except static assets and image files — those never carry a
      * session and refreshing on each one would multiply auth traffic by every
      * icon on the page.
+     *
+     * `robots.txt` and `sitemap.xml` belong on that list for the same reason and
+     * were not on it, because they were added after this line. They are fetched
+     * by crawlers, which have no session to refresh, and a crawler is exactly the
+     * client that will ask for them repeatedly and never benefit.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };

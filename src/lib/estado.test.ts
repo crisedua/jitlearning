@@ -221,3 +221,37 @@ describe('what crawlers are told', () => {
     }
   });
 });
+
+/*
+ * The crawler files skip the session refresh.
+ *
+ * The middleware matcher excludes static assets because they never carry a
+ * session and refreshing on each one multiplies auth traffic by every icon on
+ * the page. `robots.txt` and `sitemap.xml` are the same case and were not on the
+ * list, because they were added afterwards — and the client that asks for them
+ * is a crawler, which has no session and will ask repeatedly.
+ *
+ * Pinned rather than left to memory: the matcher is one regex read by nobody
+ * until it is wrong, and adding a route is exactly when somebody would not think
+ * to look at it.
+ */
+describe('the middleware matcher', () => {
+  const source = readFileSync(path.join(ROOT, 'src', 'middleware.ts'), 'utf8');
+
+  it('skips the files a crawler asks for', () => {
+    for (const file of ['robots.txt', 'sitemap.xml']) {
+      assert.match(
+        source,
+        new RegExp(file.replace('.', '\\.')),
+        `${file} still runs the session refresh on every crawler fetch`,
+      );
+    }
+  });
+
+  it('still runs on the pages that need a session', () => {
+    // The exclusion is a negative lookahead; anything that widens it to cover a
+    // real page would silently stop refreshing that page's session.
+    assert.doesNotMatch(source, /matcher:[\s\S]{0,200}\/coach/);
+    assert.doesNotMatch(source, /matcher:[\s\S]{0,200}\/progreso/);
+  });
+});
