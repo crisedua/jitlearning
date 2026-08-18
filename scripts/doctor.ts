@@ -37,6 +37,7 @@ import { buildPlan, LESSONS, LEVELS, lessonsForLevel, PATHS } from '../src/lib/c
 import { serviceConfigured, supabaseAdmin } from '../src/lib/supabase/admin';
 import { classReport } from '../src/lib/classes';
 import { firstMissingRung } from '../src/lib/setup';
+import { deliveryReport } from '../src/lib/delivery';
 import { billingConfigured, stripe as stripeClient } from '../src/lib/billing';
 import { breakEven, DEFAULT_INPUTS } from '../src/lib/costs';
 import { configuredOrigin, DEFAULT_ORIGIN } from '../src/lib/canonical';
@@ -1275,49 +1276,23 @@ async function main() {
    * is the same principle the persona push learned: read back what landed
    * rather than trust that sending worked.
    */
-  if (serviceConfigured()) {
-    const [convos, summaries] = await Promise.all([
-      supabaseAdmin()
-        .from('coach_sessions')
-        .select('conversation_id, started_at')
-        .not('conversation_id', 'is', null)
-        .order('started_at', { ascending: false })
-        .limit(200),
-      supabaseAdmin().from('session_summaries').select('conversation_id').limit(500),
-    ]);
-
-    if (convos.error) {
-      note(`Could not read coach_sessions (${convos.error.message}), so delivery is unverified.`);
-    } else if (summaries.error) {
-      note(`Could not read session_summaries (${summaries.error.message}).`);
+  const delivery = await deliveryReport();
+  if (delivery) {
+    if (delivery.unreadable) {
+      note(`Could not read the session tables (${delivery.unreadable}), so delivery is unverified.`);
+    } else if (delivery.settled === 0) {
+      note('No conversation has finished yet, so nothing here proves the webhook works.');
+    } else if (delivery.missing === 0) {
+      ok(`${delivery.settled} finished conversation(s), every one of them summarised`);
     } else {
-      /*
-       * A conversation that ended a minute ago has not had time to be
-       * delivered, and counting it as lost would make this check cry wolf on
-       * the one run an operator does immediately after their first class.
-       */
-      const GRACE_MINUTES = 15;
-      const cutoff = Date.now() - GRACE_MINUTES * 60_000;
-      const settled = (convos.data ?? []).filter(
-        (c) => new Date(c.started_at as string).getTime() < cutoff,
+      bad(
+        `${delivery.missing} of ${delivery.settled} finished conversation(s) left no summary. ` +
+          'Returning learners are being met as strangers.',
       );
-      const landed = new Set((summaries.data ?? []).map((r) => r.conversation_id));
-      const missing = settled.filter((c) => !landed.has(c.conversation_id));
-
-      if (settled.length === 0) {
-        note('No conversation has finished yet, so nothing here proves the webhook works.');
-      } else if (missing.length === 0) {
-        ok(`${settled.length} finished conversation(s), every one of them summarised`);
-      } else {
-        bad(
-          `${missing.length} of ${settled.length} finished conversation(s) left no summary. ` +
-            'Returning learners are being met as strangers.',
-        );
-        note('The secret can be set in both places and the webhook still never arrive:');
-        note('  wrong URL, a preview deployment, switched off, or the wrong event subscribed.');
-        note('In the ElevenLabs dashboard the event is `post_call_transcription`.');
-        failures++;
-      }
+      note('The secret can be set in both places and the webhook still never arrive:');
+      note('  wrong URL, a preview deployment, switched off, or the wrong event subscribed.');
+      note('In the ElevenLabs dashboard the event is `post_call_transcription`.');
+      failures++;
     }
   } else {
     note('No service key here, so delivery cannot be checked locally.');

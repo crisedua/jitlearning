@@ -31,6 +31,7 @@ import { signInPath } from '@/lib/paths';
 import { NotAdmin } from '@/components/NotAdmin';
 import { MIGRATION_SENSITIVE } from '@/lib/schema';
 import { firstMissingRung } from '@/lib/setup';
+import { deliveryReport } from '@/lib/delivery';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
 import { getAgent } from '@/lib/elevenlabs';
 import { agentId } from '@/lib/config';
@@ -235,55 +236,36 @@ type AgentRow = { label: string; ok: boolean; detail: string };
  * A finished conversation with no summary is that failure on the record.
  */
 async function delivery(): Promise<AgentRow | null> {
-  if (!serviceConfigured()) return null;
-
-  const [convos, summaries] = await Promise.all([
-    supabaseAdmin()
-      .from('coach_sessions')
-      .select('conversation_id, started_at')
-      .not('conversation_id', 'is', null)
-      .order('started_at', { ascending: false })
-      .limit(200),
-    supabaseAdmin().from('session_summaries').select('conversation_id').limit(500),
-  ]);
+  const report = await deliveryReport();
+  if (!report) return null;
 
   const label = 'La memoria entre clases';
-  if (convos.error || summaries.error) {
+  if (report.unreadable) {
     return {
       label,
       ok: false,
       detail: 'No se pudo leer las conversaciones, así que no se puede confirmar que llegue nada.',
     };
   }
-
-  // A call that just ended has not had time to arrive, and calling it lost would
-  // fail on the one load an operator does right after their first class.
-  const cutoff = Date.now() - 15 * 60_000;
-  const settled = (convos.data ?? []).filter(
-    (c) => new Date(c.started_at as string).getTime() < cutoff,
-  );
-  const landed = new Set((summaries.data ?? []).map((r) => r.conversation_id));
-  const missing = settled.filter((c) => !landed.has(c.conversation_id));
-
-  if (settled.length === 0) {
+  if (report.settled === 0) {
     return {
       label,
       ok: true,
       detail: 'Todavía no termina ninguna conversación, así que esto no prueba nada aún.',
     };
   }
-  if (missing.length === 0) {
+  if (report.missing === 0) {
     return {
       label,
       ok: true,
-      detail: `${settled.length} conversación(es) terminadas y todas dejaron resumen.`,
+      detail: `${report.settled} conversación(es) terminadas y todas dejaron resumen.`,
     };
   }
   return {
     label,
     ok: false,
     detail:
-      `${missing.length} de ${settled.length} conversaciones terminaron sin resumen. ` +
+      `${report.missing} de ${report.settled} conversaciones terminaron sin resumen. ` +
       'Quien vuelva va a ser tratado como desconocido. Revisa que el webhook ' +
       'post_call_transcription apunte a esta instalación en el panel de ElevenLabs.',
   };
