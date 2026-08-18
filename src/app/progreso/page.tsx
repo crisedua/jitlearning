@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { SessionBar } from '@/components/SessionBar';
+import { OpenInProduct } from '@/components/OpenInProduct';
 import { currentUser } from '@/lib/supabase/server';
 import { signInPath } from '@/lib/paths';
 import { isAdminEmail } from '@/lib/admin';
@@ -1042,6 +1043,22 @@ function Step({
           <button className="mt-2 rounded-md border border-line bg-surface px-4 py-2 text-[13px] font-semibold text-ink shadow-sm transition duration-150 ease-out hover:border-line-strong hover:shadow-md">
             Guardar
           </button>
+
+          {/*
+            The whole point of keeping the prompt, one click from being used.
+
+            This is the Tuesday surface: the class is over, the teacher is not
+            in their ear, and what makes the measured saving repeat is opening
+            the assistant and pasting the thing that worked. A paragraph of
+            instructions given by voice a week ago does not survive that; a
+            button does.
+
+            Reads `step.recipePrompt` rather than whatever is currently in the
+            textarea, deliberately. The buttons hand over what was *saved*, and
+            an unsaved edit that silently rode along would be the one thing here
+            nobody could explain afterwards.
+          */}
+          {step.recipePrompt && <OpenInProduct prompt={step.recipePrompt} />}
         </form>
       )}
 

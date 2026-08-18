@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { offersUpgrade, withoutUpgradeMarker } from '@/lib/gate';
+import { OpenInProduct } from './OpenInProduct';
 import {
   ACCEPTED_EXTENSIONS,
   MAX_FILES,
@@ -85,6 +86,15 @@ export function PracticeBench({
   const feed = useRef<HTMLDivElement>(null);
 
   const model = practiceModel(modelId)!;
+
+  /*
+   * The last thing the learner actually sent, for the handoff buttons.
+   *
+   * Their own words rather than the teacher's dictation: by the time an
+   * exchange has worked, the prompt has usually been corrected once or twice,
+   * and the corrected one is what they want in their own account.
+   */
+  const lastPrompt = [...turns].reverse().find((t) => t.role === 'user')?.content ?? '';
 
   /*
    * The size check happens here, at selection, and not at send.
@@ -340,6 +350,18 @@ export function PracticeBench({
           {busy && <p className="text-xs text-muted">{model.label} está respondiendo…</p>}
         </div>
       )}
+
+      {/*
+        The handoff, offered only once something has actually been written.
+
+        The bench is a rehearsal and this is the door out of it: the products
+        cannot be embedded, and the weekly saving has to keep working in the
+        learner's own account after they stop paying us. Anchored to the last
+        thing they sent rather than to the last thing the teacher dictated,
+        because what they want in their own Gemini is the version that worked
+        here — including the edits they made to it.
+      */}
+      {lastPrompt && <OpenInProduct prompt={lastPrompt} label="Repítelo en tu cuenta" />}
 
       {files.length > 0 && (
         <ul className="mt-4 flex flex-wrap gap-2">
