@@ -30,6 +30,7 @@ import { checkAdmin } from '@/lib/admin';
 import { signInPath } from '@/lib/paths';
 import { NotAdmin } from '@/components/NotAdmin';
 import { MIGRATION_SENSITIVE } from '@/lib/schema';
+import { firstMissingRung } from '@/lib/setup';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
 import { getAgent } from '@/lib/elevenlabs';
 import { agentId } from '@/lib/config';
@@ -148,61 +149,44 @@ function environment(): { label: string; set: boolean; missing: string }[] {
 }
 
 /**
- * Which of the gaps to close first.
+ * Which of the gaps to close first, worded for whoever runs this.
  *
- * The page lists everything missing, in the order the sections happen to run,
- * and that is not the order to fix them: without the public Supabase keys nobody
- * can reach a page that needs an account, so anything below that is invisible to
- * everyone no matter how green it goes.
- *
- * The doctor learned this and this page had not, which is backwards. The doctor
- * runs on a laptop when somebody remembers; this is the page the README sends an
- * operator to after every step of going live.
- *
- * One at a time, because the point of a first step is that it is the only thing
- * being asked for, and each says what changes when it is done rather than what
- * the variable is called.
+ * The order lives in `setup.ts`, shared with the doctor, because this page and
+ * that script both answer the same question and had a copy of the ladder each,
+ * written days apart. The wording stays here: an operator reading their own
+ * product in Spanish and somebody reading a terminal in English want different
+ * sentences, and flattening that into one string would serve neither.
  */
-function firstStep(env: ReturnType<typeof environment>): { do: string; then: string } | null {
-  const missing = (name: string) => env.some((e) => e.label === name && !e.set);
+const STEP_COPY: Record<string, { do: string; then: string }> = {
+  signin: {
+    do: 'Pon NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en Vercel.',
+    then: 'Hasta que estén, nadie puede entrar, y nada de lo de abajo es alcanzable.',
+  },
+  teacher: {
+    do: 'Pon ELEVENLABS_API_KEY y ELEVENLABS_AGENT_ID en Vercel.',
+    then: 'La gente puede entrar y no hay profesor con quien hablar.',
+  },
+  recording: {
+    do: 'Pon SUPABASE_SERVICE_ROLE_KEY y pega las migraciones: `npm run sql | pbcopy`.',
+    then: 'Las clases pasan y no queda nada anotado.',
+  },
+  memory: {
+    do: 'Pon ELEVENLABS_WEBHOOK_SECRET y registra el webhook post_call_transcription.',
+    then: 'Cada clase se olvida, así que quien vuelva es tratado como desconocido.',
+  },
+  search: {
+    do: 'Pon INGEST_SECRET y corre `npm run setup:tools -- --push`.',
+    then: 'El profesor enseña; simplemente no puede buscar nada, y ya lo dice.',
+  },
+  money: {
+    do: 'Pon las llaves de Stripe y llama a /api/billing/setup.',
+    then: 'Todo enseña. Nadie puede pagar sin que tú lo hagas a mano.',
+  },
+};
 
-  if (missing('NEXT_PUBLIC_SUPABASE_URL') || missing('NEXT_PUBLIC_SUPABASE_ANON_KEY')) {
-    return {
-      do: 'Pon NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en Vercel.',
-      then: 'Hasta que estén, nadie puede entrar, y nada de lo de abajo es alcanzable.',
-    };
-  }
-  if (missing('ELEVENLABS_API_KEY') || missing('ELEVENLABS_AGENT_ID')) {
-    return {
-      do: 'Pon ELEVENLABS_API_KEY y ELEVENLABS_AGENT_ID en Vercel.',
-      then: 'La gente puede entrar y no hay profesor con quien hablar.',
-    };
-  }
-  if (missing('SUPABASE_SERVICE_ROLE_KEY')) {
-    return {
-      do: 'Pon SUPABASE_SERVICE_ROLE_KEY y pega las migraciones: `npm run sql | pbcopy`.',
-      then: 'Las clases pasan y no queda nada anotado.',
-    };
-  }
-  if (missing('ELEVENLABS_WEBHOOK_SECRET')) {
-    return {
-      do: 'Pon ELEVENLABS_WEBHOOK_SECRET y registra el webhook post_call_transcription.',
-      then: 'Cada clase se olvida, así que quien vuelva es tratado como desconocido.',
-    };
-  }
-  if (missing('INGEST_SECRET')) {
-    return {
-      do: 'Pon INGEST_SECRET y corre `npm run setup:tools -- --push`.',
-      then: 'El profesor enseña; simplemente no puede buscar nada, y ya lo dice.',
-    };
-  }
-  if (missing('STRIPE_SECRET_KEY')) {
-    return {
-      do: 'Pon las llaves de Stripe y llama a /api/billing/setup.',
-      then: 'Todo enseña. Nadie puede pagar sin que tú lo hagas a mano.',
-    };
-  }
-  return null;
+function firstStep(env: ReturnType<typeof environment>): { do: string; then: string } | null {
+  const rung = firstMissingRung((name) => env.some((e) => e.label === name && e.set));
+  return rung ? (STEP_COPY[rung.id] ?? null) : null;
 }
 
 

@@ -36,6 +36,7 @@ import { FALLBACK_PLANS, formatMinutes, formatMoney } from '../src/lib/plans';
 import { buildPlan, LESSONS, LEVELS, lessonsForLevel, PATHS } from '../src/lib/curriculum';
 import { serviceConfigured, supabaseAdmin } from '../src/lib/supabase/admin';
 import { classReport } from '../src/lib/classes';
+import { firstMissingRung } from '../src/lib/setup';
 import { billingConfigured, stripe as stripeClient } from '../src/lib/billing';
 import { breakEven, DEFAULT_INPUTS } from '../src/lib/costs';
 import { configuredOrigin, DEFAULT_ORIGIN } from '../src/lib/canonical';
@@ -1603,38 +1604,46 @@ async function main() {
       }
     };
 
-    const startHere: Array<[boolean, string, string]> = [
-      [
-        !usableUrl('NEXT_PUBLIC_SUPABASE_URL') || !set('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+    /*
+     * The rungs come from `setup.ts`, shared with /admin/estado, because both
+     * answer this question and each had grown its own copy of the ladder. The
+     * sentences stay here: this one is read in a terminal, in English, and that
+     * one by an operator looking at their own product in Spanish.
+     */
+    const STEP_COPY: Record<string, [string, string]> = {
+      signin: [
         'Set NEXT_PUBLIC_SUPABASE_URL (with https://) and NEXT_PUBLIC_SUPABASE_ANON_KEY.',
         'Until then nobody can sign in, so nothing below it is reachable.',
       ],
-      [
-        !set('SUPABASE_SERVICE_ROLE_KEY'),
+      teacher: [
+        'Set ELEVENLABS_API_KEY and ELEVENLABS_AGENT_ID.',
+        'People can sign in and there is no teacher to talk to.',
+      ],
+      recording: [
         'Set SUPABASE_SERVICE_ROLE_KEY, and paste the migrations: `npm run sql | pbcopy`.',
         'People can sign in, and nothing they do is recorded.',
       ],
-      [
-        !set('ELEVENLABS_WEBHOOK_SECRET'),
+      memory: [
         'Set ELEVENLABS_WEBHOOK_SECRET and register post_call_transcription.',
         'Classes happen and are forgotten, so everyone who returns is met as a stranger.',
       ],
-      [
-        !set('INGEST_SECRET'),
+      search: [
         'Set INGEST_SECRET, then run `npm run setup:tools -- --push`.',
         'The teacher works; it just cannot look anything up. Its persona already says so.',
       ],
-      [
-        !set('STRIPE_SECRET_KEY'),
+      money: [
         'Set the Stripe keys and POST /api/billing/setup.',
         'Everything teaches. Nobody can pay without you doing it by hand.',
       ],
-    ];
+    };
 
-    const next = startHere.find(([applies]) => applies);
-    if (next) {
-      console.error(`\nStart here: ${next[1]}`);
-      console.error(`  ${next[2]}`);
+    const rung = firstMissingRung((name) =>
+      name === 'NEXT_PUBLIC_SUPABASE_URL' ? usableUrl(name) : set(name),
+    );
+    const copy = rung ? STEP_COPY[rung.id] : undefined;
+    if (copy) {
+      console.error(`\nStart here: ${copy[0]}`);
+      console.error(`  ${copy[1]}`);
     }
 
     // The section counters still decide the closing line, because which half is
