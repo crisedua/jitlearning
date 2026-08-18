@@ -114,6 +114,35 @@ const TOOLS = [
   { config: SANDBOX_TOOL, needsSecret: false, where: 'the browser (client tool)' },
 ];
 
+/**
+ * Whether the deployed route can actually authenticate a call.
+ *
+ * Sent deliberately without the secret, because the two failures we need to
+ * tell apart are both refusals: 503 means the server has no secret configured
+ * and every tool call would fail, 401 means it has one and simply rejected this
+ * unsigned probe, which is the answer we want.
+ *
+ * Unreachable is treated as not-ready. Registering a tool against a URL that
+ * does not answer is how a class ends up announcing a search into silence, and
+ * a run that is merely deferred costs nothing.
+ */
+async function deployedSecretWorks(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, { method: 'GET' });
+    if (res.status === 401) return true;
+    if (res.status === 503) return false;
+    /*
+     * A 200 means the route answered without a secret at all, which it should
+     * never do. Treated as not-ready rather than as success: something is wrong
+     * with the gate, and attaching a billable tool to it is the wrong response.
+     */
+    console.error(`  (${url} answered ${res.status} to an unsigned probe, which is unexpected.)`);
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 async function main() {
   const push = process.argv.includes('--push');
 
@@ -122,15 +151,31 @@ async function main() {
     process.exit(1);
   }
 
-  const hasSecret = Boolean(process.env.INGEST_SECRET?.trim());
-  const wanted = TOOLS.filter((t) => hasSecret || !t.needsSecret);
+  /*
+   * The secret has to be on the *deployment*, not on this laptop.
+   *
+   * This checked `process.env.INGEST_SECRET` and registered a tool pointing at
+   * production, which are two different machines and, on this project, two
+   * different answers: the secret has been in `.env.local` the whole time and
+   * has never been set in Vercel. So the check passed, the tool would have been
+   * registered, and every call it made would have returned 503 — the exact
+   * failure the check exists to prevent, verified against the wrong computer.
+   *
+   * `/api/ask` distinguishes the two cases without needing the secret: 503 when
+   * the server has none configured, 401 when it has one and we did not send it.
+   * A 401 is therefore the healthy answer here.
+   */
+  const secretIsDeployed = await deployedSecretWorks(BUSCAR.api_schema.url);
+  const wanted = TOOLS.filter((t) => secretIsDeployed || !t.needsSecret);
 
-  if (!hasSecret) {
+  if (!secretIsDeployed) {
     console.error(
-      '\n! INGEST_SECRET is not set, so `buscar` is being skipped: it sends the secret as a\n' +
-        '  header and /api/ask refuses every call without it. Registering it now would\n' +
-        '  register a tool that fails audibly mid-class. The sandbox tool needs no secret\n' +
-        '  and is registered below.\n',
+      `\n! ${BUSCAR.api_schema.url} has no INGEST_SECRET, so \`buscar\` is being skipped.\n` +
+        '  It sends the secret as a header and that route refuses every call without one,\n' +
+        '  so registering it now would register a tool that answers 503 mid-class — which\n' +
+        '  the learner hears as the teacher announcing a search and then apologising.\n' +
+        '  Set INGEST_SECRET in the Vercel project settings, redeploy, and run this again.\n' +
+        '  The sandbox tool needs no secret and is handled below.\n',
     );
   }
 
