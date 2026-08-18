@@ -50,10 +50,21 @@ export default function PrivacidadPage() {
 
       <h2 className="mt-10 font-serif text-[24px] font-normal leading-snug">Qué guardamos nosotros</h2>
       <p className="mt-3 text-[17px] leading-relaxed text-muted">
-        En nuestra base de datos queda un resumen de la clase y unos pocos campos: a qué te
+        En nuestra base de datos, que es Supabase, queda un resumen de la clase y unos pocos campos: a qué te
         dedicas, tu sector, los años que llevas, las tareas de tu semana, las herramientas que
         usas, qué buscas, tu plan, lo que te comprometiste a hacer, los minutos que medimos y lo
         que escribas tú en tu página de progreso. No guardamos el audio.
+      </p>
+
+      <h2 className="mt-10 font-serif text-[24px] font-normal leading-snug">
+        Quiénes más están en el camino
+      </h2>
+      <p className="mt-3 text-[17px] leading-relaxed text-muted">
+        ElevenLabs mueve la voz y guarda el audio y la transcripción. Supabase es la base de datos
+        y también quien maneja tu inicio de sesión con Google. Vercel sirve las páginas, así que ve
+        las peticiones. Cuando el profesor busca algo actual, la pregunta va a Anthropic, junto con
+        una línea de contexto sobre tu rol si la hay, y nada más: ni tu nombre, ni tu correo, ni tu
+        cuenta. Y si algún día pagas, la tarjeta la recibe Stripe y nunca pasa por acá.
       </p>
 
       <h2 className="mt-10 font-serif text-[24px] font-normal leading-snug">Quién lo ve</h2>
