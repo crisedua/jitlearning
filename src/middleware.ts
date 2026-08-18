@@ -14,7 +14,50 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
+/**
+ * The one host sign-in is allowed to begin on, when there is more than one.
+ *
+ * This app answers on its custom domain and on the `.vercel.app` alias, and both
+ * serve the same deployment. That is fine for reading and a trap for signing in:
+ * Supabase allow-lists redirect URLs one at a time, so a flow begun on the alias
+ * asks to come back to an address the project may not accept. Supabase then
+ * delivers the code to the project's Site URL instead — the other domain — and
+ * the rescue below cannot finish it, because the PKCE verifier is a cookie and
+ * cookies are bound to the origin that set them.
+ *
+ * The result is a sign-in that fails only for people who arrived by the alias,
+ * which is exactly the link somebody pastes into a message when the custom
+ * domain has not been front of mind.
+ *
+ * Derived from `PUBLIC_BASE_URL`, the same variable that decides where the
+ * search tool points, so one setting names the canonical origin for both. Unset,
+ * this does nothing at all: no redirect, no behaviour change, and a fork
+ * deploying somewhere else is unaffected. Production only — a preview
+ * deployment has to stay on its own hostname to be testable.
+ */
+function canonicalHost(): string | null {
+  const configured = process.env.PUBLIC_BASE_URL?.trim();
+  if (!configured || process.env.VERCEL_ENV !== 'production') return null;
+  try {
+    return new URL(configured).host;
+  } catch {
+    return null;
+  }
+}
+
 export async function middleware(request: NextRequest) {
+  const canonical = canonicalHost();
+  const host = request.headers.get('host');
+  if (canonical && host && host !== canonical) {
+    const url = request.nextUrl.clone();
+    url.host = canonical;
+    url.port = '';
+    url.protocol = 'https:';
+    // 308: permanent, and preserves the method, so nothing posted is turned
+    // into a GET on the way across.
+    return NextResponse.redirect(url, 308);
+  }
+
   /*
    * Rescue an auth code that landed on the home page.
    *
