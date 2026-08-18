@@ -920,6 +920,8 @@ async function main() {
   console.log('\nCorpus sources\n');
   const corpusDir = 'knowledge';
   const urls = new Set<string>();
+  /** file → the date it says it was checked against the source. */
+  const verified = new Map<string, Date>();
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = `${dir}/${entry.name}`;
@@ -928,8 +930,29 @@ async function main() {
       if (entry.isDirectory()) {
         if (entry.name !== '_retired') walk(full);
       } else if (entry.name.endsWith('.md')) {
-        for (const m of readFileSync(full, 'utf8').matchAll(/https?:\/\/[^\s)\]]+/g)) {
+        const text = readFileSync(full, 'utf8');
+        for (const m of text.matchAll(/https?:\/\/[^\s)\]]+/g)) {
           urls.add(m[0].replace(/[.,;]$/, ''));
+        }
+        /*
+         * Each document states when it was last checked, in one of the two
+         * shapes they are written in: "Contrastado con la documentación oficial
+         * el 2026-07-29" and "Datos verificados el 28 de julio de 2026".
+         */
+        const iso = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+        const long = text.match(
+          /(\d{1,2}) de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre) de (\d{4})/i,
+        );
+        if (iso) {
+          verified.set(full, new Date(`${iso[1]}-${iso[2]}-${iso[3]}T00:00:00Z`));
+        } else if (long) {
+          const months = [
+            'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+            'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+          ];
+          const month = months.indexOf(long[2]!.toLowerCase()) + 1;
+          const day = long[1]!.padStart(2, '0');
+          verified.set(full, new Date(`${long[3]}-${String(month).padStart(2, '0')}-${day}T00:00:00Z`));
         }
       }
     }
@@ -962,6 +985,49 @@ async function main() {
       for (const d of dead) note(`  ${d}`);
       note('The teacher cites these by name. A dead one sends somebody to a 404.');
     }
+  }
+
+  /*
+   * How old the corpus says it is.
+   *
+   * Every document carries the date it was checked against its source, and the
+   * comparison says of itself that "este mercado cambia cada pocas semanas" and
+   * that prices and model names should be treated as perishable. Nothing
+   * enforced that, so the file would go on stating July's prices in a voice the
+   * learner has no way to date.
+   *
+   * It matters more while no search tool is attached. A teacher that can look
+   * things up can correct a stale figure mid-class; this one cannot, and its
+   * persona now tells it to say so rather than guess, which is honest and still
+   * leaves the learner without the answer.
+   *
+   * The thresholds come from the documents rather than from taste: a few weeks
+   * is what they call the cycle, so two months is comfortably past one and is
+   * worth mentioning; four months is two cycles of prices this can no longer
+   * describe, which is a wrong answer rather than an old one.
+   */
+  if (verified.size > 0) {
+    const day = 86_400_000;
+    const aged = [...verified.entries()]
+      .map(([file, when]) => ({ file, days: Math.floor((Date.now() - when.getTime()) / day) }))
+      .sort((a, b) => b.days - a.days);
+
+    const stale = aged.filter((a) => a.days > 120);
+    const ageing = aged.filter((a) => a.days > 60 && a.days <= 120);
+
+    if (stale.length > 0) {
+      bad(`${stale.length} corpus document(s) were last checked over 4 months ago.`);
+      for (const a of stale) note(`  ${a.file}: ${a.days} days`);
+      note('They quote prices and model names, which the corpus itself calls perishable.');
+      failures++;
+    } else if (ageing.length > 0) {
+      note(`${ageing.length} corpus document(s) are over 2 months old:`);
+      for (const a of ageing) note(`  ${a.file}: ${a.days} days`);
+    } else {
+      ok(`Corpus checked ${aged[0]!.days} days ago at the oldest`);
+    }
+  } else {
+    note('No document says when it was last checked, so nothing can tell if it is stale.');
   }
 
   console.log('\nPost-call webhook\n');
