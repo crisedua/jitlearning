@@ -148,6 +148,65 @@ function environment(): { label: string; set: boolean; missing: string }[] {
 }
 
 /**
+ * Which of the gaps to close first.
+ *
+ * The page lists everything missing, in the order the sections happen to run,
+ * and that is not the order to fix them: without the public Supabase keys nobody
+ * can reach a page that needs an account, so anything below that is invisible to
+ * everyone no matter how green it goes.
+ *
+ * The doctor learned this and this page had not, which is backwards. The doctor
+ * runs on a laptop when somebody remembers; this is the page the README sends an
+ * operator to after every step of going live.
+ *
+ * One at a time, because the point of a first step is that it is the only thing
+ * being asked for, and each says what changes when it is done rather than what
+ * the variable is called.
+ */
+function firstStep(env: ReturnType<typeof environment>): { do: string; then: string } | null {
+  const missing = (name: string) => env.some((e) => e.label === name && !e.set);
+
+  if (missing('NEXT_PUBLIC_SUPABASE_URL') || missing('NEXT_PUBLIC_SUPABASE_ANON_KEY')) {
+    return {
+      do: 'Pon NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en Vercel.',
+      then: 'Hasta que estén, nadie puede entrar, y nada de lo de abajo es alcanzable.',
+    };
+  }
+  if (missing('ELEVENLABS_API_KEY') || missing('ELEVENLABS_AGENT_ID')) {
+    return {
+      do: 'Pon ELEVENLABS_API_KEY y ELEVENLABS_AGENT_ID en Vercel.',
+      then: 'La gente puede entrar y no hay profesor con quien hablar.',
+    };
+  }
+  if (missing('SUPABASE_SERVICE_ROLE_KEY')) {
+    return {
+      do: 'Pon SUPABASE_SERVICE_ROLE_KEY y pega las migraciones: `npm run sql | pbcopy`.',
+      then: 'Las clases pasan y no queda nada anotado.',
+    };
+  }
+  if (missing('ELEVENLABS_WEBHOOK_SECRET')) {
+    return {
+      do: 'Pon ELEVENLABS_WEBHOOK_SECRET y registra el webhook post_call_transcription.',
+      then: 'Cada clase se olvida, así que quien vuelva es tratado como desconocido.',
+    };
+  }
+  if (missing('INGEST_SECRET')) {
+    return {
+      do: 'Pon INGEST_SECRET y corre `npm run setup:tools -- --push`.',
+      then: 'El profesor enseña; simplemente no puede buscar nada, y ya lo dice.',
+    };
+  }
+  if (missing('STRIPE_SECRET_KEY')) {
+    return {
+      do: 'Pon las llaves de Stripe y llama a /api/billing/setup.',
+      then: 'Todo enseña. Nadie puede pagar sin que tú lo hagas a mano.',
+    };
+  }
+  return null;
+}
+
+
+/**
  * The live agent, checked from inside the deployment.
  *
  * `npm run doctor` asks these questions of whatever `.env.local` points at.
@@ -410,6 +469,7 @@ export default async function EstadoPage() {
 
   const [rows, agent, memory] = await Promise.all([probe(), agentState(), delivery()]);
   const env = environment();
+  const next = firstStep(env);
   const brokenRows = rows?.filter((r) => !r.ok) ?? [];
   const missingEnv = env.filter((e) => !e.set);
 
@@ -424,6 +484,17 @@ export default async function EstadoPage() {
         lo que falta acá se apaga en silencio: nadie ve un error, la función simplemente deja de
         existir.
       </p>
+
+      {/* One thing, because a list of ten is not a plan. See `firstStep`. */}
+      {next && (
+        <section className="mt-8 rounded-lg border border-accent/40 bg-accent-soft/25 px-5 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-accent">
+            Empieza por acá
+          </p>
+          <p className="mt-1.5 text-[16px] font-medium leading-relaxed text-ink">{next.do}</p>
+          <p className="mt-1 text-[14px] leading-relaxed text-muted">{next.then}</p>
+        </section>
+      )}
 
       <h2 className="mt-12 font-serif text-[22px] font-normal">Base de datos</h2>
       {rows === null ? (
