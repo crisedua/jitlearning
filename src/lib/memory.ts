@@ -36,6 +36,39 @@ const BACKFILL_LIMIT = 2;
 /** Per-summary cap. ElevenLabs writes a paragraph; a runaway one stays a paragraph. */
 const SUMMARY_CHARS = 900;
 
+/**
+ * Longest this lookup may delay the microphone.
+ *
+ * The count of fetches was bounded and the time was not. `request()` calls
+ * `fetch` with no timeout, `/api/signed-url` awaits this before it answers, and
+ * the learner is looking at a button they just pressed. A slow ElevenLabs meant
+ * silence until Vercel killed the function, and this module's own promise is
+ * that memory degrades to a cold start rather than ever failing the mint —
+ * which covered errors and not slowness, the more likely of the two.
+ *
+ * Two and a half seconds is past the normal case by a wide margin and well
+ * inside what somebody will wait without deciding the thing is broken. Past it,
+ * the session starts with no memory: the teacher opens on the record instead,
+ * which is a database read and always there, and the summaries are picked up on
+ * a later start.
+ */
+const DEADLINE_MS = 2_500;
+
+/**
+ * Resolve to `fallback` if `work` has not finished in time.
+ *
+ * The losing promise is not cancelled. It is one GET whose result is discarded,
+ * and a request already in flight costs nothing to let finish; adding
+ * cancellation would mean threading an AbortSignal through every layer to save
+ * nothing measurable.
+ */
+function withDeadline<T>(work: Promise<T>, fallback: T): Promise<T> {
+  return Promise.race([
+    work,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), DEADLINE_MS)),
+  ]);
+}
+
 interface SessionRow {
   id: string;
   conversation_id: string;
@@ -147,6 +180,10 @@ async function recentSessions(
  * behaviour rule.
  */
 export async function learnerContext(userId: string): Promise<string | null> {
+  return withDeadline(buildContext(userId), null);
+}
+
+async function buildContext(userId: string): Promise<string | null> {
   if (!serviceConfigured()) return null;
 
   const recent = await recentSessions(userId);
