@@ -683,6 +683,27 @@ export function buildRecord({
   }
   if (current) {
     blocks.push(`Plan: paso ${current.number} de ${steps.length}, "${current.step.title}".`);
+    /*
+     * Half a measurement, which is the most useful thing a record can carry.
+     *
+     * `minutes_before` is written the moment the learner says how long a task
+     * takes them, whether or not the class ever reaches the second number. A
+     * class that ends first leaves exactly this behind: the task chosen, the
+     * before number said out loud and stored, and nothing to subtract from it.
+     *
+     * A class ends at a fixed ceiling, so this is not a rare accident. The free
+     * tier is two classes, and without this line the second one opens knowing
+     * the step but not that its number is half-taken. The teacher restarts the
+     * task instead of asking the one question that completes it, and the
+     * learner spends their whole free allowance without ever seeing a
+     * subtraction, which is the only thing here worth paying for.
+     */
+    if (current.step.minutesBefore !== null && current.step.minutesAfter === null) {
+      blocks.push(
+        `Ya te dijo que esa tarea le toma ${spellMinutes(current.step.minutesBefore)}, y falta ` +
+          'el segundo número: termínala y pregúntale cuánto tardó ahora.',
+      );
+    }
   } else if (steps.length > 0) {
     blocks.push(`Plan: los ${steps.length} pasos están marcados como hechos.`);
   }

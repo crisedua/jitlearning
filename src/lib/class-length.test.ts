@@ -160,3 +160,43 @@ describe('what the learner is told before pressing start', () => {
     assert.match(note, /from '@\/lib\/class-length'/);
   });
 });
+
+/*
+ * What the second class knows about the first.
+ *
+ * The free tier is two classes at the ceiling. If the first ends before the
+ * second number is asked for, the task is chosen and `minutes_before` is
+ * already stored — half a subtraction, sitting in the database with nothing to
+ * subtract from it.
+ *
+ * The record the teacher opens on carries the plan step but said nothing about
+ * that, so the second class had no way to know it was one question from the
+ * only outcome that matters, and a learner could spend their entire free
+ * allowance without ever hearing a subtraction.
+ */
+describe('resuming a measurement the ceiling interrupted', () => {
+  const progress = read('src', 'lib', 'progress.ts');
+
+  it('tells the teacher when a step is half measured', () => {
+    assert.match(
+      progress,
+      /minutesBefore !== null && current\.step\.minutesAfter === null/,
+      'the record no longer notices a task with only its first number',
+    );
+  });
+
+  it('says what to do about it, not just that it happened', () => {
+    assert.match(progress, /falta[\s\S]{0,40}el segundo número/);
+    assert.match(progress, /pregúntale cuánto tardó ahora/);
+  });
+
+  it('quotes the number the learner gave rather than describing it', () => {
+    assert.match(progress, /spellMinutes\(current\.step\.minutesBefore\)/);
+  });
+
+  it('only fires while the second number is genuinely missing', () => {
+    // Once both are in, the step is measured and the saving speaks for itself;
+    // repeating the question would ask for something already given.
+    assert.doesNotMatch(progress, /minutesBefore !== null &&\s*current\.step\.minutesAfter !== null/);
+  });
+});
