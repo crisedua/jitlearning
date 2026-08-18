@@ -190,15 +190,25 @@ async function main() {
       } else {
         bad('No tools attached, but the persona tells the learner it can search.');
         /*
-         * Order matters, and getting it backwards is worse than doing nothing.
-         * The tool points at `/api/ask`, which needs ANTHROPIC_API_KEY in the
-         * deployment. Attach it first and the agent stops being unable to search
-         * and starts announcing a search that errors mid-conversation, in front
-         * of the learner. Not searching is a limitation; searching and failing is
-         * a broken product, so the key goes in first.
+         * Order matters, and this note used to name the wrong prerequisite.
+         *
+         * It said ANTHROPIC_API_KEY had to be deployed first or the agent would
+         * announce a search that errored mid-conversation. `/api/ask` does not
+         * error without it: it returns 200 and a sentence written to be said out
+         * loud, "no puedo buscar en internet en este momento", and the lesson
+         * carries on. Missing that key is a degraded feature, not a broken turn.
+         *
+         * INGEST_SECRET is the one that breaks things, and it is checked before
+         * anything else in that route: unset, every call returns 503, and a tool
+         * returning 503 is a failure the learner hears. So the secret is the gate,
+         * the model key is an improvement, and the old note delayed a safe step
+         * for the wrong reason.
          */
-        note('Set ANTHROPIC_API_KEY in the deployment FIRST, then `npm run setup:tools -- --push`.');
-        note('Backwards, the agent announces a search that errors mid-conversation.');
+        note('Needs INGEST_SECRET in the deployment first: /api/ask returns 503 without it,');
+        note('and a tool that 503s is a failure the learner hears mid-conversation.');
+        note('ANTHROPIC_API_KEY is not a blocker — without it the tool answers, out loud,');
+        note('that it cannot search right now, and the class continues.');
+        note('Then: `npm run setup:tools -- --push`.');
         failures++;
       }
     } catch (err) {
@@ -655,6 +665,30 @@ async function main() {
     note('Or retire a tier, or make the difference something other than minutes.');
     failures++;
   }
+
+  /*
+   * The secret that gates every privileged route.
+   *
+   * Unset, `requireSecret` throws before anything else runs, so /api/health,
+   * /api/billing/setup, /api/ask, /api/knowledge and /api/agent/provision all
+   * return 503 no matter how well the rest is configured. Three of those are
+   * setup steps somebody is told to run, and each would fail in a way that looks
+   * like the route is broken rather than like one variable is missing.
+   *
+   * Checked here against the local environment, which is the only one this
+   * script can see. The deployment answers for itself: an unauthenticated GET of
+   * /api/health returns 503 when the secret is missing and 401 when it is set,
+   * so the difference is visible from outside without ever holding the value.
+   */
+  console.log('\nShared secret\n');
+  if (process.env.INGEST_SECRET?.trim()) {
+    ok('INGEST_SECRET is set locally');
+  } else {
+    bad('INGEST_SECRET is not set locally, so no privileged route can be called from here.');
+    failures++;
+  }
+  note('For the deployment: curl -o /dev/null -w "%{http_code}" <app>/api/health');
+  note('  503 = the secret is missing there · 401 = it is set (and this call lacks it)');
 
   // ------------------------------------------------------------- Curriculum
   console.log('\nCurriculum\n');

@@ -41,6 +41,14 @@ Everything below is idempotent and safe to re-run. `npm run doctor` is the check
 after each step and names what is still missing.
 
 ```bash
+# 0. INGEST_SECRET in the deployment, before anything else here.
+#    Every privileged route checks it first and returns 503 without it,
+#    so steps 3, 4 and 5 below fail in a way that looks like the routes
+#    are broken. Check which state a deployment is in without holding
+#    the value:
+#      curl -o /dev/null -w "%{http_code}\n" https://<app>.vercel.app/api/health
+#      503 = missing there · 401 = set (and this call simply lacks it)
+
 # 1. The database, as one paste. Run ALL of it, to the last line: the
 #    final migration fixes a check constraint that otherwise rejects
 #    every plan the app writes, silently. The output header lists and
