@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
+import { TEACHER } from './teacher';
 
 const ROOT = process.cwd();
 
@@ -66,6 +67,47 @@ describe('what the deployment page says it is checking', () => {
         names.some((n) => page.has(n)),
         `the README says what breaks without ${names.join(' or ')}, and /admin/estado checks ` +
           `none of them. Its "todas puestas" would be true of everything except this.`,
+      );
+    });
+  }
+});
+
+/**
+ * `npm run doctor` reports on every variable the README says matters, too.
+ *
+ * The status page and the doctor answer different questions — one for the
+ * deployment, one for the machine you are on — and both are only worth running
+ * if they cover everything. The doctor has been missing a variable twice:
+ * NEXT_PUBLIC_SITE_URL, which decides where the search tool registers and which
+ * hostname sign-in may begin on, and ELEVENLABS_WEBHOOK_SECRET, without which a
+ * class happens and nothing survives it. Both went unmentioned for dozens of
+ * rounds in the tool the README says to run after every step.
+ *
+ * `ELEVENLABS_AGENT_ID` is referenced through `TEACHER.envKey` rather than as a
+ * literal, which is why this resolves that constant instead of grepping for the
+ * name: a check that demanded the literal would be asking for noise.
+ */
+describe('what the doctor says it is checking', () => {
+  const docs = documented();
+  const doctor = readFileSync(path.join(ROOT, 'scripts', 'doctor.ts'), 'utf8');
+
+  it('found both, so the checks below mean something', () => {
+    assert.ok(docs.length >= 7, `only ${docs.length} rows parsed from the README`);
+    assert.ok(doctor.length > 5_000, 'doctor.ts looks too small to have been read');
+  });
+
+  for (const names of docs) {
+    it(`${names.join(' / ')} is checked`, () => {
+      assert.ok(
+        /*
+         * Word-boundary, not substring. `includes` passed a deliberate break
+         * where the variable had been renamed to ELEVENLABS_WEBHOOK_SECRET_X,
+         * because the original is a prefix of the typo — a guard that accepts
+         * the thing it was written to catch.
+         */
+        names.some((n) => new RegExp(`\\b${n}\\b`).test(doctor) || n === TEACHER.envKey),
+        `the README says what breaks without ${names.join(' or ')}, and npm run doctor ` +
+          `never mentions it. Somebody following the going-live list would get no signal.`,
       );
     });
   }
