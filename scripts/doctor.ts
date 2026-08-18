@@ -38,6 +38,7 @@ import { serviceConfigured, supabaseAdmin } from '../src/lib/supabase/admin';
 import { classReport } from '../src/lib/classes';
 import { firstMissingRung } from '../src/lib/setup';
 import { deliveryReport } from '../src/lib/delivery';
+import { parity } from '../src/lib/parity';
 import { billingConfigured, stripe as stripeClient } from '../src/lib/billing';
 import { breakEven, DEFAULT_INPUTS } from '../src/lib/costs';
 import { configuredOrigin, DEFAULT_ORIGIN } from '../src/lib/canonical';
@@ -133,6 +134,19 @@ async function main() {
     try {
       const agent = await getAgent(id);
       const prompt = agent.conversation_config?.agent?.prompt;
+
+      /*
+       * One comparison, shared with /admin/estado. See `parity.ts`: both
+       * surfaces used to compute this separately, which is two definitions of
+       * whether the agent is right.
+       */
+      const check = parity({
+        prompt,
+        dynamicVariables: agent.conversation_config?.agent?.dynamic_variables
+          ?.dynamic_variable_placeholders,
+        platform_settings: (agent as unknown as { platform_settings?: never }).platform_settings,
+      });
+
       const attached = prompt?.knowledge_base ?? [];
 
       /*
@@ -171,33 +185,18 @@ async function main() {
        *
        * Both are one dashboard edit away and neither raises anything.
        */
-      const liveRag = prompt?.rag ?? {};
-      const wantRag = ragConfig();
-      const ragDrift: string[] = [];
-      if (liveRag.embedding_model !== wantRag.embedding_model) {
-        ragDrift.push(
-          `embedding model is ${liveRag.embedding_model ?? 'unset'}, repo says ${wantRag.embedding_model}`,
-        );
-      }
-      if (liveRag.max_vector_distance !== wantRag.max_vector_distance) {
-        ragDrift.push(
-          `relevance gate is ${liveRag.max_vector_distance ?? 'unset'}, repo says ${wantRag.max_vector_distance}`,
-        );
-      }
-
-      if (!prompt?.rag?.enabled) {
+      if (!check.retrieval.enabled) {
         bad('RAG is disabled on the live agent, so the corpus is never consulted.');
         failures++;
-      } else if (ragDrift.length > 0) {
-        bad(`Retrieval is configured differently from this repo: ${ragDrift.join('; ')}.`);
+      } else if (check.retrieval.drift.length > 0) {
+        bad(`Retrieval is configured differently from this repo: ${check.retrieval.drift.join('; ')}.`);
         note('Too tight a gate, or a model the documents were not indexed with, retrieves nothing.');
         note('The teacher then answers from general knowledge and says so, and sounds fine doing it.');
         note('Run `npm run sync:agent -- --push`.');
         failures++;
       } else {
-        ok(
-          `Retrieval matches: ${wantRag.embedding_model} at ${wantRag.max_vector_distance}`,
-        );
+        const want = ragConfig();
+        ok(`Retrieval matches: ${want.embedding_model} at ${want.max_vector_distance}`);
       }
 
       /*
@@ -242,113 +241,38 @@ async function main() {
        *
        * Compared on exact text, because a persona is not approximately correct.
        */
-      const live = (prompt?.prompt ?? '').trim();
-      /*
-       * Which variant is correct depends on the agent, not on a preference: the
-       * persona ships without its lookup promise when no search tool is
-       * attached. Comparing against only the searching one would call a
-       * correctly synced agent drifted, which is how a real drift later gets
-       * ignored.
-       */
-      const hasTool = (prompt?.tool_ids ?? []).length > 0;
-      const local = teacherSystemPrompt({ search: hasTool }).trim();
-      if (live === local) {
+      if (check.persona === 'match') {
         ok(
-          hasTool
+          check.hasTool
             ? "The live agent is running this repo's persona, character for character"
             : "The live agent is running this repo's persona, without the search it cannot do",
         );
-      } else if (live === teacherSystemPrompt({ search: !hasTool }).trim()) {
+      } else if (check.persona === 'empty') {
+        bad('The live agent has no system prompt at all. Run `npm run sync:agent -- --push`.');
+        failures++;
+      } else if (check.persona === 'foreign') {
+        bad("The live agent's persona is neither variant of this repo's.");
+        note('Somebody edited it in the dashboard, or the sync never ran.');
+        note('Run `npm run sync:agent -- --push`.');
+        failures++;
+      } else {
         bad(
-          hasTool
+          check.persona === 'under-promises'
             ? 'The live persona has no lookup instructions, but a search tool is attached.'
             : 'The live persona promises a search, but no tool is attached to run it.',
         );
         note('`npm run sync:agent -- --push` pushes the variant that matches the agent.');
         failures++;
-      } else if (!live) {
-        bad('The live agent has no system prompt at all. Run `npm run sync:agent -- --push`.');
-        failures++;
-      } else {
-        bad(
-          `The live agent's persona differs from this repo (${live.length} chars live, ${local.length} here).`,
-        );
-        note('Run `npm run sync:agent -- --push`. Until then every persona check below is about a file, not about what anybody hears.');
-        failures++;
       }
 
-      /*
-       * The opening line, which lives outside the prompt and outside every check
-       * that reads it.
-       *
-       * `first_message` is its own field on the agent, and it is the one that
-       * makes a returning learner hear the commitment they made last time
-       * instead of a greeting. Blanked or edited on the live agent, every session
-       * opens on something other than the record, the memory work behind it is
-       * invisible, and the persona check above still passes character for
-       * character because none of this is in the persona.
-       */
-      const liveFirst = (agent.conversation_config?.agent?.first_message ?? '').trim();
-      if (liveFirst === FIRST_MESSAGE) {
-        ok('The opening line is the template, so the record is what gets spoken');
-      } else {
-        bad(
-          `The live agent opens with ${liveFirst ? `"${liveFirst}"` : 'nothing'}, not ${FIRST_MESSAGE}.`,
-        );
-        note('Every session would open on that instead of on the learner\'s own record.');
-        note('Run `npm run sync:agent -- --push`.');
-        failures++;
-      }
-
-      // The prompt references {{registro}} and friends. A conversation started
-      // without them fails outright, and the placeholders are what keep a test
-      // from the ElevenLabs dashboard working.
-      const placeholders =
-        agent.conversation_config?.agent?.dynamic_variables?.dynamic_variable_placeholders ?? {};
-      const missingVars = ['apertura', 'registro', 'primera_sesion'].filter(
-        (name) => !(name in placeholders),
-      );
-      if (missingVars.length === 0) {
+      if (check.missingVariables.length === 0) {
         ok('Dynamic variable placeholders are set on the live agent');
-
-        /*
-         * The values, not just the keys.
-         *
-         * A placeholder is what a dashboard test conversation uses; a real
-         * session overwrites all three at connect time from `learnerRecord`. So
-         * a stale value here does not reach a learner, and it does mean the
-         * conversation somebody runs to check the teacher's behaviour opens on a
-         * sentence the repo no longer contains — which is the one place it would
-         * be least noticed and most misleading.
-         *
-         * A note rather than a failure, because nothing a learner meets is
-         * affected. Same reason the persona check above is a failure: that one
-         * is what everybody hears.
-         */
-        const expected = dynamicVariablePlaceholders();
-        const stale = Object.keys(expected).filter(
-          (name) => placeholders[name] !== expected[name],
-        );
-        if (stale.length > 0) {
-          note(`Placeholder text differs from this repo for: ${stale.join(', ')}.`);
-          note('Only affects a dashboard test conversation. `npm run sync:agent -- --push` updates it.');
-        }
       } else {
-        bad(`Live agent has no placeholder for: ${missingVars.join(', ')}.`);
+        bad(`Live agent has no placeholder for: ${check.missingVariables.join(', ')}.`);
         note('Run `npm run sync:agent -- --push`, or a dashboard test will fail to connect.');
         failures++;
       }
 
-      /*
-       * The lookup tool has to be attached, because the persona promises it.
-       *
-       * This check used to assert the opposite: no tools, matching a persona that
-       * told the learner it had no internet. Now the prompt says "usa la
-       * herramienta buscar", so an agent with no tools is an agent that will
-       * announce a search it cannot run and then apologise. The count is what is
-       * checkable from here; whether the URL is right is what `setup:tools`
-       * prints.
-       */
       const tools = prompt?.tool_ids ?? [];
       if (tools.length > 0) {
         ok(`${tools.length} tool(s) attached, including the lookup the persona promises`);
@@ -392,24 +316,13 @@ async function main() {
        * recorded, with a 200 logged at both ends. It is the quietest way this
        * product has of stopping working.
        */
-      const liveFields = Object.keys(
-        (agent as unknown as { platform_settings?: { data_collection?: Record<string, unknown> } })
-          .platform_settings?.data_collection ?? {},
-      );
-      const repoFields = Object.keys(dataCollection());
-      const absent = repoFields.filter((f) => !liveFields.includes(f));
-
-      if (liveFields.length === 0) {
-        bad('The live agent extracts nothing, so every session would record null.');
-        note('Run `npm run sync:agent -- --push`.');
-        failures++;
-      } else if (absent.length > 0) {
-        bad(`The live agent is missing ${absent.length} extraction field(s): ${absent.join(', ')}.`);
+      if (check.missingFields.length === 0) {
+        ok(`All ${Object.keys(dataCollection()).length} extraction fields present on the live agent`);
+      } else {
+        bad(`The live agent is missing ${check.missingFields.length} extraction field(s): ${check.missingFields.join(', ')}.`);
         note('The webhook reads those keys, finds nothing, and stores null, with a 200 at both ends.');
         note('Run `npm run sync:agent -- --push`.');
         failures++;
-      } else {
-        ok(`All ${repoFields.length} extraction fields present on the live agent`);
       }
 
       /*
@@ -421,21 +334,13 @@ async function main() {
        * conversation is for. A confident wrong verdict is worse than none: it is
        * the number an operator would check to decide the session works.
        */
-      const liveCriteria = (
-        (agent as unknown as {
-          platform_settings?: { evaluation?: { criteria?: Array<{ id?: string }> } };
-        }).platform_settings?.evaluation?.criteria ?? []
-      ).map((c) => c.id);
-      const repoCriteria = evaluationCriteria().map((c) => c.id);
-      const missingCriteria = repoCriteria.filter((id) => !liveCriteria.includes(id));
-
-      if (missingCriteria.length > 0) {
-        bad(`The live agent is missing ${missingCriteria.length} success criteria: ${missingCriteria.join(', ')}.`);
+      if (check.missingCriteria.length === 0) {
+        ok(`All ${evaluationCriteria().length} success criteria present, so each class is marked`);
+      } else {
+        bad(`The live agent is missing ${check.missingCriteria.length} success criteria: ${check.missingCriteria.join(', ')}.`);
         note('Every class would come back graded "success" without being asked what it achieved.');
         note('Run `npm run sync:agent -- --push`.');
         failures++;
-      } else {
-        ok(`All ${repoCriteria.length} success criteria present, so each class is marked`);
       }
     } catch (err) {
       bad(`Agent ${id} could not be fetched: ${err instanceof Error ? err.message : err}`);

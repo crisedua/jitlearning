@@ -32,6 +32,7 @@ import { NotAdmin } from '@/components/NotAdmin';
 import { MIGRATION_SENSITIVE } from '@/lib/schema';
 import { firstMissingRung } from '@/lib/setup';
 import { deliveryReport } from '@/lib/delivery';
+import { parity } from '@/lib/parity';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
 import { getAgent } from '@/lib/elevenlabs';
 import { agentId } from '@/lib/config';
@@ -291,56 +292,40 @@ async function readAgent(id: string): Promise<AgentRow[]> {
     const attached = prompt?.knowledge_base ?? [];
     const foreign = attached.filter((d) => !ownsDocument(d.name));
     const live = (prompt?.prompt ?? '').trim();
+    // One comparison, shared with the doctor. See `parity.ts`.
+    const check = parity({
+      prompt,
+      dynamicVariables: agent.conversation_config?.agent?.dynamic_variables
+        ?.dynamic_variable_placeholders,
+      platform_settings: (agent as unknown as { platform_settings?: never }).platform_settings,
+    });
+
     // Which persona this agent should be running, from what it actually carries.
     const hasTool = (prompt?.tool_ids ?? []).length > 0;
     const wantRag = ragConfig();
-
-    const settings = (agent as unknown as {
-      platform_settings?: {
-        data_collection?: Record<string, unknown>;
-        evaluation?: { criteria?: Array<{ id?: string }> };
-      };
-    }).platform_settings;
-
-    const declaredVars = Object.keys(
-      agent.conversation_config?.agent?.dynamic_variables?.dynamic_variable_placeholders ?? {},
-    );
-    const missingVars = Object.keys(dynamicVariablePlaceholders()).filter(
-      (name) => !declaredVars.includes(name),
-    );
-
-    const repoFields = Object.keys(dataCollection());
-    const liveFields = Object.keys(settings?.data_collection ?? {});
-    const missingFields = repoFields.filter((f) => !liveFields.includes(f));
-
-    const repoCriteria = evaluationCriteria().map((c) => c.id);
-    const liveCriteria = (settings?.evaluation?.criteria ?? []).map((c) => c.id);
-    const missingCriteria = repoCriteria.filter((id) => !liveCriteria.includes(id));
 
     return [
       {
         label: 'La persona que está corriendo',
         /*
-         * Which variant is right is decided by the agent, not by preference.
-         *
-         * This accepted either one, which made both mismatches read as correct.
-         * The one worth catching is the quiet direction: a search tool attached
-         * and a persona that says it cannot look anything up. Nothing errors,
-         * the tool row below goes green, the class sounds fine, and the teacher
-         * declines to use something it has, to everybody, until somebody
-         * notices. A promise not made looks like modesty.
+         * One comparison, shared with the doctor. See `parity.ts`. Both
+         * mismatches are named separately because the fix reads differently by
+         * direction, and the quiet one — a tool attached and a persona that
+         * declines to use it — errors nowhere and is taught to everybody.
          */
-        ok: live === teacherSystemPrompt({ search: hasTool }).trim(),
+        ok: check.persona === 'match',
         detail:
-          live === teacherSystemPrompt({ search: hasTool }).trim()
-            ? hasTool
+          check.persona === 'match'
+            ? check.hasTool
               ? 'Es la de este repo, carácter por carácter.'
               : 'Es la de este repo, sin la promesa de buscar, porque no hay herramienta conectada.'
-            : live === teacherSystemPrompt({ search: !hasTool }).trim()
-              ? hasTool
-                ? 'Hay herramienta de búsqueda y la persona dice que no puede buscar. Corre `npm run sync:agent -- --push`.'
-                : 'La persona promete buscar y no hay herramienta conectada. Corre `npm run sync:agent -- --push`.'
-              : 'El agente tiene una versión distinta. Corre `npm run sync:agent -- --push`.',
+            : check.persona === 'under-promises'
+              ? 'Hay herramienta de búsqueda y la persona dice que no puede buscar. Corre `npm run sync:agent -- --push`.'
+              : check.persona === 'over-promises'
+                ? 'La persona promete buscar y no hay herramienta conectada. Corre `npm run sync:agent -- --push`.'
+                : check.persona === 'empty'
+                  ? 'El agente no tiene prompt. Corre `npm run sync:agent -- --push`.'
+                  : 'El agente tiene una versión distinta. Corre `npm run sync:agent -- --push`.',
       },
       {
         label: 'La primera frase',
@@ -369,27 +354,27 @@ async function readAgent(id: string): Promise<AgentRow[]> {
        */
       {
         label: 'Las variables de la conversación',
-        ok: missingVars.length === 0,
+        ok: check.missingVariables.length === 0,
         detail:
-          missingVars.length === 0
+          check.missingVariables.length === 0
             ? 'Todas declaradas. Una conversación que no las mande igual arranca.'
-            : `Faltan ${missingVars.join(', ')}. Sin esos valores por defecto, una conversación que no los mande falla entera y se ve como un error de conexión. Corre \`npm run sync:agent -- --push\`.`,
+            : `Faltan ${check.missingVariables.join(', ')}. Sin esos valores por defecto, una conversación que no los mande falla entera y se ve como un error de conexión. Corre \`npm run sync:agent -- --push\`.`,
       },
       {
         label: 'Lo que se extrae de cada clase',
-        ok: missingFields.length === 0,
+        ok: check.missingFields.length === 0,
         detail:
-          missingFields.length === 0
-            ? `Los ${repoFields.length} campos están en el agente.`
-            : `Faltan ${missingFields.length}: ${missingFields.join(', ')}. El webhook los lee, no encuentra nada y guarda null, con un 200 en los dos extremos. Corre \`npm run sync:agent -- --push\`.`,
+          check.missingFields.length === 0
+            ? `Los ${Object.keys(dataCollection()).length} campos están en el agente.`
+            : `Faltan ${check.missingFields.length}: ${check.missingFields.join(', ')}. El webhook los lee, no encuentra nada y guarda null, con un 200 en los dos extremos. Corre \`npm run sync:agent -- --push\`.`,
       },
       {
         label: 'Con qué se califica cada clase',
-        ok: missingCriteria.length === 0,
+        ok: check.missingCriteria.length === 0,
         detail:
-          missingCriteria.length === 0
-            ? `Los ${repoCriteria.length} criterios están puestos, así que cada conversación vuelve marcada.`
-            : `Faltan ${missingCriteria.length}: ${missingCriteria.join(', ')}. Sin ellos toda clase vuelve como "success" sin que nadie haya preguntado qué logró. Corre \`npm run sync:agent -- --push\`.`,
+          check.missingCriteria.length === 0
+            ? `Los ${evaluationCriteria().length} criterios están puestos, así que cada conversación vuelve marcada.`
+            : `Faltan ${check.missingCriteria.length}: ${check.missingCriteria.join(', ')}. Sin ellos toda clase vuelve como "success" sin que nadie haya preguntado qué logró. Corre \`npm run sync:agent -- --push\`.`,
       },
       {
         label: 'La búsqueda en el material',
