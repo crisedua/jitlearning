@@ -36,11 +36,23 @@ function walk(dir: string, out: string[] = []): string[] {
 
 const all = [...walk(path.join(ROOT, 'src')), ...walk(path.join(ROOT, 'scripts'))];
 const runtime = all.filter((f) => !f.endsWith('.test.ts'));
-const modules = runtime.filter((f) => f.startsWith(path.join(ROOT, 'src', 'lib')));
+/*
+ * `lib` and `components` both, and nothing else.
+ *
+ * Routes and pages are wired by Next's file conventions rather than by an
+ * import, so "nothing imports it" is the normal state for them and would make
+ * this check noise. Everything here is reached by somebody writing an import,
+ * which means it can be forgotten by somebody not writing one.
+ */
+const modules = runtime.filter(
+  (f) =>
+    f.startsWith(path.join(ROOT, 'src', 'lib')) ||
+    f.startsWith(path.join(ROOT, 'src', 'components')),
+);
 
-describe('modules in lib', () => {
+describe('modules and components', () => {
   it('found the tree it is meant to check', () => {
-    assert.ok(modules.length > 10, `only ${modules.length} modules found under src/lib`);
+    assert.ok(modules.length > 25, `only ${modules.length} modules and components found`);
     assert.ok(runtime.length > 40, `only ${runtime.length} runtime files found`);
   });
 
