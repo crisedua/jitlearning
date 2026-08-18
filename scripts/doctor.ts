@@ -1244,6 +1244,7 @@ async function main() {
    * Needs no secret: the origin is public and so is the commit it reports.
    */
   console.log('\nDeployed commit\n');
+  let deploymentStale = false;
   const origin = configuredOrigin() ?? DEFAULT_ORIGIN;
   try {
     const res = await fetch(`${origin}/api/health`, {
@@ -1261,6 +1262,7 @@ async function main() {
        * build predates it, which is the same conclusion as being behind and
        * is worth stating as one rather than as a shrug.
        */
+      deploymentStale = true;
       bad(`${origin} reports no commit, so it is running a build older than this check.`);
       note('Nothing pushed since then is live, including everything checked above.');
       note('Look for a failed or paused deployment rather than for a bug here.');
@@ -1271,6 +1273,7 @@ async function main() {
       const behind = execSync(`git rev-list --count ${live}..HEAD 2>/dev/null || echo ?`)
         .toString()
         .trim();
+      deploymentStale = true;
       bad(`${origin} is serving ${live}; this checkout is ${local}, ${behind} commit(s) ahead.`);
       note('Nothing you have pushed since then is live, including anything checked above.');
       failures++;
@@ -1592,11 +1595,27 @@ async function main() {
       ],
     };
 
+    /*
+     * A stale deployment outranks every variable below it.
+     *
+     * The ladder asks for environment variables in the order that makes each
+     * next thing observable, and all of it assumes a push becomes a build.
+     * Vercel applies a variable on the following deployment, so if deployments
+     * are not happening, setting one changes nothing and looks like it should
+     * have. That is an hour spent on the wrong screen.
+     */
     const rung = firstMissingRung((name) =>
       name === 'NEXT_PUBLIC_SUPABASE_URL' ? usableUrl(name) : set(name),
     );
     const copy = rung ? STEP_COPY[rung.id] : undefined;
-    if (copy) {
+
+    if (deploymentStale) {
+      console.error('\nStart here: find out why the last push did not deploy.');
+      console.error('  Everything else waits on it. A variable set in Vercel applies to the');
+      console.error('  next deployment, so with none happening it changes nothing and looks');
+      console.error('  like it should have.');
+      if (copy) console.error(`  After that: ${copy[0]}`);
+    } else if (copy) {
       console.error(`\nStart here: ${copy[0]}`);
       console.error(`  ${copy[1]}`);
     }
