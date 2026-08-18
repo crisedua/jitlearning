@@ -66,9 +66,52 @@ async function probe(): Promise<Row[] | null> {
   );
 }
 
-/** Environment that changes what the product can do, without revealing values. */
+/**
+ * Environment that changes what the product can do, without revealing values.
+ *
+ * Every variable the app reads, not a selection of them. It listed five, and
+ * said "todas puestas" when those five were set — on a page that could be
+ * saying "falta SUPABASE_SERVICE_ROLE_KEY" two sections above and "falta
+ * ELEVENLABS_AGENT_ID" one section below, at the same time, on the same screen.
+ *
+ * A green line about a subset, presented as a green line about everything, is
+ * the failure this page exists to catch, appearing on the page itself.
+ */
 function environment(): { label: string; set: boolean; missing: string }[] {
   return [
+    {
+      label: 'ELEVENLABS_API_KEY',
+      set: Boolean(process.env.ELEVENLABS_API_KEY?.trim()),
+      missing: 'No hay profesor: nadie puede tener una clase.',
+    },
+    {
+      label: 'ELEVENLABS_AGENT_ID',
+      set: Boolean(process.env.ELEVENLABS_AGENT_ID?.trim()),
+      missing: 'No hay profesor: nadie puede tener una clase.',
+    },
+    {
+      label: 'NEXT_PUBLIC_SUPABASE_URL',
+      set: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()),
+      missing: 'Nadie puede entrar, así que /coach es inalcanzable.',
+    },
+    {
+      label: 'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+      set: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()),
+      missing: 'Nadie puede entrar, así que /coach es inalcanzable.',
+    },
+    {
+      label: 'SUPABASE_SERVICE_ROLE_KEY',
+      set: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()),
+      missing: 'Las clases funcionan y no queda nada anotado: sin memoria, sin plan, sin cobro.',
+    },
+    {
+      label: 'NEXT_PUBLIC_SITE_URL',
+      set: Boolean(
+        process.env.NEXT_PUBLIC_SITE_URL?.trim() || process.env.PUBLIC_BASE_URL?.trim(),
+      ),
+      missing:
+        'El alias .vercel.app sigue siendo una segunda puerta, y entrar por ahí puede romper el login.',
+    },
     {
       label: 'INGEST_SECRET',
       set: Boolean(process.env.INGEST_SECRET?.trim()),
