@@ -1502,7 +1502,27 @@ async function main() {
     failures++;
   } else if (persona.length > BUDGET - 500) {
     ok(`Persona is ${persona.length} chars`);
-    note(`Only ${BUDGET - persona.length} chars of headroom. Adding a lesson will exceed it.`);
+    /*
+     * Say how many, not "a lesson".
+     *
+     * This said adding a lesson would exceed the budget, and at 171 chars of
+     * headroom that was false by a factor of four: a lesson reaches the persona
+     * as "N. Título" on its own line, which is its title plus about four
+     * characters, and titles here run 19 to 53. The warning was alarming past
+     * the truth, which is the way a warning stops being read.
+     *
+     * The arithmetic is the useful part anyway. "Three more lessons" tells
+     * somebody whether they are deciding or reclaiming; "will exceed it" tells
+     * them to panic on a budget with room in it.
+     */
+    const headroom = BUDGET - persona.length;
+    const longest = Math.max(...LESSONS.map((l) => l.title.length)) + 4;
+    const fits = Math.floor(headroom / longest);
+    note(
+      `Only ${headroom} chars of headroom: room for about ${fits} more lesson title${
+        fits === 1 ? '' : 's'
+      }, and none of anything else.`,
+    );
   } else {
     ok(`Persona is ${persona.length} chars`);
   }
