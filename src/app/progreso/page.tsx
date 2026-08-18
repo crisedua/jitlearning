@@ -332,6 +332,21 @@ function Recuperado({ saved }: { saved: TimeSaved }) {
 }
 
 /** Nothing has happened yet. Say what the first session does, not "no data". */
+/**
+ * The empty notebook, read by somebody who has signed in and not yet spoken.
+ *
+ * It described the order this product had before it was rebuilt: ask four
+ * questions, show the map, build the plan, and reach the learner's own tasks
+ * "desde la segunda sesión". That is the ordering the README has a section
+ * explaining was a vitamin, and the one the hero, the persona, the topic buttons
+ * and the opening line were all moved off. This was the fourth place still
+ * telling people the old story, and the one they read while deciding whether to
+ * press start.
+ *
+ * It also said the class can be done walking. The first one cannot, for the
+ * reason the landing page now gives: it ends with a task actually done, and that
+ * needs a screen.
+ */
 function FirstVisit() {
   return (
     <section className="rounded-lg border border-line bg-surface-alt/50 p-6">
@@ -339,12 +354,14 @@ function FirstVisit() {
         Todavía no hay nada acá, y eso es normal.
       </h2>
       <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-muted">
-        Esta página se llena en tu primera clase. El profesor te va a preguntar a qué te
-        dedicas, en qué se te va la semana y qué buscas. Con eso te muestra el mapa, armas tu
-        plan, y desde la segunda sesión cada clase se ancla a una de tus propias tareas.
+        Esta página se llena en tu primera clase. El profesor te pregunta a qué te dedicas y en
+        qué se te va la semana, eligen juntos la tarea que más te pesa, y la resuelven ahí mismo
+        con tus propias cosas. Al terminar mides cuánto tardabas y cuánto tardaste: esa resta
+        queda acá. El mapa y el plan vienen después, cuando ya viste funcionar algo tuyo.
       </p>
       <p className="mt-3 text-[15px] leading-relaxed text-muted">
-        Son unos 15 minutos hablando. Puedes hacerlo caminando.
+        Son unos 15 minutos hablando. Esta primera vez, mejor frente al computador: la idea es
+        que termines con la tarea hecha.
       </p>
     </section>
   );
