@@ -76,3 +76,44 @@ describe('modules and components', () => {
     );
   });
 });
+
+/*
+ * And no exported function that nothing calls.
+ *
+ * The module check above asks whether a file is imported. This asks the same
+ * question one level down, because a module can be imported for one of its
+ * exports while another sits dead inside it — which is how `fromGeneralScraper`
+ * survived: `pains.ts` is imported, and that function was written to normalise a
+ * second scraper's output, never wired to the replay path it describes, and
+ * documented as though it were.
+ *
+ * Dead code with a docstring is worse than dead code without one. It describes a
+ * capability the product does not have, to somebody deciding whether the product
+ * has it.
+ *
+ * Counted inside the defining module too: a helper used only by its own file is
+ * doing its job, and only an export nothing calls anywhere is the failure.
+ */
+describe('exported functions', () => {
+  const runtime = all.filter((f) => !f.endsWith('.test.ts'));
+  const modules = runtime.filter((f) => f.startsWith(path.join(ROOT, 'src', 'lib')));
+
+  it('are called from somewhere', () => {
+    const sources = new Map(runtime.map((f) => [f, readFileSync(f, 'utf8')]));
+    const dead: string[] = [];
+
+    for (const file of modules) {
+      const text = sources.get(file)!;
+      for (const m of text.matchAll(/^export (?:async )?function ([A-Za-z_][A-Za-z0-9_]*)/gm)) {
+        const name = m[1]!;
+        const call = new RegExp(`\\b${name}\\s*\\(`);
+        // One match in its own file is the declaration itself.
+        const own = (text.match(new RegExp(`\\b${name}\\s*\\(`, 'g')) ?? []).length - 1;
+        const elsewhere = [...sources].some(([f, s]) => f !== file && call.test(s));
+        if (own <= 0 && !elsewhere) dead.push(`${path.relative(ROOT, file)}: ${name}()`);
+      }
+    }
+
+    assert.deepEqual(dead, [], `exported and never called: ${dead.join(', ')}`);
+  });
+});

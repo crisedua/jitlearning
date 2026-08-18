@@ -408,33 +408,6 @@ export function toSignal(post: RedditPost): PainSignal {
   };
 }
 
-/**
- * Normalise a post from the general-purpose scraper into the fast actor's
- * shape.
- *
- * Two actors are in play: the fast search one this pipeline uses, and the
- * thorough one used for the exploratory sweeps whose output is still on disk
- * and still the best material collected. Rather than re-buy that data, this
- * translates its field names — `parsedCommunityName` for the subreddit,
- * `upVotes` for the score — and drops comment rows, which carry no title.
- */
-export function fromGeneralScraper(item: Record<string, unknown>): RedditPost | null {
-  if (item.dataType !== 'post') return null;
-  return {
-    title: typeof item.title === 'string' ? item.title : undefined,
-    body: typeof item.body === 'string' ? item.body : undefined,
-    url: typeof item.url === 'string' ? item.url : undefined,
-    subreddit:
-      typeof item.parsedCommunityName === 'string'
-        ? item.parsedCommunityName
-        : typeof item.communityName === 'string'
-          ? item.communityName.replace(/^r\//, '')
-          : undefined,
-    score: typeof item.upVotes === 'number' ? item.upVotes : undefined,
-    num_comments: typeof item.numberOfComments === 'number' ? item.numberOfComments : undefined,
-  };
-}
-
 /** Filter a raw sweep down to storable evidence, de-duplicated by URL. */
 export function curate(posts: RedditPost[]): PainSignal[] {
   const seen = new Set<string>();
