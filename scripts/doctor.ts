@@ -33,7 +33,7 @@ import {
   teacherSystemPrompt,
 } from '../src/lib/agent';
 import { PROMISES } from '../src/lib/site';
-import { CLASS_CAP_MINUTES } from '../src/lib/class-length';
+import { CLASS_CAP_MINUTES, wrapUpAt } from '../src/lib/class-length';
 import { ASSUMED_SESSION_MINUTES, dominatedBy, FALLBACK_PLANS, formatMinutes, formatMoney } from '../src/lib/plans';
 import { buildPlan, LESSONS, LEVELS, lessonsForLevel, PATHS } from '../src/lib/curriculum';
 import { serviceConfigured, supabaseAdmin } from '../src/lib/supabase/admin';
@@ -901,6 +901,37 @@ async function main() {
     ok(
       `A class is advertised at ${ASSUMED_SESSION_MINUTES} min and ends at ${CLASS_CAP_MINUTES}`,
     );
+  }
+
+  /*
+   * What is left for the task once everything promised is subtracted.
+   *
+   * Each of these was decided somewhere else and is defensible on its own: the
+   * closing is a share of the class, the privacy briefing is two minutes the
+   * site sells by name, the opening has to establish who they are and what the
+   * task took before. Nothing adds them up, so the number that matters — how
+   * long the learner actually gets to do the thing — exists nowhere and is
+   * nobody's decision.
+   *
+   * It is not a failure, because there is no correct value to check against.
+   * It is the number to look at before changing any of the four, and the one to
+   * hold a first real class against: if the task does not get finished, this is
+   * the first place to look, not the persona.
+   */
+  {
+    const closing = CLASS_CAP_MINUTES - (wrapUpAt(CLASS_CAP_MINUTES)?.close ?? CLASS_CAP_MINUTES);
+    const privacy = 2; // `site.ts` sells "2 minutos de privacidad" by name.
+    const opening = 1.5; // Greeting, what they do, the task, the before number.
+    const forTheTask = CLASS_CAP_MINUTES - closing - privacy - opening;
+    note(
+      `Of those ${CLASS_CAP_MINUTES} min: ${opening} opening, ${privacy} privacy, ` +
+        `${closing} closing, ${forTheTask.toFixed(1)} left to do the task.`,
+    );
+    if (forTheTask < 4) {
+      note('  That is thin for finishing a real weekly task in one sitting. The free tier is');
+      note('  two classes and a half-measured task now resumes, so it can span them, but the');
+      note('  landing page promises something of theirs gets done in one.');
+    }
   }
 
   const publicPaid = FALLBACK_PLANS.filter((p) => p.isPublic && p.priceMinor > 0);
