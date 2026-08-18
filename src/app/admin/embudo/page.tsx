@@ -43,6 +43,7 @@ const CRITERIA_LABELS: Record<string, string> = {
   tarea_terminada: 'Terminó una tarea real',
   dos_numeros: 'Dejó los dos números',
   compromiso_completo: 'Cerró con un compromiso completo',
+  privacidad_antes: 'Avisó de privacidad antes de tocar material real',
   sin_inventar: 'No inventó nada',
 };
 

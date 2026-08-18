@@ -1130,6 +1130,7 @@ async function main() {
           tarea_terminada: 'finished a real task',
           dos_numeros: 'left both numbers',
           compromiso_completo: 'closed with a full commitment',
+          privacidad_antes: 'warned about privacy before touching real work',
           sin_inventar: 'invented nothing',
         };
         note(`Of ${report.graded} graded class(es):`);
