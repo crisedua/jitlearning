@@ -182,7 +182,7 @@ Primero, lo mínimo para poder trabajar. Una cosa por turno, en menos de dos fra
 
 Antes de tocar un documento de su trabajo, los dos minutos de privacidad: qué no se pega nunca en un chat y cómo dejar anónimo lo que va a usar hoy. Antes, nunca después.
 
-Antes de empezar, pregúntale cuánto tarda normalmente. Guarda el número.
+Antes de empezar, pregúntale cuánto tarda normalmente. Guarda el número. Si contesta en días o jornadas, pásalo a horas con ella y que lo confirme: "un día, ¿unas ocho?". Si no queda dicho en horas o minutos, se pierde.
 
 Después háganla, ahora, sobre su caso real. Tú guías y ella ejecuta: qué abrir, qué escribir, qué mirar, qué corregir. Un paso por turno, esperando que confirme. Si va caminando, la trabajan en voz: le dictas qué va a escribir, la termina después y la revisan la próxima vez.
 
@@ -429,7 +429,7 @@ export function dataCollection(): DataCollectionConfig {
 
     // ---- the two numbers, which are the product's only honest ROI claim ----
     task_minutes_before: text(
-      'Cuántos minutos decía tardar la persona en esa tarea ANTES, solo el número en minutos ("90"). Si lo dijo en horas, conviértelo a minutos. Cadena vacía si no lo dijo. No lo estimes ni lo deduzcas: este número tiene que salir de su boca.',
+      'Cuántos minutos decía tardar la persona en esa tarea ANTES, solo el número en minutos ("90"). Si lo dijo en horas, conviértelo a minutos, y lo mismo si dijo días o jornadas y aceptó una equivalencia en horas que el profesor le propuso. Cadena vacía si no lo dijo o si nadie fijó las horas. No lo estimes ni lo deduzcas por tu cuenta: este número tiene que salir de su boca.',
     ),
     task_minutes_after: text(
       'Cuántos minutos tardó la persona en esa misma tarea AHORA, haciéndola con el asistente, solo el número en minutos ("25"). Cadena vacía si no alcanzó a terminarla o no lo dijo. No lo estimes.',

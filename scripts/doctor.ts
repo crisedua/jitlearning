@@ -1030,6 +1030,68 @@ async function main() {
     note('No document says when it was last checked, so nothing can tell if it is stale.');
   }
 
+  /*
+   * Has anybody spoken to the teacher that exists now.
+   *
+   * The closing line of this run tells whoever reads it to have a class
+   * themselves before sending anybody a link, and until now that was advice with
+   * nothing behind it. Both halves are readable: the agent carries
+   * `metadata.updated_at_unix_secs`, and the conversations list carries when
+   * each one started.
+   *
+   * The distinction is not pedantic. Ten real conversations exist on this agent
+   * and every one of them predates the persona by more than two weeks, so what
+   * they record — no minutes captured, one commitment across all of them — is
+   * evidence about a teacher that no longer exists. Read as current it would
+   * send somebody rewriting a persona that has never been tried; read correctly
+   * it says the opposite, which is that the thing has never been tried at all.
+   */
+  console.log('\nUse\n');
+  const apiKey = process.env.ELEVENLABS_API_KEY?.trim();
+  const liveId = agentId();
+  if (!apiKey || !liveId) {
+    note('No agent to ask, so nothing here can say whether anybody has used it.');
+  } else {
+    try {
+      const [agentRes, convRes] = await Promise.all([
+        fetch(`https://api.elevenlabs.io/v1/convai/agents/${liveId}`, {
+          headers: { 'xi-api-key': apiKey },
+        }),
+        fetch(
+          `https://api.elevenlabs.io/v1/convai/conversations?agent_id=${liveId}&page_size=30`,
+          { headers: { 'xi-api-key': apiKey } },
+        ),
+      ]);
+
+      const agentBody = (await agentRes.json()) as {
+        metadata?: { updated_at_unix_secs?: number };
+      };
+      const convBody = (await convRes.json()) as {
+        conversations?: Array<{ start_time_unix_secs?: number; call_duration_secs?: number }>;
+      };
+
+      const changed = (agentBody.metadata?.updated_at_unix_secs ?? 0) * 1000;
+      const calls = convBody.conversations ?? [];
+      // A few seconds is somebody pressing the button and hanging up, which is
+      // not a class and should not read as one.
+      const real = calls.filter((c) => (c.call_duration_secs ?? 0) >= 60);
+      const newest = Math.max(0, ...real.map((c) => (c.start_time_unix_secs ?? 0) * 1000));
+
+      if (real.length === 0) {
+        note('No conversation over a minute has ever happened on this agent.');
+        note('Nothing here has been tried by a person, only checked by a machine.');
+      } else if (newest < changed) {
+        const days = Math.floor((changed - newest) / 86_400_000);
+        note(`${real.length} class(es), and the newest is ${days} day(s) older than the persona.`);
+        note('Nobody has spoken to the teacher that is live right now.');
+      } else {
+        ok(`${real.length} class(es), and at least one since the persona last changed`);
+      }
+    } catch (err) {
+      note(`Could not read usage: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
   console.log('\nPost-call webhook\n');
   if (process.env.ELEVENLABS_WEBHOOK_SECRET?.trim()) {
     ok('ELEVENLABS_WEBHOOK_SECRET is set locally');
