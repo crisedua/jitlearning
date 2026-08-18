@@ -465,5 +465,5 @@ ${FLUJO.map((l) => `- ${l.title} (para: ${l.paths?.join(', ')})`).join('\n')}
 Nivel 4, Portafolio:
 ${list(PORTAFOLIO)}
 
-Los caminos son: mejorar (hacer mejor su trabajo actual), moverse (los roles que se están abriendo), propio (algo suyo).`;
+Los caminos, como se los contaste en el mapa: mejorar, moverse, propio.`;
 }
