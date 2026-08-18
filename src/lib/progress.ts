@@ -39,6 +39,7 @@ import {
   type PlannedStep,
 } from './curriculum';
 import { OPENING_FIRST, OPENING_RETURN_FALLBACK } from './teacher';
+import { spellMinutes } from './plans';
 import { serviceConfigured, supabaseAdmin } from './supabase/admin';
 
 /** Postgres: undefined table, undefined column. Both mean "migration pending". */
@@ -573,7 +574,7 @@ export function buildRecord({
    */
   if (saved.perWeek > 0) {
     blocks.push(
-      `Ya recupera ${saved.perWeek} minutos por semana, medidos por ella en ${saved.tasksMeasured} tarea(s). Puedes abrir con eso.`,
+      `Ya recupera ${spellMinutes(saved.perWeek)} por semana, medidos por ella en ${saved.tasksMeasured} tarea(s). Puedes abrir con eso.`,
     );
   }
   if (current) {
@@ -592,7 +593,11 @@ export function buildRecord({
   }
   const days = history[0] ? daysSince(history[0].createdAt) : null;
   if (days !== null) {
-    blocks.push(days === 0 ? 'Habló contigo hoy.' : `Última sesión: hace ${days} días.`);
+    blocks.push(
+      days === 0
+        ? 'Habló contigo hoy.'
+        : `Última sesión: hace ${days} día${days === 1 ? '' : 's'}.`,
+    );
   }
 
   return {
@@ -651,10 +656,18 @@ export function opening(
    * anything is asked of the learner.
    */
   if (savedPerWeek >= 30) {
-    const hours = Math.floor(savedPerWeek / 60);
-    const rest = savedPerWeek % 60;
-    const said = hours > 0 ? `${hours} hora${hours > 1 ? 's' : ''}${rest ? ` y ${rest} minutos` : ''}` : `${rest} minutos`;
-    parts.push(`Retomemos. Con lo que ya montaste recuperas ${said} cada semana.`);
+    /*
+     * Said by `spellMinutes`, not by a second copy of the same arithmetic.
+     *
+     * There was one here, and it carried the same defect the written version
+     * did: `hora` pluralised, `minutos` never, so a saving of sixty-one minutes
+     * was spoken as "1 hora y 1 minutos". Worse out loud than on a page, and
+     * this is the first sentence a returning learner hears.
+     *
+     * Two implementations of one sentence is why the fix in round 60 did not
+     * reach here. One now.
+     */
+    parts.push(`Retomemos. Con lo que ya montaste recuperas ${spellMinutes(savedPerWeek)} cada semana.`);
   }
 
   const who = toWord(profile.role ?? profile.field ?? '', ECHO_WHO);

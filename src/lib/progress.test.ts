@@ -273,6 +273,21 @@ describe('the spoken opening for a returning learner', () => {
     }
   });
 
+  it('says the saving the way a person would, singular and all', () => {
+    /*
+     * The bug this guards: the opening had its own copy of the hour/minute
+     * arithmetic, and that copy pluralised `hora` and never `minuto`. Sixty-one
+     * minutes was spoken as "1 hora y 1 minutos" — to a returning learner, in
+     * their first sentence, about the number the whole product rests on. Both
+     * paths call `spellMinutes` now, so there is nothing left to diverge.
+     */
+    const said = (minutes: number) => opening(profile(), at('Una tarea'), null, minutes);
+    assert.ok(said(61).includes('1 hora y 1 minuto cada semana'), said(61));
+    assert.ok(!said(61).includes('1 minutos'), said(61));
+    assert.ok(said(121).includes('2 horas y 1 minuto'), said(121));
+    assert.ok(said(60).includes('1 hora cada semana'), said(60));
+  });
+
   it('leads with the saving when there is one, and still closes on a question', () => {
     const said = opening(profile(), at('Una tarea'), session({ commitment: LONG_COMMITMENT }), 135);
     assert.ok(said.startsWith('Retomemos. Con lo que ya montaste recuperas 2 horas y 15 minutos'), said);

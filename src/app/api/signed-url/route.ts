@@ -15,6 +15,7 @@ import { currentUser } from '@/lib/supabase/server';
 import { checkPlanAllowance, getUsageBalance, startCoachSession } from '@/lib/account';
 import { learnerContext } from '@/lib/memory';
 import { learnerRecord } from '@/lib/progress';
+import { spellMinutes } from '@/lib/plans';
 
 /**
  * What a learner is told when the class cannot start.
@@ -105,7 +106,7 @@ export async function GET() {
         : Math.max(0, Math.floor(balance.monthlyMinutes - balance.minutes));
 
     if (left !== null) {
-      record.registro = `${record.registro} Le quedan ${left} minutos de clase${
+      record.registro = `${record.registro} Le queda${left === 1 ? '' : 'n'} ${spellMinutes(left)} de clase${
         balance?.period === 'total' ? ' gratis en total' : ' este mes'
       }.`.slice(0, 900);
     }

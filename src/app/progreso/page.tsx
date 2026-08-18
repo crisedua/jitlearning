@@ -185,7 +185,7 @@ function Ofrecer({
         <p className="mt-2 text-[14px] leading-relaxed text-warning">
           {minutesLeft === 0
             ? 'Ya usaste tus minutos gratis.'
-            : `Te quedan ${minutesLeft} minutos gratis.`}
+            : `Te queda${minutesLeft === 1 ? '' : 'n'} ${spellMinutes(minutesLeft ?? 0)} gratis.`}
         </p>
       )}
       {/*
