@@ -21,7 +21,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getAgent, listDocuments } from '../src/lib/elevenlabs';
 import { agentId, embeddingModel } from '../src/lib/config';
 import { ownsDocument, TEACHER } from '../src/lib/teacher';
-import { PROMISE_MARKERS, teacherSystemPrompt } from '../src/lib/agent';
+import { dynamicVariablePlaceholders, PROMISE_MARKERS, teacherSystemPrompt } from '../src/lib/agent';
 import { PROMISES } from '../src/lib/site';
 import { FALLBACK_PLANS, formatMinutes, formatMoney } from '../src/lib/plans';
 import { buildPlan, LESSONS, LEVELS, lessonsForLevel, PATHS } from '../src/lib/curriculum';
@@ -196,6 +196,29 @@ async function main() {
       );
       if (missingVars.length === 0) {
         ok('Dynamic variable placeholders are set on the live agent');
+
+        /*
+         * The values, not just the keys.
+         *
+         * A placeholder is what a dashboard test conversation uses; a real
+         * session overwrites all three at connect time from `learnerRecord`. So
+         * a stale value here does not reach a learner, and it does mean the
+         * conversation somebody runs to check the teacher's behaviour opens on a
+         * sentence the repo no longer contains — which is the one place it would
+         * be least noticed and most misleading.
+         *
+         * A note rather than a failure, because nothing a learner meets is
+         * affected. Same reason the persona check above is a failure: that one
+         * is what everybody hears.
+         */
+        const expected = dynamicVariablePlaceholders();
+        const stale = Object.keys(expected).filter(
+          (name) => placeholders[name] !== expected[name],
+        );
+        if (stale.length > 0) {
+          note(`Placeholder text differs from this repo for: ${stale.join(', ')}.`);
+          note('Only affects a dashboard test conversation. `npm run sync:agent -- --push` updates it.');
+        }
       } else {
         bad(`Live agent has no placeholder for: ${missingVars.join(', ')}.`);
         note('Run `npm run sync:agent -- --push`, or a dashboard test will fail to connect.');

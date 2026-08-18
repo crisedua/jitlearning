@@ -77,9 +77,27 @@ export const TEACHER = {
  * opens on a question about the learner; a later one opens on what they owe from
  * last time, which is composed from the record rather than left to the model to
  * remember to do.
+ *
+ * ## It used to end "y desde ahí armamos tu plan"
+ *
+ * Which named the wrong destination in the first sentence anybody hears. This
+ * session does not end with a plan: it ends with a real task from their week
+ * finished and the time it saves measured, and the plan comes after, because it
+ * costs far less to believe once something of theirs has visibly worked. The
+ * landing page promises exactly that, the persona is built to deliver it, and
+ * the README has a section explaining that the plan-first order was tried and
+ * was a vitamin.
+ *
+ * The opening is also read by the model as its own first move, so it framed the
+ * session for both sides at once: the learner told to expect a plan, the teacher
+ * primed to go and build one. Third instance of the same drift, after the
+ * landing page and the topic buttons, and the deepest of the three.
+ *
+ * The question is unchanged, because the persona needs the role before it can do
+ * anything. Only the promise after it moved.
  */
 export const OPENING_FIRST =
-  '¿Empezamos? Cuéntame a qué te dedicas hoy, o qué estudias, y desde ahí armamos tu plan.';
+  '¿Empezamos? Cuéntame a qué te dedicas hoy, o qué estudias, y elegimos una tarea tuya de esta semana para resolverla ahora.';
 
 export const OPENING_RETURN_FALLBACK = 'Retomemos donde quedamos. ¿Cómo te fue con lo que quedaste?';
 
