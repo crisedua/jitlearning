@@ -88,24 +88,38 @@ describe('dynamic variables', () => {
      * `first_message`, which is what makes the spoken opening the one composed
      * from the record.
      */
-    const persona = teacherSystemPrompt();
-    assert.ok(persona.includes('{{registro}}'), 'the prompt no longer injects the record');
-    assert.ok(
-      persona.includes('{{primera_sesion}}'),
-      'the prompt no longer knows whether this is a first session',
-    );
+    for (const search of [true, false]) {
+      const persona = teacherSystemPrompt({ search });
+      const which = search ? 'searching' : 'no-search';
+      assert.ok(persona.includes('{{registro}}'), `the ${which} prompt no longer injects the record`);
+      assert.ok(
+        persona.includes('{{primera_sesion}}'),
+        `the ${which} prompt no longer knows whether this is a first session`,
+      );
+    }
     assert.equal(FIRST_MESSAGE, '{{apertura}}');
   });
 
   it('the persona references only variables the agent declares defaults for', () => {
-    const persona = teacherSystemPrompt();
     const declared = new Set(Object.keys(dynamicVariablePlaceholders()));
 
-    for (const m of persona.matchAll(/\{\{(\w+)\}\}/g)) {
-      assert.ok(
-        declared.has(m[1]!),
-        `the prompt uses {{${m[1]}}} with no placeholder. A conversation that does not supply it fails outright.`,
-      );
+    /*
+     * Both forms, because the persona has two.
+     *
+     * The searching variant is the one every check here used to read, and the
+     * agent is currently running the other. A variable is not something the
+     * substitutions touch today, which is exactly the position the session
+     * shape was in before an edit could have taken a marker out of one form
+     * only. The cost of asking both is a loop.
+     */
+    for (const search of [true, false]) {
+      const persona = teacherSystemPrompt({ search });
+      for (const m of persona.matchAll(/\{\{(\w+)\}\}/g)) {
+        assert.ok(
+          declared.has(m[1]!),
+          `the ${search ? 'searching' : 'no-search'} prompt uses {{${m[1]}}} with no placeholder. A conversation that does not supply it fails outright.`,
+        );
+      }
     }
   });
 
