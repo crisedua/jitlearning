@@ -18,6 +18,7 @@ import { breakEven, DEFAULT_INPUTS, usd } from '@/lib/costs';
 import { FALLBACK_PLANS } from '@/lib/plans';
 import { checkAdmin } from '@/lib/admin';
 import { signInPath } from '@/lib/paths';
+import { NotAdmin } from '@/components/NotAdmin';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
 
 /**
@@ -135,28 +136,11 @@ export default async function CostosPage() {
    * Signed in as somebody else. Say so rather than 404ing: a wrong-account
    * mistake is far more likely here than an attack, and "not found" would send
    * the owner hunting for a broken link instead of switching accounts. The
-   * page's contents are not disclosed either way.
+   * page's contents are not disclosed either way. Shared with the other
+   * operator pages so all five say the same thing and name the same variable.
    */
   if (!gate.ok) {
-    return (
-      <section className="mx-auto max-w-[75rem] px-6 py-24">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Restringido</p>
-        <h1 className="mt-4 max-w-[20ch] font-serif text-[clamp(2rem,4.5vw,3rem)] font-normal leading-[1.08] tracking-[-0.02em]">
-          Esta página es solo para quien administra el sitio
-        </h1>
-        <p className="mt-5 max-w-[58ch] text-[17px] leading-relaxed text-muted">
-          {gate.email
-            ? `Estás con la cuenta ${gate.email}, que no tiene acceso. Si tienes otra, entra con esa.`
-            : 'La cuenta con la que entraste no tiene acceso.'}
-        </p>
-        <Link
-          href="/coach"
-          className="mt-8 inline-flex items-center rounded-full border border-line-strong px-5 py-2.5 text-[15px] font-medium text-ink transition hover:border-accent hover:text-accent"
-        >
-          Ir al coach
-        </Link>
-      </section>
-    );
+    return <NotAdmin email={gate.email} path="/admin/costos" />;
   }
 
   const live = await loadLiveUsage();

@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { checkAdmin } from '@/lib/admin';
 import { signInPath } from '@/lib/paths';
+import { NotAdmin } from '@/components/NotAdmin';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
 import { listGrants, seatsLeft, type Grant } from '@/lib/grants';
 import { FEEDBACK_REWARD } from '@/lib/site';
@@ -75,7 +76,9 @@ export default async function AdminFeedbackPage() {
   const gate = await checkAdmin();
   if (!gate.ok) {
     if (gate.reason === 'anonymous') redirect(signInPath('/admin/feedback'));
-    redirect('/');
+    // Signed in as somebody else. Say so rather than bouncing them to the
+    // marketing page, which is indistinguishable from the page being broken.
+    return <NotAdmin email={gate.email} path="/admin/feedback" />;
   }
 
   const [entries, grants] = await Promise.all([loadFeedback(), listGrants()]);

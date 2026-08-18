@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { SeedRadarButton } from '@/components/SeedRadarButton';
 import { RadarLlmButton } from '@/components/RadarLlmButton';
 import { openaiConfigured } from '@/lib/openai';
 import { checkAdmin } from '@/lib/admin';
 import { signInPath } from '@/lib/paths';
+import { NotAdmin } from '@/components/NotAdmin';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
 import seed from '@/lib/pains-seed.json';
 
@@ -89,17 +89,7 @@ export default async function RadarAdminPage() {
   if (!admin.ok && admin.reason === 'anonymous') redirect(signInPath('/admin/radar'));
 
   if (!admin.ok) {
-    return (
-      <div className="mx-auto max-w-2xl px-6 py-20">
-        <h1 className="font-serif text-[28px] font-normal">Restringido</h1>
-        <p className="mt-3 text-[16px] leading-relaxed text-muted">
-          Entraste como {admin.email ?? 'otra cuenta'}. Esta página es solo para el operador.
-        </p>
-        <Link href="/coach" className="mt-6 inline-block text-accent underline underline-offset-2">
-          Ir a los coaches
-        </Link>
-      </div>
-    );
+    return <NotAdmin email={admin.email} path="/admin/radar" />;
   }
 
   const { rows, error } = await currentRows();

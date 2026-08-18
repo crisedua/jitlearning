@@ -28,6 +28,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { checkAdmin } from '@/lib/admin';
 import { signInPath } from '@/lib/paths';
+import { NotAdmin } from '@/components/NotAdmin';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
@@ -121,7 +122,9 @@ export default async function EmbudoPage() {
   const gate = await checkAdmin();
   if (!gate.ok) {
     if (gate.reason === 'anonymous') redirect(signInPath('/admin/embudo'));
-    redirect('/');
+    // Signed in as somebody else. Say so rather than bouncing them to the
+    // marketing page, which is indistinguishable from the page being broken.
+    return <NotAdmin email={gate.email} path="/admin/embudo" />;
   }
 
   const funnel = await loadFunnel();
