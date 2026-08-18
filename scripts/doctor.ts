@@ -23,7 +23,7 @@ import { agentId, embeddingModel } from '../src/lib/config';
 import { ownsDocument, TEACHER } from '../src/lib/teacher';
 import { PROMISE_MARKERS, teacherSystemPrompt } from '../src/lib/agent';
 import { PROMISES } from '../src/lib/site';
-import { FALLBACK_PLANS, formatMoney } from '../src/lib/plans';
+import { FALLBACK_PLANS, formatMinutes, formatMoney } from '../src/lib/plans';
 import { buildPlan, LESSONS, LEVELS, lessonsForLevel, PATHS } from '../src/lib/curriculum';
 import { supabaseAdmin } from '../src/lib/supabase/admin';
 import { billingConfigured, stripe as stripeClient } from '../src/lib/billing';
@@ -553,6 +553,78 @@ async function main() {
         }
       }
     }
+  }
+
+  /*
+   * A price list somebody can reason about.
+   *
+   * If a public plan costs more than another and gives no more of anything, the
+   * cheaper one dominates it and nobody has a reason to pick the dearer. That is
+   * not a matter of taste: it is checkable, it needs no traffic to detect, and it
+   * damages more than the plan it applies to. A visitor who spots that $19 buys
+   * exactly what $9 buys does not conclude that one plan is mispriced, they
+   * conclude the price list is arbitrary, and they carry that to the plan you
+   * actually wanted them to buy.
+   *
+   * Structural, so it lives here rather than in the usage checks above: those
+   * ask whether the margins survive real behaviour, this asks whether the offer
+   * makes sense before anybody has behaved at all.
+   */
+  console.log('\nPlans as an offer\n');
+
+  const publicPaid = FALLBACK_PLANS.filter((p) => p.isPublic && p.priceMinor > 0);
+  /** null means unlimited, which beats every number. */
+  const limit = (value: number | null) => (value === null ? Infinity : value);
+
+  const dominated = publicPaid.filter((dear) =>
+    publicPaid.some(
+      (cheap) =>
+        cheap.id !== dear.id &&
+        cheap.currency === dear.currency &&
+        cheap.priceMinor < dear.priceMinor &&
+        limit(cheap.monthlyMinutes) >= limit(dear.monthlyMinutes) &&
+        limit(cheap.monthlySessions) >= limit(dear.monthlySessions),
+    ),
+  );
+
+  if (publicPaid.length < 2) {
+    note(`${publicPaid.length} public paid plan(s): nothing to compare.`);
+  } else if (dominated.length === 0) {
+    ok(`${publicPaid.length} paid plans, each giving more than the one below it`);
+  } else {
+    for (const plan of dominated) {
+      const cheaper = publicPaid.find(
+        (c) => c.id !== plan.id && c.priceMinor < plan.priceMinor,
+      )!;
+      bad(
+        `${plan.name} costs ${formatMoney(plan.priceMinor, plan.currency)} and gives no more than ` +
+          `${cheaper.name} at ${formatMoney(cheaper.priceMinor, cheaper.currency)}.`,
+      );
+      note(
+        `Both: ${formatMinutes(plan.monthlyMinutes)}, ${
+          plan.monthlySessions === null ? 'sesiones sin límite' : `${plan.monthlySessions} sesiones`
+        }. Nobody has a reason to choose the dearer one.`,
+      );
+    }
+    /*
+     * A concrete way out rather than a complaint. `breakEven` already says what
+     * each price actually covers, and the two numbers happen to describe a
+     * sensible ladder on their own: the cheaper plan's break-even is roughly the
+     * dearer one's, so setting each allowance near what it pays for both fixes
+     * the dominance and stops the margin bleeding at full use.
+     */
+    const limits = breakEven(DEFAULT_INPUTS, [...publicPaid]);
+    note('What each price actually covers, before any allowance is chosen:');
+    for (const l of limits) {
+      const plan = publicPaid.find((p) => p.id === l.planId)!;
+      note(
+        `  ${plan.name}: ${formatMoney(plan.priceMinor, plan.currency)} pays for ` +
+          `${Math.round(l.minutes)} min, advertises ${formatMinutes(plan.monthlyMinutes)}.`,
+      );
+    }
+    note('supabase/optional/founder_allowance_120.sql lowers the cheaper tier, which does both.');
+    note('Or retire a tier, or make the difference something other than minutes.');
+    failures++;
   }
 
   // ------------------------------------------------------------- Curriculum
