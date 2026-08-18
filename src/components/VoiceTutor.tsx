@@ -48,15 +48,15 @@ const STATUS_ES: Record<string, string> = {
  * The SDK's `useConversation` must live under a `ConversationProvider`, so the
  * exported component is just that wrapper around the real one.
  */
-export function VoiceTutor() {
+export function VoiceTutor({ canSearch }: { canSearch: boolean }) {
   return (
     <ConversationProvider>
-      <VoiceTutorInner />
+      <VoiceTutorInner canSearch={canSearch} />
     </ConversationProvider>
   );
 }
 
-function VoiceTutorInner() {
+function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [objective, setObjective] = useState('');
@@ -481,7 +481,11 @@ function VoiceTutorInner() {
           same ground for anyone who needs a prompt mid-conversation.
         */}
         {!connected && (
-          <CoachExplorer onAsk={askAndStart} busy={starting || status === 'connecting'} />
+          <CoachExplorer
+            onAsk={askAndStart}
+            busy={starting || status === 'connecting'}
+            canSearch={canSearch}
+          />
         )}
 
         {error && (

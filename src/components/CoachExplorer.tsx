@@ -31,7 +31,7 @@ import { TOPICS } from '@/lib/topics';
  * check in one session, which is the same standard the landing page holds itself
  * to. Removing one from the persona means removing it from here.
  */
-const HOW_IT_ANSWERS = [
+const HOW_IT_ANSWERS: { label: string; detail: string; needsTool?: boolean }[] = [
   {
     label: 'Te dice de dónde viene',
     detail:
@@ -46,6 +46,7 @@ const HOW_IT_ANSWERS = [
     detail: 'Una cosa, con fecha, y qué señal contaría como que salió bien.',
   },
   {
+    needsTool: true,
     label: 'Busca cuando hace falta',
     detail:
       'Si la respuesta depende de un precio o de qué piden hoy los avisos, lo busca y te nombra la fuente.',
@@ -55,10 +56,26 @@ const HOW_IT_ANSWERS = [
 export function CoachExplorer({
   onAsk,
   busy,
+  canSearch,
 }: {
   /** Starts the session on this question. */
   onAsk: (question: string) => void;
   busy: boolean;
+  /**
+   * Whether the deployment can actually serve a lookup.
+   *
+   * This list is headed by a promise that every item on it is checkable in one
+   * session, and "busca cuando hace falta" was on it whether or not anything
+   * could search. A learner who reads that, asks for a current price and is told
+   * the teacher cannot look it up has personally disproved the list — on the
+   * screen where they are deciding what to ask first, in a product whose fourth
+   * promise is that it does not invent.
+   *
+   * Not shown rather than shown-and-broken. The teacher still answers from what
+   * it knows; it simply does not advertise a capability the deployment cannot
+   * back.
+   */
+  canSearch: boolean;
 }) {
   const questions = useMemo(
     () =>
@@ -115,7 +132,7 @@ export function CoachExplorer({
           Responda lo que responda
         </p>
         <ul className="mt-3 grid gap-x-6 gap-y-2.5 sm:grid-cols-2">
-          {HOW_IT_ANSWERS.map((item) => (
+          {HOW_IT_ANSWERS.filter((item) => canSearch || !item.needsTool).map((item) => (
             <li key={item.label} className="flex items-start gap-2.5">
               <span
                 aria-hidden

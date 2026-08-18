@@ -45,6 +45,20 @@ export default async function CoachPage() {
   // secret, so this page must not try to fetch it.
   const configured = Boolean(agentId());
   /*
+   * Whether a lookup can actually be served from this deployment.
+   *
+   * `/api/ask` checks INGEST_SECRET before anything else and returns 503
+   * without it, so with that unset nothing can search however the agent is
+   * configured. Reading an environment variable rather than fetching the agent,
+   * because round 65 removed a second network call from this page for the same
+   * reason: it sits immediately before the microphone.
+   *
+   * The narrower case it does not catch — secret present, tool never attached —
+   * is what `npm run doctor` fails on and what `setup:tools` now verifies for
+   * itself after pushing.
+   */
+  const canSearch = Boolean(process.env.INGEST_SECRET?.trim());
+  /*
    * Who may be told *why* it is not configured, decided without a second trip.
    *
    * This called `checkAdmin()`, which calls `currentUser()`, which revalidates
@@ -110,7 +124,7 @@ export default async function CoachPage() {
       {commitment && <OpenCommitment commitment={commitment} />}
 
       {configured ? (
-        <VoiceTutor />
+        <VoiceTutor canSearch={canSearch} />
       ) : !isOperator ? (
         /*
          * A learner is not an operator, and this page had them confused.
