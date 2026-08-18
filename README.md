@@ -660,11 +660,36 @@ update public.profiles
  where email = 'someone@example.com';
 ```
 
-A profile with a paid `plan_id` and no `stripe_customer_id` is a comped plan, and
-`/progreso` renders it as one: "Fundador · de cortesía", with no billing portal
-button, because that button would 404 for somebody who never checked out. Those
-ten people are the first through the door and the ones whose reaction decides
-whether any of this sells, so their page has to be right.
+A profile with `plan_granted_until` set is a comped plan, and `/progreso` renders
+it as one: "Fundador · de cortesía", with no billing portal button, because that
+button would 404 for somebody who never checked out. Those ten people are the
+first through the door and the ones whose reaction decides whether any of this
+sells, so their page has to be right.
+
+### Selling one by hand
+
+Different thing, easy to confuse, and the difference is one column.
+
+While Stripe is unconfigured every buy button opens a prefilled WhatsApp or email
+message, so the first real sales arrive as a conversation and a transfer. That
+person paid. They are not on a courtesy plan and must not be told they are:
+
+```sql
+-- Somebody who paid you directly. No grant columns.
+update public.profiles set plan_id = 'founder'
+ where email = 'someone@example.com';
+```
+
+Setting `plan_granted_until` here — by copying the grant above, which is the
+obvious thing to do — labels them "de cortesía" on their own progress page and
+hides the line telling them how to cancel. `/progreso` reads that column and
+nothing else to decide which they are, so leaving it null is what marks a paying
+customer, and `expireGrant` never touches them.
+
+They still have no Stripe customer, so there is no portal: the page tells them to
+write to you, and changing or stopping the plan is another conversation. That is
+the honest shape of a manual sale and it is worth writing down, because the first
+few will happen before checkout exists.
 
 Three details worth knowing:
 

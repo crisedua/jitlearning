@@ -15,9 +15,13 @@
  * remainder should be small enough to walk by hand with a test card.
  */
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, it } from 'node:test';
 import Stripe from 'stripe';
 import { isComped, planFor } from './billing';
+
+const ROOT = path.join(import.meta.dirname, '..', '..');
 
 /** Not a real key. `constructEvent` is local crypto and never calls Stripe. */
 const SECRET = 'whsec_test_secret_for_local_verification_only';
@@ -131,5 +135,35 @@ describe('a courtesy plan against a bought one', () => {
 
   it('is not a courtesy for a normal Stripe subscriber either', () => {
     assert.equal(isComped(sub(null)), false);
+  });
+});
+
+/*
+ * The README has to describe the column the code actually reads.
+ *
+ * `isComped` reads `plan_granted_until` and nothing else. The README used to say
+ * a comped plan was one with no `stripe_customer_id`, which was true of the old
+ * rule and is now true of every paying customer this product will have while
+ * checkout is unconfigured.
+ *
+ * That sentence is not decoration: it is what somebody follows at the moment of
+ * their first sale, with a person waiting on the other end of a WhatsApp thread.
+ * Getting it wrong labels a paying customer "de cortesía" on their own page.
+ */
+describe('the documented rule for a comped plan', () => {
+  it('names the column isComped reads', () => {
+    const readme = readFileSync(path.join(ROOT, 'README.md'), 'utf8');
+    const section = readme.slice(readme.indexOf('### Granting a plan by hand'));
+
+    assert.match(
+      section,
+      /plan_granted_until.*is a comped plan/s,
+      'the README no longer says which column marks a courtesy plan',
+    );
+    assert.match(
+      section,
+      /### Selling one by hand/,
+      'the README does not distinguish a manual sale from a grant, and the SQL above it is one copy away from mislabelling a paying customer',
+    );
   });
 });
