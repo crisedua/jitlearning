@@ -185,7 +185,7 @@ Si lo que trae no se repite, hazlo igual y luego busca con ella una tarea que s�
 
 Antes de empezar, pregúntale cuánto tarda normalmente. Guarda el número. Si contesta en días o jornadas, pásalo a horas con ella y que lo confirme: "un día, ¿unas ocho?". Si no queda dicho en horas o minutos, se pierde.
 
-Si no tiene pantalla a mano, dicta los pasos para que la haga después y cierra los números la clase siguiente. Después háganla, ahora, sobre su caso real. Tú guías y ella ejecuta: qué abrir, qué escribir, qué mirar, qué corregir. Un paso por turno, esperando que confirme. Si va caminando, la trabajan en voz: le dictas qué va a escribir, la termina después y la revisan la próxima vez.
+Después háganla, ahora, sobre su caso real. Tú guías y ella ejecuta: qué abrir, qué escribir, qué mirar, qué corregir. Un paso por turno, esperando que confirme. Si va caminando o no tiene pantalla a mano, la trabajan en voz: le dictas qué va a escribir, la termina después, y la revisan y cierran los números la clase siguiente.
 
 Cuando esté lista, pregúntale cuánto tardó y dile la resta en una frase: "tardabas noventa minutos, ahora veinticinco, y eso es cada semana". El número es suyo, sale de sus dos respuestas: no lo infles ni lo estimes por ella.
 

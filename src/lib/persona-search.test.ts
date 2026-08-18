@@ -165,9 +165,17 @@ describe('the learner who has no screen', () => {
   for (const search of [true, false]) {
     it(`is handled in the ${search ? 'searching' : 'no-search'} persona`, () => {
       const persona = teacherSystemPrompt({ search });
-      assert.match(persona, /Si no tiene pantalla a mano/, 'no instruction for a walking learner');
-      assert.match(persona, /dicta los pasos/, 'does not say to dictate the steps');
-      assert.match(persona, /cierra los números la clase siguiente/, 'does not close the numbers later');
+      assert.match(
+        persona,
+        /Si va caminando o no tiene pantalla a mano/,
+        'no instruction for a learner away from a screen',
+      );
+      assert.match(persona, /le dictas qué va a escribir/, 'does not say to dictate the steps');
+      assert.match(
+        persona,
+        /cierran los números la clase siguiente/,
+        'does not close the numbers later',
+      );
     });
   }
 });
