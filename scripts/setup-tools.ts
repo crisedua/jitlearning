@@ -155,7 +155,34 @@ async function main() {
   await updateAgent(requireAgentId(), {
     conversation_config: { agent: { prompt: { ...rest, tool_ids: [...attached] } } },
   });
-  console.log(`✓ Attached to ${agent.agent_id}\n`);
+
+  /*
+   * Confirm the attachment rather than announce it.
+   *
+   * This printed "✓ Attached" because `updateAgent` did not throw, and the write
+   * it makes is the fiddliest in this repo: ElevenLabs mirrors attached tools
+   * into a deprecated inline `tools` array beside `tool_ids`, sending both is a
+   * 400, and the strip above is what keeps the second run from failing. A write
+   * that is accepted and lands differently is exactly the shape that produces.
+   *
+   * The failure it hides is the one this whole script exists to fix. The persona
+   * tells learners it can search; with no tool attached it announces a search it
+   * cannot make. An operator who ran this and was told it worked would have no
+   * reason to look again.
+   */
+  const after = await currentAgent();
+  const live = new Set(after?.conversation_config.agent.prompt.tool_ids ?? []);
+
+  if (!live.has(record.id)) {
+    console.error(
+      `\n! The update was accepted and ${record.id} is not attached to ${agent.agent_id}.\n` +
+        '  The persona still tells learners it can search, and nothing can answer.\n' +
+        '  Check the agent in the ElevenLabs dashboard before sending anybody to it.\n',
+    );
+    process.exit(1);
+  }
+
+  console.log(`✓ Attached and verified · ${live.size} tool(s) on ${agent.agent_id}\n`);
 }
 
 main().catch((err) => {
