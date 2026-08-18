@@ -39,7 +39,7 @@ import { BillingLink } from '@/components/BillingLink';
 import { CheckoutButton } from '@/components/CheckoutButton';
 import { IntentLink } from '@/components/IntentLink';
 import { PROFILE, WHATSAPP } from '@/lib/site';
-import { saveEvidence, setCommitmentDone } from './actions';
+import { saveEvidence, saveMinutes, setCommitmentDone } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -719,6 +719,57 @@ function Step({
             </span>
           )}
         </p>
+      )}
+
+      {/*
+        Where the numbers come from when the class did not produce them.
+        
+        Shown only on a step that is missing one, so a learner whose class went
+        well never meets a form asking for something already on the screen above.
+        These two fields are the whole offer: without both, `timeSaved` is zero,
+        the headline has nothing in it, and nobody is ever shown a price beside
+        their own hours. Leaving that to one extraction from speech was a single
+        point of failure for the only part of this somebody would pay for.
+      */}
+      {(step.minutesBefore === null || step.minutesAfter === null) && (
+        <form action={saveMinutes} className="mt-3 rounded-md border border-line bg-surface-alt/30 px-3.5 py-3">
+          <input type="hidden" name="stepId" value={step.id} />
+          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-soft">
+            Lo que te ahorra
+          </p>
+          <p className="mt-1 text-[13px] leading-relaxed text-muted">
+            En minutos. Si lo hablaste en la clase y no quedó anotado, ponlo tú.
+          </p>
+          <div className="mt-2.5 flex flex-wrap items-end gap-2.5">
+            <label className="text-[13px] text-muted">
+              Antes
+              <input
+                type="number"
+                name="minutesBefore"
+                min={0}
+                max={1440}
+                inputMode="numeric"
+                defaultValue={step.minutesBefore ?? ''}
+                className="mt-1 block w-24 rounded-md border border-field bg-surface px-3 py-2 text-[14px] text-ink focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft"
+              />
+            </label>
+            <label className="text-[13px] text-muted">
+              Ahora
+              <input
+                type="number"
+                name="minutesAfter"
+                min={0}
+                max={1440}
+                inputMode="numeric"
+                defaultValue={step.minutesAfter ?? ''}
+                className="mt-1 block w-24 rounded-md border border-field bg-surface px-3 py-2 text-[14px] text-ink focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft"
+              />
+            </label>
+            <button className="rounded-md border border-line bg-surface px-4 py-2 text-[13px] font-semibold text-ink shadow-sm transition duration-150 ease-out hover:border-line-strong hover:shadow-md">
+              Guardar
+            </button>
+          </div>
+        </form>
       )}
 
       {step.commitment && (

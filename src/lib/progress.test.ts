@@ -663,3 +663,50 @@ describe('learnerRecord when the database will not answer', () => {
     }
   });
 });
+
+/*
+ * Parsing the minutes a learner types.
+ *
+ * The form on /progreso exists because one extraction from speech was the only
+ * way these arrived, and speech does not always cooperate: a real learner said
+ * "un día" and the extractor correctly refused to turn that into minutes. The
+ * parsing rule matters more than it looks, because these two numbers are the
+ * whole offer and a wrong one is worse than a missing one — it goes into the
+ * headline total for every task.
+ *
+ * `Number('')` is 0 is the specific trap: an empty field must clear the value,
+ * never record that a task used to take no time at all.
+ */
+describe('minutes typed into the notebook', () => {
+  // The same rule the action applies, kept beside it in intent: blank clears,
+  // a plausible number sets, anything else is refused rather than coerced.
+  const parse = (raw: string): number | null | undefined => {
+    const t = raw.trim();
+    if (t === '') return null;
+    const value = Number(t);
+    if (!Number.isFinite(value) || value < 0 || value > 60 * 24) return undefined;
+    return Math.round(value);
+  };
+
+  it('clears on blank rather than recording zero', () => {
+    assert.equal(parse(''), null);
+    assert.equal(parse('   '), null);
+  });
+
+  it('takes a plain number', () => {
+    assert.equal(parse('90'), 90);
+    assert.equal(parse('25'), 25);
+    assert.equal(parse('0'), 0, 'a task that now takes no time is a real answer');
+  });
+
+  it('refuses what it cannot trust instead of coercing it', () => {
+    for (const bad of ['un día', 'abc', '-5', '99999', 'NaN', '1e400']) {
+      assert.equal(parse(bad), undefined, `coerced ${JSON.stringify(bad)}`);
+    }
+  });
+
+  it('rounds rather than storing a fraction of a minute', () => {
+    assert.equal(parse('90.4'), 90);
+    assert.equal(parse('90.6'), 91);
+  });
+});
