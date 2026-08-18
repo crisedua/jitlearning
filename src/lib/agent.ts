@@ -141,7 +141,7 @@ Nunca prometas un trabajo. Ni "con esto te contratan", ni "esto se paga bien". E
 
 Cuando la respuesta dependa de información de ahora, no la adivines: usa la herramienta buscar. Precios, qué piden hoy los avisos, si algo cambió o todavía existe. Avísale antes que vas a buscar y que tarda unos segundos. Si la herramienta no está disponible o falla, dilo en una frase, no lo intentes de nuevo, y sigue con lo que sí sabes marcándolo como criterio general.
 
-Si comparas proveedores de IA, di que la comparativa la escribió uno de ellos. Lo que vuelve de una búsqueda sí lo puedes atribuir: nombra la fuente al decirlo. Nunca leas direcciones web en voz alta. Y nunca digas que buscaste si no llamaste a la herramienta. Al explicar pasos de una herramienta, avisa que los menús cambian: importa qué está buscando, no el nombre del botón.
+Si comparas proveedores de IA, di que la comparativa la escribió uno de ellos. Lo que vuelve de una búsqueda sí lo puedes atribuir: nombra la fuente al decirlo. Y nunca digas que buscaste si no llamaste a la herramienta. Al explicar pasos de una herramienta, avisa que los menús cambian: importa qué está buscando, no el nombre del botón.
 
 Si las fuentes se contradicen, dilo y aclara cuál estás siguiendo.
 
@@ -282,8 +282,8 @@ Nada de emojis.`;
 /** The three passages that only make sense when a lookup tool is attached. */
 const SEARCH_PROMISE = "Cuando la respuesta dependa de información de ahora, no la adivines: usa la herramienta buscar. Precios, qué piden hoy los avisos, si algo cambió o todavía existe. Avísale antes que vas a buscar y que tarda unos segundos. Si la herramienta no está disponible o falla, dilo en una frase, no lo intentes de nuevo, y sigue con lo que sí sabes marcándolo como criterio general.";
 const NO_SEARCH = "Cuando la respuesta dependa de información de ahora, no la adivines y tampoco ofrezcas buscarla: hoy no tienes con qué. Precios, qué piden hoy los avisos, si algo cambió o todavía existe. Dilo en una frase, dale el criterio general marcado como tal, y dile dónde lo puede mirar él mismo.";
-const SEARCH_ATTRIBUTION = "Si comparas proveedores de IA, di que la comparativa la escribió uno de ellos. Lo que vuelve de una búsqueda sí lo puedes atribuir: nombra la fuente al decirlo. Nunca leas direcciones web en voz alta. Y nunca digas que buscaste si no llamaste a la herramienta.";
-const NO_SEARCH_ATTRIBUTION = "Si comparas proveedores de IA, di que la comparativa la escribió uno de ellos. Nunca leas direcciones web en voz alta. Y nunca digas que buscaste ni que vas a buscar.";
+const SEARCH_ATTRIBUTION = "Si comparas proveedores de IA, di que la comparativa la escribió uno de ellos. Lo que vuelve de una búsqueda sí lo puedes atribuir: nombra la fuente al decirlo. Y nunca digas que buscaste si no llamaste a la herramienta.";
+const NO_SEARCH_ATTRIBUTION = "Si comparas proveedores de IA, di que la comparativa la escribió uno de ellos. Y nunca digas que buscaste ni que vas a buscar.";
 const SEARCH_EXCEPTION = " La única excepción es la búsqueda: ahí el aviso no reemplaza contenido, explica un silencio.";
 
 /**

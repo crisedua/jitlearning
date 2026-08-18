@@ -1359,6 +1359,25 @@ async function main() {
   const persona = teacherSystemPrompt();
 
   /*
+   * Every assertion below has to hold for whichever persona is live.
+   *
+   * The honesty rule was checked against the searching variant while the agent
+   * ran the other one, and it passed on a phrase that variant does not contain.
+   * The session shape and the site promises happened to survive that, which is
+   * luck rather than a property: nothing stopped an edit from removing a marker
+   * from one form only, and the check would have stayed green.
+   *
+   * So the question is asked of both. A rule that differs in wording between
+   * them is satisfied when each form carries one of its phrasings, which is what
+   * `satisfies` below means and why the honesty list holds phrases rather than a
+   * phrase.
+   */
+  const personas = [teacherSystemPrompt(), teacherSystemPrompt({ search: false })];
+  const inEvery = (phrase: string) => personas.every((p) => p.includes(phrase));
+  const satisfies = (phrases: string[]) =>
+    personas.every((p) => phrases.some((phrase) => p.includes(phrase)));
+
+  /*
    * The persona is the product, so it gets checked like code.
    *
    * Two things rot silently here. It can lose the honesty rule in an edit and
@@ -1389,9 +1408,7 @@ async function main() {
     ],
     ['never claims a search it did not run', ['nunca digas que buscaste']],
   ];
-  const missingHonesty = honesty.filter(
-    ([, phrases]) => !phrases.some((phrase) => persona.includes(phrase)),
-  );
+  const missingHonesty = honesty.filter(([, phrases]) => !satisfies(phrases));
   if (missingHonesty.length === 0) ok(`Honesty rule complete, all ${honesty.length} parts`);
   else {
     bad(`Honesty rule incomplete, missing: ${missingHonesty.map(([label]) => label).join(', ')}`);
@@ -1411,7 +1428,7 @@ async function main() {
     ['finishing inside the free minutes', 'menos de diez'],
     ['continuity', PROMISE_MARKERS.memory],
   ];
-  const missingShape = shape.filter(([, marker]) => !persona.includes(marker));
+  const missingShape = shape.filter(([, marker]) => !inEvery(marker));
   if (missingShape.length === 0) {
     ok(`Session shape complete, all ${shape.length} parts`);
   }
@@ -1471,7 +1488,7 @@ async function main() {
 
   for (const promise of PROMISES) {
     const marker = PROMISE_MARKERS[promise.key];
-    if (persona.includes(marker)) ok(`"${promise.key}" is honoured by the persona`);
+    if (inEvery(marker)) ok(`"${promise.key}" is honoured by the persona`);
     else {
       bad(`"${promise.key}" is promised in site.ts but "${marker}" is not in the persona`);
       failures++;
