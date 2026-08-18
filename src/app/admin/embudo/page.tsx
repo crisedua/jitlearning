@@ -294,10 +294,14 @@ export default async function EmbudoPage() {
               El extractor dijo: {classes.whyNot}
             </p>
           )}
-          {classes.personaChangedSince && (
+          {/*
+            Said as what it is. The timestamp moves whenever anything on the
+            agent is written, and most of those change nothing anybody hears.
+          */}
+          {classes.agentChangedSince && (
             <p className="mt-2 text-[13px] leading-relaxed text-muted">
-              La persona del profesor cambió después de la última clase, así que esto describe a un
-              profesor que ya no existe.
+              El agente cambió después de la última clase, así que lo que escucharon puede no ser lo
+              que está funcionando ahora.
             </p>
           )}
         </section>

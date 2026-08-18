@@ -1078,8 +1078,22 @@ async function main() {
           gap < 86_400_000
             ? `${Math.max(1, Math.round(gap / 3_600_000))} hour(s)`
             : `${Math.floor(gap / 86_400_000)} day(s)`;
-        note(`${real.length} class(es), and the newest ended ${age} before the persona changed.`);
-        note('Nobody has spoken to the teacher that is live right now.');
+        /*
+         * Said as what it is rather than as what it suggests.
+         *
+         * This read "before the persona changed" and "nobody has spoken to the
+         * teacher that is live right now", from a timestamp that moves whenever
+         * anything on the agent is written: a document re-synced, a criterion
+         * added, a placeholder changed. Most of those change nothing anybody
+         * hears, and the sentence made every one of them sound like a new
+         * teacher.
+         *
+         * The honest version still says the useful thing. What those classes
+         * heard may not be what is live, and that is worth knowing before
+         * reading anything into what they produced.
+         */
+        note(`${real.length} class(es), and the newest ended ${age} before the agent last changed.`);
+        note('What those classes heard may not be what is live now.');
       } else {
         ok(`${real.length} class(es), and at least one since the persona last changed`);
       }

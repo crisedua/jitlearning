@@ -54,8 +54,16 @@ export interface ClassReport {
   finished: number;
   /** The extractor's own words on the most recent class that missed a number. */
   whyNot: string | null;
-  /** True when the newest class predates the persona now on the agent. */
-  personaChangedSince: boolean;
+  /**
+   * True when the newest class predates the agent's last update.
+   *
+   * Named for what it reads, not for what it implies. `updated_at_unix_secs`
+   * moves whenever anything on the agent is written — a document re-synced, a
+   * criterion added, a placeholder changed — and the persona is only one of
+   * those. Reporting it as "the teacher changed" overstates, because most syncs
+   * do not change a word anybody hears.
+   */
+  agentChangedSince: boolean;
 }
 
 /** One request per conversation, so this reads the recent ones and stops. */
@@ -106,7 +114,7 @@ async function read(): Promise<ClassReport | null> {
   return {
     ...summarise(analyses),
     held: real.length,
-    personaChangedSince: newest > 0 && newest < changed,
+    agentChangedSince: newest > 0 && newest < changed,
   };
 }
 
@@ -128,7 +136,7 @@ export interface Analysis {
  */
 export function summarise(analyses: readonly Analysis[]): Omit<
   ClassReport,
-  'held' | 'personaChangedSince'
+  'held' | 'agentChangedSince'
 > {
   let analysed = 0;
   let measurable = 0;
