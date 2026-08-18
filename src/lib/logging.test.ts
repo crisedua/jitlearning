@@ -34,8 +34,21 @@ function sources(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** Names that hold something a person said, wrote, or is called. */
-const PERSONAL = /\$\{[^}]*\b(email|correo|name|nombre|full_?name|evidence|taught|summary|transcript|message|commitment|question|answer)\b[^}]*\}/i;
+/**
+ * Names that hold something a person said, wrote, or is called.
+ *
+ * Bounded by letters rather than by `\b`. An underscore is a word character, so
+ * `\bemail\b` does not match `user_email` — and `user_email` is exactly what
+ * somebody would write. The first version of this used `\b` and passed
+ * `${user_email}`, `${learner_name}` and `${step_evidence}` without complaint,
+ * which is the same flaw that let a planted `audio_url` column through the check
+ * beside it.
+ *
+ * A trailing `s` is allowed so a plural does not escape: `${emails}` is the same
+ * mistake as `${email}`.
+ */
+const PERSONAL =
+  /\$\{[^}]*(?<![a-z])(email|correo|name|nombre|evidence|taught|summary|transcript|message|commitment|question|answer)s?(?![a-z])[^}]*\}/i;
 
 describe('what reaches the logs', () => {
   /*
