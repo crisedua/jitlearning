@@ -80,13 +80,7 @@ async function read(): Promise<ClassReport | null> {
   const changed = (agent.metadata?.updated_at_unix_secs ?? 0) * 1000;
   const newest = Math.max(0, ...real.map((c) => (c.start_time_unix_secs ?? 0) * 1000));
 
-  let analysed = 0;
-  let measurable = 0;
-  let measured = 0;
-  let graded = 0;
-  let finished = 0;
-  let whyNot: string | null = null;
-
+  const analyses: Analysis[] = [];
   for (const c of real.slice(0, SAMPLE)) {
     if (!c.conversation_id) continue;
     const res = await fetch(
@@ -94,13 +88,46 @@ async function read(): Promise<ClassReport | null> {
       { headers },
     );
     if (!res.ok) continue;
-    const body = (await res.json()) as {
-      analysis?: {
-        data_collection_results?: Record<string, { value?: unknown; rationale?: string }>;
-        evaluation_criteria_results?: Record<string, { result?: string }>;
-      };
-    };
-    const fields = body.analysis?.data_collection_results;
+    const body = (await res.json()) as { analysis?: Analysis };
+    if (body.analysis) analyses.push(body.analysis);
+  }
+
+  return {
+    ...summarise(analyses),
+    held: real.length,
+    personaChangedSince: newest > 0 && newest < changed,
+  };
+}
+
+/** The shape this reads out of a conversation, and nothing more of it. */
+export interface Analysis {
+  data_collection_results?: Record<string, { value?: unknown; rationale?: string }>;
+  evaluation_criteria_results?: Record<string, { result?: string }>;
+}
+
+/**
+ * The counting, separated from the fetching so it can be tested.
+ *
+ * It was not, and it was wrong twice in two days, both times in the same
+ * direction: reporting a failure where nobody had asked the question. The
+ * extraction fields arrived over several syncs and the success criteria arrived
+ * after every conversation on the agent, so "this class produced no numbers" and
+ * "this class was never asked for numbers" are both common and mean opposite
+ * things to somebody deciding whether the product works.
+ */
+export function summarise(analyses: readonly Analysis[]): Omit<
+  ClassReport,
+  'held' | 'personaChangedSince'
+> {
+  let analysed = 0;
+  let measurable = 0;
+  let measured = 0;
+  let graded = 0;
+  let finished = 0;
+  let whyNot: string | null = null;
+
+  for (const analysis of analyses) {
+    const fields = analysis.data_collection_results;
     if (!fields || Object.keys(fields).length === 0) continue;
     analysed++;
 
@@ -112,8 +139,7 @@ async function read(): Promise<ClassReport | null> {
     // Asked is not the same as answered. A conversation from before these fields
     // existed carries no key for them, and reading that as an empty answer would
     // blame the class for a question nobody put to it.
-    const wasAsked = 'task_minutes_before' in fields && 'task_minutes_after' in fields;
-    if (wasAsked) {
+    if ('task_minutes_before' in fields && 'task_minutes_after' in fields) {
       measurable++;
       if (filled('task_minutes_before') && filled('task_minutes_after')) measured++;
       else if (!whyNot) {
@@ -124,24 +150,16 @@ async function read(): Promise<ClassReport | null> {
 
     // Same rule for the verdict: the criteria are newer than every conversation
     // on this agent, so an ungraded one is unmarked, not failed.
-    const verdicts = body.analysis?.evaluation_criteria_results;
+    const verdicts = analysis.evaluation_criteria_results;
     if (verdicts && Object.keys(verdicts).length > 0) {
       graded++;
       if (verdicts.tarea_terminada?.result === 'success') finished++;
     }
   }
 
-  return {
-    held: real.length,
-    analysed,
-    measurable,
-    measured,
-    graded,
-    finished,
-    whyNot,
-    personaChangedSince: newest > 0 && newest < changed,
-  };
+  return { analysed, measurable, measured, graded, finished, whyNot };
 }
+
 
 /**
  * Never throws and never hangs the page.
