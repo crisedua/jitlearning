@@ -33,7 +33,13 @@ import { MIGRATION_SENSITIVE } from '@/lib/schema';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
 import { getAgent } from '@/lib/elevenlabs';
 import { agentId } from '@/lib/config';
-import { FIRST_MESSAGE, teacherSystemPrompt } from '@/lib/agent';
+import {
+  dataCollection,
+  dynamicVariablePlaceholders,
+  evaluationCriteria,
+  FIRST_MESSAGE,
+  teacherSystemPrompt,
+} from '@/lib/agent';
 import { ownsDocument } from '@/lib/teacher';
 import { withDeadline } from '@/lib/deadline';
 
@@ -262,6 +268,28 @@ async function readAgent(id: string): Promise<AgentRow[]> {
     // Which persona this agent should be running, from what it actually carries.
     const hasTool = (prompt?.tool_ids ?? []).length > 0;
 
+    const settings = (agent as unknown as {
+      platform_settings?: {
+        data_collection?: Record<string, unknown>;
+        evaluation?: { criteria?: Array<{ id?: string }> };
+      };
+    }).platform_settings;
+
+    const declaredVars = Object.keys(
+      agent.conversation_config?.agent?.dynamic_variables?.dynamic_variable_placeholders ?? {},
+    );
+    const missingVars = Object.keys(dynamicVariablePlaceholders()).filter(
+      (name) => !declaredVars.includes(name),
+    );
+
+    const repoFields = Object.keys(dataCollection());
+    const liveFields = Object.keys(settings?.data_collection ?? {});
+    const missingFields = repoFields.filter((f) => !liveFields.includes(f));
+
+    const repoCriteria = evaluationCriteria().map((c) => c.id);
+    const liveCriteria = (settings?.evaluation?.criteria ?? []).map((c) => c.id);
+    const missingCriteria = repoCriteria.filter((id) => !liveCriteria.includes(id));
+
     return [
       {
         label: 'La persona que está corriendo',
@@ -302,6 +330,39 @@ async function readAgent(id: string): Promise<AgentRow[]> {
           foreign.length === 0
             ? `${attached.length} documento(s), todos del corpus vivo.`
             : `${foreign.length} documento(s) de un corpus retirado: ${foreign.map((d) => d.name).join(', ')}.`,
+      },
+      /*
+       * The three things that vanish without a sound.
+       *
+       * All of them are pushed by `sync:agent` and all of them can be edited off
+       * the agent in the ElevenLabs dashboard, which is how the persona drifted
+       * before parity was checked. The doctor asks these already; this page is
+       * where they belong, because it runs against the agent an operator is
+       * actually using and needs no key on anybody's laptop.
+       */
+      {
+        label: 'Las variables de la conversación',
+        ok: missingVars.length === 0,
+        detail:
+          missingVars.length === 0
+            ? 'Todas declaradas. Una conversación que no las mande igual arranca.'
+            : `Faltan ${missingVars.join(', ')}. Sin esos valores por defecto, una conversación que no los mande falla entera y se ve como un error de conexión. Corre \`npm run sync:agent -- --push\`.`,
+      },
+      {
+        label: 'Lo que se extrae de cada clase',
+        ok: missingFields.length === 0,
+        detail:
+          missingFields.length === 0
+            ? `Los ${repoFields.length} campos están en el agente.`
+            : `Faltan ${missingFields.length}: ${missingFields.join(', ')}. El webhook los lee, no encuentra nada y guarda null, con un 200 en los dos extremos. Corre \`npm run sync:agent -- --push\`.`,
+      },
+      {
+        label: 'Con qué se califica cada clase',
+        ok: missingCriteria.length === 0,
+        detail:
+          missingCriteria.length === 0
+            ? `Los ${repoCriteria.length} criterios están puestos, así que cada conversación vuelve marcada.`
+            : `Faltan ${missingCriteria.length}: ${missingCriteria.join(', ')}. Sin ellos toda clase vuelve como "success" sin que nadie haya preguntado qué logró. Corre \`npm run sync:agent -- --push\`.`,
       },
       {
         label: 'La herramienta de búsqueda',
