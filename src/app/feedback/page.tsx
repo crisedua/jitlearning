@@ -36,7 +36,7 @@ export default async function FeedbackPage() {
       <p className="mt-5 max-w-[58ch] text-[17px] leading-relaxed text-muted">{FEEDBACK_DEAL}</p>
 
       <div className="mt-10">
-        <FeedbackForm defaultEmail={user?.email ?? ''} />
+        <FeedbackForm defaultEmail={user?.email ?? ''} signedIn={Boolean(user)} />
       </div>
     </div>
   );

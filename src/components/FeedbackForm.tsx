@@ -10,8 +10,31 @@ import { FEEDBACK_REWARD } from '@/lib/site';
  * repeats the submitted email back on purpose: the free months arrive through
  * that address, so a typo is worth catching while the person is still looking
  * at the screen.
+ *
+ * ## The promise depends on having an account, and did not say so
+ *
+ * The form is open to people who never signed in, deliberately: somebody who
+ * bounced has the feedback a sign-up flow never hears. But the plan is granted
+ * against a user id, so `/admin/feedback` shows "sin cuenta: escribió sin haber
+ * entrado, pídele que entre con Google" for exactly those submissions.
+ *
+ * Meanwhile this told them "te escribiremos para activar tus meses". True only
+ * for the half who were signed in. The rest were promised something that
+ * required a step nobody mentioned, and would have waited for an email instead
+ * of taking it — on the one path that recruits the first ten people, which is
+ * the one thing this product cannot do without.
+ *
+ * So the success state now says which of the two situations they are in, while
+ * they are still looking at the screen, for the same reason the email is
+ * repeated back.
  */
-export function FeedbackForm({ defaultEmail = '' }: { defaultEmail?: string }) {
+export function FeedbackForm({
+  defaultEmail = '',
+  signedIn = false,
+}: {
+  defaultEmail?: string;
+  signedIn?: boolean;
+}) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState(defaultEmail);
   const [message, setMessage] = useState('');
@@ -25,11 +48,21 @@ export function FeedbackForm({ defaultEmail = '' }: { defaultEmail?: string }) {
         <p className="font-serif text-[22px] leading-snug tracking-[-0.01em]">
           Gracias. Tu feedback quedó guardado.
         </p>
-        <p className="mt-2 text-[15px] leading-relaxed text-ink/80">
-          Si estás entre las primeras {FEEDBACK_REWARD.seats} personas, te escribiremos a{' '}
-          <span className="font-medium">{sentTo}</span> para activar tus{' '}
-          {FEEDBACK_REWARD.months} meses del plan {FEEDBACK_REWARD.plan}.
-        </p>
+        {signedIn ? (
+          <p className="mt-2 text-[15px] leading-relaxed text-ink/80">
+            Si estás entre las primeras {FEEDBACK_REWARD.seats} personas, activamos tus{' '}
+            {FEEDBACK_REWARD.months} meses del plan {FEEDBACK_REWARD.plan} en la cuenta de{' '}
+            <span className="font-medium">{sentTo}</span> y lo vas a ver en tu página de progreso.
+          </p>
+        ) : (
+          <p className="mt-2 text-[15px] leading-relaxed text-ink/80">
+            Si estás entre las primeras {FEEDBACK_REWARD.seats} personas, los{' '}
+            {FEEDBACK_REWARD.months} meses del plan {FEEDBACK_REWARD.plan} se activan sobre una
+            cuenta. Entra con Google usando{' '}
+            <span className="font-medium">{sentTo}</span> y quedas listo: sin eso no hay dónde
+            ponerlos.
+          </p>
+        )}
       </div>
     );
   }
