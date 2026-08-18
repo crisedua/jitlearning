@@ -281,8 +281,24 @@ function Suscripcion({ subscription }: { subscription: Subscription }) {
           </p>
         )}
         {comped && (
+          /*
+           * Say when it ends, because it does.
+           *
+           * A granted plan reverts to free on `plan_granted_until`, and this
+           * said only "no hay nada que pagar ni que cancelar" — true, and quiet
+           * about the date. Somebody would have found out by being turned away
+           * mid-question, which is both a bad surprise and the wrong moment to
+           * ask anybody for anything. Said in advance it is the opposite: they
+           * know when, with the hours they recovered sitting right above it.
+           */
           <p className="mt-1 text-[13px] leading-relaxed text-muted">
-            Te lo activamos nosotros. No hay nada que pagar ni que cancelar.
+            Te lo activamos nosotros: no hay nada que pagar ni que cancelar.
+            {subscription.grantedUntil
+              ? ` Va hasta el ${new Date(subscription.grantedUntil).toLocaleDateString('es-CL', {
+                  day: 'numeric',
+                  month: 'long',
+                })}, y después vuelve al plan gratis.`
+              : ''}
           </p>
         )}
       </div>

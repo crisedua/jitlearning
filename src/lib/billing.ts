@@ -266,8 +266,20 @@ export async function applySubscription(subscription: Stripe.Subscription): Prom
 export interface Subscription {
   planId: string;
   status: string | null;
+  /** When a *paid* subscription renews or lapses. Null for a comped plan. */
   endsAt: string | null;
   hasCustomer: boolean;
+  /**
+   * When a comped plan reverts to free, or null when the plan was bought.
+   *
+   * Separate from `endsAt` because they come from different places and mean
+   * different things: one is Stripe's, one is ours. The notebook was showing
+   * only Stripe's, so somebody on a granted plan saw "de cortesía" with no date
+   * and the line "no hay nada que pagar ni que cancelar" — true, and silent
+   * about the fact that it ends. The first ten people are exactly the ones on
+   * granted plans.
+   */
+  grantedUntil: string | null;
 }
 
 /** What the learner is paying for, for the account UI. */
@@ -276,7 +288,9 @@ export async function subscriptionFor(userId: string): Promise<Subscription | nu
 
   const { data, error } = await supabaseAdmin()
     .from('profiles')
-    .select('plan_id, subscription_status, subscription_ends_at, stripe_customer_id')
+    .select(
+      'plan_id, subscription_status, subscription_ends_at, stripe_customer_id, plan_granted_until',
+    )
     .eq('id', userId)
     .maybeSingle();
 
@@ -307,6 +321,7 @@ export async function subscriptionFor(userId: string): Promise<Subscription | nu
       status: null,
       endsAt: null,
       hasCustomer: false,
+      grantedUntil: null,
     };
   }
 
@@ -321,6 +336,7 @@ export async function subscriptionFor(userId: string): Promise<Subscription | nu
     subscription_status: string | null;
     subscription_ends_at: string | null;
     stripe_customer_id: string | null;
+    plan_granted_until: string | null;
   };
 
   return {
@@ -328,5 +344,6 @@ export async function subscriptionFor(userId: string): Promise<Subscription | nu
     status: row.subscription_status,
     endsAt: row.subscription_ends_at,
     hasCustomer: Boolean(row.stripe_customer_id),
+    grantedUntil: row.plan_granted_until,
   };
 }
