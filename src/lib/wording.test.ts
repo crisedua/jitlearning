@@ -92,3 +92,58 @@ describe('what the product calls itself', () => {
     });
   }
 });
+
+/**
+ * Nothing claims other people did something they have not done.
+ *
+ * The pricing page badged its recommended tier "El más elegido" — the most
+ * chosen — which is a statement about other customers on a product that has
+ * none. `site.ts` names "no unverifiable statistics" in its own copy rules, and
+ * the fourth promise on the landing page is "No inventa. Ninguna cifra sin
+ * fuente."
+ *
+ * A fabricated popularity claim on the page that asks for money disproves that
+ * promise more cheaply than any answer the teacher could give, and social proof
+ * is the first thing anybody adds when a page feels quiet. So it is checked
+ * rather than remembered.
+ *
+ * The feedback deal's "las primeras 10 personas" is deliberately not caught: a
+ * cap on how many will be let in claims nothing about how many already are.
+ */
+const INVENTED_CROWD = [
+  /más elegido/i,
+  /más popular/i,
+  /el favorito/i,
+  /la mayoría de (?:nuestros|los) (?:alumnos|usuarios|clientes)/i,
+  /(?:miles|cientos|decenas) de (?:personas|alumnos|usuarios|profesionales)/i,
+  /\b\d+\s*(?:personas|alumnos|usuarios)\s+(?:ya|han|llevan)\b/i,
+  /lo usan? \d+/i,
+];
+
+describe('what the product claims about other people', () => {
+  const files = [
+    ...components(path.join(ROOT, 'src', 'components')),
+    ...components(path.join(ROOT, 'src', 'app')),
+    path.join(ROOT, 'src', 'lib', 'site.ts'),
+    path.join(ROOT, 'src', 'lib', 'plans.ts'),
+  ];
+
+  it('found the files, so the check below means something', () => {
+    assert.ok(files.length >= 20, `only ${files.length} files scanned`);
+  });
+
+  for (const file of files) {
+    const rel = path.relative(ROOT, file);
+    it(`${rel} claims no crowd it does not have`, () => {
+      const text = readable(file);
+      for (const pattern of INVENTED_CROWD) {
+        const hit = pattern.exec(text);
+        assert.ok(
+          !hit,
+          `${rel} says "${hit?.[0]}" — a claim about other customers. This product ` +
+            `sells on not inventing figures; recommend it in its own name instead.`,
+        );
+      }
+    });
+  }
+});

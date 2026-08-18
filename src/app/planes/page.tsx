@@ -234,9 +234,23 @@ function PlanCard({ plan, buyable }: { plan: Plan; buyable: boolean }) {
           : 'border-line hover:border-accent/35'
       }`}
     >
+      {/*
+        This badge said "El más elegido" — the most chosen — which is a claim
+        about what other customers did, on a product that has none. An
+        unverifiable statistic is the one thing `site.ts` names in its own copy
+        rules as out of bounds, and the fourth promise on the landing page is
+        "No inventa. Ninguna cifra sin fuente." A fabricated popularity claim on
+        the page that asks for money disproves that promise more cheaply than any
+        answer the teacher could give.
+
+        The badge still does its job: it marks the tier this product points
+        somebody at. It just owns the recommendation instead of attributing it to
+        a crowd, which is the same distinction the persona is required to make
+        between a sourced fact and its own judgement.
+      */}
       {recommended && (
         <span className="absolute -top-3 left-7 rounded-full border border-gold/45 bg-gold-soft px-3 py-1 text-[10px] font-semibold uppercase leading-none tracking-[0.1em] text-accent">
-          El más elegido
+          El que recomendamos
         </span>
       )}
       {organisation && (
