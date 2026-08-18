@@ -44,6 +44,24 @@ export const TEACHER = {
   citationExample:
     '"esto viene de la guía de skills de Claude que tengo en el material" o "esto lo dice la comparativa entre asistentes que tengo acá"',
   /**
+   * The distinctive words in `citationExample`, as they appear in the filenames
+   * of the documents it refers to.
+   *
+   * The comment above states an invariant that nothing enforced: the example has
+   * to name a document the corpus actually holds. It does today — "skills de
+   * Claude" is `empleabilidad/skills-de-claude.md` and "la comparativa entre
+   * asistentes" is `empleabilidad/comparativa-chatgpt-claude-gemini.md` — and
+   * retiring either one would leave the persona teaching the model to cite a
+   * source that is not there.
+   *
+   * That failure is invisible and lands on the one promise this product cannot
+   * afford to break. The landing page's fourth claim is "No inventa", and a
+   * teacher confidently attributing an answer to a document nobody attached is
+   * precisely inventing. `npm run doctor` checks these against the live agent's
+   * attachment list.
+   */
+  citationTokens: ['skills', 'comparativa'] as const,
+  /**
    * Retrieval strictness. 0.8 rather than tighter: answers here lean mostly on
    * general knowledge over a small, varied corpus, and a tight gate returns
    * nothing at all, which makes the supplement decorative. Overridable with

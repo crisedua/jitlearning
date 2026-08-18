@@ -130,6 +130,34 @@ async function main() {
       }
 
       /*
+       * Does the citation example name a document that is actually attached?
+       *
+       * The persona tells the model how an attribution sounds, by example, and
+       * the example names real documents on purpose: an example naming something
+       * absent teaches the model to produce a plausible-sounding source, which is
+       * the exact failure the honesty rule exists to prevent and the exact claim
+       * the landing page makes fourth. "No inventa" is not a style note here, it
+       * is the difference between this and a chat window.
+       *
+       * Retiring a document is a normal thing to do and nothing would have
+       * connected it to a sentence in the prompt.
+       */
+      const attachedNames = attached.map((d) => d.name.toLowerCase()).join(' ');
+      const orphaned = TEACHER.citationTokens.filter((t) => !attachedNames.includes(t));
+      if (attached.length === 0) {
+        note('No documents attached, so the citation example cannot be checked.');
+      } else if (orphaned.length === 0) {
+        ok('The persona\'s citation example names documents that are attached');
+      } else {
+        bad(
+          `The persona cites ${orphaned.join(', ')}, which no attached document matches.`,
+        );
+        note('It is teaching the model to invent a source. Re-ingest the document, or');
+        note('change TEACHER.citationExample and citationTokens to name one that exists.');
+        failures++;
+      }
+
+      /*
        * Is the live teacher the teacher in this repo?
        *
        * Every check below this one reads the persona out of `agent.ts` and
