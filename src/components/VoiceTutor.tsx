@@ -127,7 +127,32 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
       messageCount: usage.messages,
     });
 
-    void fetch(`/api/sessions/${sessionId}`, {
+    /*
+     * `sendBeacon` first, and `fetch` only when it is missing.
+     *
+     * This ran on `fetch` with `keepalive: true`, which is the modern answer and
+     * the one iOS Safari was slowest to honour. The event above was already
+     * chosen for iOS — `pagehide`, because `beforeunload` does not fire there —
+     * and then the request it fires was left on the transport that browser is
+     * worst at keeping alive through a page teardown.
+     *
+     * What is lost when it does not survive is not a metric. This request
+     * carries the conversation id, which is what ties the class to the summary
+     * the post-call webhook writes, and the duration the allowance is counted
+     * from. Losing it means a learner who closed the tab gets no memory of that
+     * class and no minutes deducted, and the closed tab is, by the comment above,
+     * the most common way a session ends.
+     *
+     * The endpoint needs no custom header — it authenticates by cookie, and a
+     * beacon sends those — so the Blob's type carries the only thing `fetch` was
+     * setting.
+     */
+    const url = `/api/sessions/${sessionId}`;
+    const blob = new Blob([body], { type: 'application/json' });
+
+    if (navigator.sendBeacon?.(url, blob)) return;
+
+    void fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body,
