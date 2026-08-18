@@ -125,7 +125,7 @@ export async function GET() {
       left !== null && left < CLASS_CAP_MINUTES
         ? `, porque es todo lo que le queda${balance?.period === 'total' ? ' del tiempo gratis' : ' este mes'}`
         : ''
-    }.`.slice(0, 900);
+    }. Elige con ella una tarea que quepa, o un trozo de una que sí: descontando la apertura, la privacidad y el cierre, quedan pocos minutos para hacerla.`.slice(0, 900);
 
     /*
      * Two kinds of memory, kept apart on purpose.
