@@ -126,6 +126,16 @@ export async function GET() {
       sessionId,
       context,
       dynamicVariables: record,
+      /*
+       * Minutes left, so the browser can tell the teacher when time is short.
+       *
+       * The record already carries this number as prose, and the persona is
+       * told to drop the map and finish the measurement when fewer than ten
+       * remain. Both are read once, at connect, by a model that has no clock and
+       * cannot notice the number going down. Null when this deployment does not
+       * meter, which is the case where no nudge is possible or needed.
+       */
+      minutesLeft: left,
     });
   } catch (err) {
     /*

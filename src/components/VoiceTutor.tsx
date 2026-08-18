@@ -89,6 +89,14 @@ function VoiceTutorInner() {
    * instead of showing twice.
    */
   const pendingContextRef = useRef<string | null>(null);
+  /**
+   * Minutes of allowance left when this session opened.
+   *
+   * A ref rather than state: the timers read it once at connect and nothing
+   * renders it, so putting it in state would re-render the transcript for a
+   * number nobody sees.
+   */
+  const minutesLeftRef = useRef<number | null>(null);
   const lastTypedRef = useRef<string | null>(null);
 
   /**
@@ -205,6 +213,50 @@ function VoiceTutorInner() {
     }
   }, [status, sendContextualUpdate]);
 
+  /*
+   * Tell the teacher when time is running out, because it cannot tell.
+   *
+   * The record it opens on says how many minutes are left, and the persona is
+   * instructed to drop the map and spend what remains finishing the task and
+   * measuring it. Both are read once, at connect, by a model with no clock: it
+   * knows it started with twenty minutes and never learns that eighteen have
+   * gone. So the instruction that protects the most important outcome of a first
+   * session could only ever fire on the value it was handed at the start.
+   *
+   * The gate is at connect too, so a running session is never cut off. A first
+   * session that drifts past its allowance costs money and, worse, tends to end
+   * without the second number: the task half-done, nothing measured, no hours on
+   * the progress page and no offer beside them. The whole value claim comes from
+   * a subtraction that only exists if somebody asks for it before the end.
+   *
+   * Two contextual updates, which are silent and do not consume a spoken turn.
+   * Five minutes out is enough to close a task; one is enough to ask the second
+   * number and nothing else.
+   */
+  useEffect(() => {
+    if (status !== 'connected') return;
+    const left = minutesLeftRef.current;
+    if (left === null || left <= 2) return;
+
+    const at = (minutes: number, message: string) =>
+      window.setTimeout(() => sendContextualUpdate(message), minutes * 60_000);
+
+    const timers = [
+      at(
+        Math.max(left - 5, 0.5),
+        'Quedan unos 5 minutos de esta clase. Cierra la tarea con lo que ya tienen y pregúntale ' +
+          'cuánto tardó, para poder decirle la resta antes de terminar. El mapa y el plan pueden esperar.',
+      ),
+      at(
+        Math.max(left - 1, 1),
+        'Queda 1 minuto. Si todavía no tienes los dos números, pídele el de ahora y dile la resta ' +
+          'en una frase. Después cierra con un compromiso corto y dile que lo que sigue está en su página de progreso.',
+      ),
+    ];
+
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [status, sendContextualUpdate]);
+
   // `starting` covers the gap between the click and the SDK taking over;
   // any settled status — open, failed, or closed — means that gap is over.
   useEffect(() => {
@@ -247,6 +299,8 @@ function VoiceTutorInner() {
          * fails outright: this is not optional decoration.
          */
         dynamicVariables?: Record<string, string>;
+        /** Minutes of allowance left at connect, or null when unmetered. */
+        minutesLeft?: number | null;
         error?: string;
       };
       if (!res.ok || !data.signedUrl) {
@@ -255,6 +309,7 @@ function VoiceTutorInner() {
 
       setTurns([]);
       lastTypedRef.current = null;
+      minutesLeftRef.current = typeof data.minutesLeft === 'number' ? data.minutesLeft : null;
       usageRef.current = {
         // Null when this deployment records no usage. Everything downstream
         // checks for it rather than assuming a row exists.
