@@ -33,6 +33,7 @@ import { buildPlan, LESSONS, LEVELS, lessonsForLevel, PATHS } from '../src/lib/c
 import { supabaseAdmin } from '../src/lib/supabase/admin';
 import { billingConfigured, stripe as stripeClient } from '../src/lib/billing';
 import { breakEven, DEFAULT_INPUTS } from '../src/lib/costs';
+import { configuredOrigin, DEFAULT_ORIGIN } from '../src/lib/canonical';
 
 const ok = (m: string) => console.log(`  ok    ${m}`);
 
@@ -774,6 +775,47 @@ async function main() {
    * /api/health returns 503 when the secret is missing and 401 when it is set,
    * so the difference is visible from outside without ever holding the value.
    */
+  /*
+   * Which origin this deployment answers as.
+   *
+   * One value decides where the search tool is registered, what Stripe is told
+   * to return to, what the OAuth handshake comes back to, and which hostname
+   * production will redirect everything else to. The doctor said nothing about
+   * it for thirty-odd rounds, so the variable behind the redirect that protects
+   * sign-in could sit unset with no signal from the tool the README says to run
+   * after every step.
+   *
+   * Unset is survivable rather than broken: generated URLs come from the
+   * forwarded host, and the tool and the redirect fall back to the origin
+   * compiled into canonical.ts. That is right for this deployment and wrong for
+   * anybody who forked it, which is exactly the distinction worth printing
+   * rather than leaving somebody to discover.
+   */
+  console.log('\nCanonical origin\n');
+  const configured = configuredOrigin();
+  const rawOrigin =
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() || process.env.PUBLIC_BASE_URL?.trim() || '';
+
+  if (configured) {
+    ok(`Configured as ${configured}`);
+  } else if (rawOrigin) {
+    /*
+     * Set and unusable, which reads identically to unset everywhere else.
+     * `configuredOrigin()` returns null for anything `new URL()` refuses, so
+     * "modojit.com" without a scheme silently becomes the compiled default and
+     * the operator is told nothing is configured while looking at a line where
+     * they configured it.
+     */
+    bad(`NEXT_PUBLIC_SITE_URL is set to "${rawOrigin}", which is not a URL, so it is ignored.`);
+    note('It needs a scheme: https://www.modojit.com, not www.modojit.com.');
+    failures++;
+  } else {
+    note(`Not set. Falling back to the compiled ${DEFAULT_ORIGIN}.`);
+    note('Right for this deployment; set NEXT_PUBLIC_SITE_URL if it is ever served elsewhere.');
+  }
+  note(`The search tool would register ${configured ?? DEFAULT_ORIGIN}/api/ask`);
+  note('Production redirects every other hostname here, so sign-in only ever begins on one.');
+
   console.log('\nShared secret\n');
   if (process.env.INGEST_SECRET?.trim()) {
     ok('INGEST_SECRET is set locally');
