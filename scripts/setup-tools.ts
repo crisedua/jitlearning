@@ -15,7 +15,7 @@
  */
 import './env';
 import { createTool, listTools, updateAgent, updateTool } from '../src/lib/elevenlabs';
-import { currentAgent } from '../src/lib/agent';
+import { currentAgent, syncAgentKnowledge, teacherSystemPrompt } from '../src/lib/agent';
 import { requireAgentId } from '../src/lib/config';
 import { configuredOrigin, DEFAULT_ORIGIN } from '../src/lib/canonical';
 
@@ -182,7 +182,38 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`✓ Attached and verified · ${live.size} tool(s) on ${agent.agent_id}\n`);
+  console.log(`✓ Attached and verified · ${live.size} tool(s) on ${agent.agent_id}`);
+
+  /*
+   * Put the search promise back, because attaching a tool does not.
+   *
+   * The persona ships in two forms and `syncAgentKnowledge` picks by the agent's
+   * `tool_ids`. Anybody following the order in the README has already synced,
+   * with no tool attached, so the live prompt says plainly that it cannot look
+   * anything up. That was correct one line ago and is now a teacher refusing to
+   * use something it has.
+   *
+   * Doing it here rather than telling the operator to, because the failure is
+   * silent: nothing errors, no check fails except the one comparing the live
+   * persona to the variant its tools imply, and every class in between is taught
+   * by a teacher that declines to search. A script that changes what the agent
+   * can do should leave the agent describing itself correctly.
+   */
+  const synced = await syncAgentKnowledge();
+  const check = await currentAgent();
+  const livePrompt = (check?.conversation_config.agent.prompt.prompt ?? '').trim();
+
+  if (livePrompt !== teacherSystemPrompt({ search: true }).trim()) {
+    console.error(
+      '\n! The tool is attached and the live persona is not the one that uses it.\n' +
+        '  Run `npm run sync:agent -- --push` and read what it says.\n',
+    );
+    process.exit(1);
+  }
+
+  console.log(
+    `✓ Persona re-synced with its lookup promise · ${livePrompt.length} chars · ${synced.attached} document(s)\n`,
+  );
 }
 
 main().catch((err) => {

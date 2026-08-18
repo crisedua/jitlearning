@@ -71,7 +71,8 @@ export SITE=https://www.modojit.com     # for the curls below
 #    renders. The output header lists and counts the files.
 npm run sql | pbcopy        # then run it in the Supabase SQL editor
 
-# 2. The agent: persona, curriculum, extraction fields, attachment list.
+# 2. The agent: persona, curriculum, extraction fields, success criteria,
+#    attachment list.
 npm run sync:agent -- --push
 
 # 3. The lookup tool. Needs INGEST_SECRET (step 0) and nothing else:
@@ -81,6 +82,13 @@ npm run sync:agent -- --push
 #    answers, out loud, that it cannot search right now, and the class
 #    carries on. Attach the tool first and add the key when you have it.
 npm run setup:tools -- --push
+
+#    This re-syncs the persona for you when it succeeds, and says so.
+#    The reason: the prompt ships in two forms and sync picks by the
+#    agent's tool_ids, so at step 2 the teacher went live saying it
+#    cannot look anything up, and attaching a tool does not rewrite a
+#    prompt. Left alone, the agent can search and tells every learner it
+#    cannot, which errors nowhere and is taught to everybody.
 
 # 4. The post-call webhook, in the ElevenLabs dashboard.
 #    Conversational AI -> Settings -> Webhooks
