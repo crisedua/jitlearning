@@ -229,3 +229,49 @@ describe('the columns the health endpoint watches', () => {
     });
   }
 });
+
+/**
+ * The read that decides whether somebody is a paying customer.
+ *
+ * `subscriptionFor` resolves the plan, and `/progreso` treats a missing Stripe
+ * customer as a courtesy plan: it hides the billing link and says there is
+ * nothing to cancel. So every column in that select is load-bearing for a
+ * paying customer's ability to manage their own subscription, and the select is
+ * all-or-nothing — one unknown column fails the lot with 42703.
+ *
+ * That happened. A column added three migrations later was folded into the same
+ * select, so a database with billing and without grants reported every paying
+ * customer as comped. The fix was to read the newer column separately; this
+ * keeps it that way.
+ */
+describe('resolving a subscription survives a partly migrated database', () => {
+  /** The migration that adds the billing columns this read is allowed to need. */
+  const BILLING = '20260813000000_billing.sql';
+
+  it('selects nothing newer than the billing migration', () => {
+    const source = readFileSync(path.join(ROOT, 'src', 'lib', 'billing.ts'), 'utf8');
+    const start = source.indexOf('export async function subscriptionFor');
+    assert.ok(start > 0, 'subscriptionFor not found');
+
+    const select = /\.select\('([^']+)'\)/.exec(source.slice(start));
+    assert.ok(select, 'no select found in subscriptionFor');
+    const columns = select[1]!.split(',').map((c) => c.trim());
+    assert.ok(columns.length >= 4, `only ${columns.length} columns parsed`);
+
+    const files = readdirSync(path.join(ROOT, 'supabase', 'migrations'))
+      .filter((f) => f.endsWith('.sql') && f <= BILLING)
+      .sort();
+    const allowed = files
+      .map((f) => readFileSync(path.join(ROOT, 'supabase', 'migrations', f), 'utf8'))
+      .join('\n');
+
+    for (const column of columns) {
+      assert.ok(
+        new RegExp(`\\b${column}\\b`).test(allowed),
+        `subscriptionFor selects "${column}", which no migration up to ${BILLING} creates. ` +
+          `One unknown column fails the whole read, and the fallback reports every paying ` +
+          `customer as comped. Read it separately instead.`,
+      );
+    }
+  });
+});

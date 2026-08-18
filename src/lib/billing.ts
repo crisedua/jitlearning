@@ -288,9 +288,7 @@ export async function subscriptionFor(userId: string): Promise<Subscription | nu
 
   const { data, error } = await supabaseAdmin()
     .from('profiles')
-    .select(
-      'plan_id, subscription_status, subscription_ends_at, stripe_customer_id, plan_granted_until',
-    )
+    .select('plan_id, subscription_status, subscription_ends_at, stripe_customer_id')
     .eq('id', userId)
     .maybeSingle();
 
@@ -336,7 +334,6 @@ export async function subscriptionFor(userId: string): Promise<Subscription | nu
     subscription_status: string | null;
     subscription_ends_at: string | null;
     stripe_customer_id: string | null;
-    plan_granted_until: string | null;
   };
 
   return {
@@ -344,6 +341,33 @@ export async function subscriptionFor(userId: string): Promise<Subscription | nu
     status: row.subscription_status,
     endsAt: row.subscription_ends_at,
     hasCustomer: Boolean(row.stripe_customer_id),
-    grantedUntil: row.plan_granted_until,
+    grantedUntil: await grantedUntil(userId),
   };
+}
+
+/**
+ * When a comped plan reverts, read on its own so it cannot take the rest down.
+ *
+ * `plan_granted_until` arrives three migrations after the billing columns beside
+ * it. Selecting them together meant a database with billing and without grants
+ * failed the whole read with 42703 and fell through to the plan id alone —
+ * which reports `hasCustomer: false`, which `/progreso` reads as a courtesy
+ * plan. A paying customer would have been told their subscription was a gift
+ * and shown no way to cancel it, because a column about *free* plans was
+ * missing.
+ *
+ * That was mine, added while making the courtesy plan honest about its expiry
+ * date. The lesson is the one this codebase keeps teaching: a read that needs
+ * one column should not fail because of another, and the newer the column the
+ * more true that is.
+ */
+async function grantedUntil(userId: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin()
+    .from('profiles')
+    .select('plan_granted_until')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return (data as { plan_granted_until: string | null }).plan_granted_until;
 }
