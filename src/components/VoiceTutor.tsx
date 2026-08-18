@@ -424,7 +424,19 @@ function VoiceTutorInner() {
             <input
               value={objective}
               onChange={(e) => setObjective(e.target.value)}
-              placeholder="revertir una versión que falló"
+              /*
+               * A placeholder is an example of what to type, so it has to be an
+               * example this product's learner would recognise. This said
+               * "revertir una versión que falló" — reverting a failed release,
+               * a developer's task, left over from a product this one is not.
+               *
+               * The people here are analysts, lawyers, operations, people out
+               * of work: the curriculum's own examples are supplier email and
+               * the weekly report. Somebody who reads a placeholder about
+               * releases concludes the teacher is for somebody else, in the one
+               * field they were about to type their own task into.
+               */
+              placeholder="el informe semanal que me toma toda la mañana"
               disabled={connected}
               className="w-full max-w-xl rounded-md border border-field bg-surface px-3.5 py-2.5 text-[15px] text-ink transition-colors duration-150 ease-out placeholder:text-muted hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft disabled:bg-surface-alt disabled:text-muted"
             />
