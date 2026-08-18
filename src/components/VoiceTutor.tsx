@@ -296,6 +296,37 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
   }, [status]);
 
   /**
+   * A connection that neither opens nor fails.
+   *
+   * `startSession` is fire-and-forget: success arrives as `connected`, failure
+   * through `onError`, and `starting` is cleared by whichever comes. Neither has
+   * to come. A socket can sit in `connecting` indefinitely on a captive portal,
+   * a blocking proxy or a network that accepts the handshake and then goes
+   * quiet, and no event is emitted for that.
+   *
+   * What the learner gets is the worst version of a dead end: the button reads
+   * "Conectando…", stays disabled, and never says anything. They cannot retry,
+   * because retrying is the button. They pressed the one thing the whole page
+   * asks them to press, and it stopped.
+   *
+   * Twenty seconds is long enough that a slow network still connects — a healthy
+   * one takes about two — and short enough that nobody is left watching a word.
+   */
+  useEffect(() => {
+    if (!starting && status !== 'connecting') return;
+
+    const timer = window.setTimeout(() => {
+      setStarting(false);
+      setError(
+        'No pudimos conectar con el profesor. Puede ser tu red o un firewall del trabajo. ' +
+          'Aprieta el botón otra vez, y si sigue igual prueba con otra conexión.',
+      );
+    }, 20_000);
+
+    return () => window.clearTimeout(timer);
+  }, [starting, status]);
+
+  /**
    * `seed` is the question tapped in the explorer.
    *
    * Passed as an argument rather than read from state: a tap sets the objective

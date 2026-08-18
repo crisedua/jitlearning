@@ -71,4 +71,26 @@ describe('the gates between a learner and a class', () => {
   it('8. the class breaks mid-sentence: told what to do, not what broke', () => {
     assert.match(tutor, /liveCallMessage\(message\)/);
   });
+
+  /*
+   * The ninth, and it was missing from this list when the list was written.
+   *
+   * `startSession` is fire-and-forget: success arrives as `connected`, failure
+   * through `onError`, and neither has to arrive. A socket can sit in
+   * `connecting` indefinitely behind a captive portal or a blocking proxy, and
+   * no event is emitted for that — so the button read "Conectando…", stayed
+   * disabled, and never said anything. The learner cannot retry, because
+   * retrying is the button.
+   *
+   * Enumerating the gates found eight and there were nine. The list is worth
+   * more than any gate in it, and it is still not proof of completeness.
+   */
+  it('9. a connection that neither opens nor fails: gives up and says so', () => {
+    assert.match(
+      tutor,
+      /setTimeout\([\s\S]{0,220}No pudimos conectar con el profesor/,
+      'a hung connection leaves the button disabled and silent',
+    );
+    assert.match(tutor, /20_000/, 'the timeout is gone, so nothing rescues a hung connect');
+  });
 });
