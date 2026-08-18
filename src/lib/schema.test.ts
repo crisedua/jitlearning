@@ -275,3 +275,36 @@ describe('resolving a subscription survives a partly migrated database', () => {
     }
   });
 });
+
+/*
+ * Migration versions have to be unique.
+ *
+ * Supabase keys applied migrations by the numeric prefix, not the filename, so
+ * two files sharing one version are one version: `supabase db push` records it
+ * as applied after the first and the second never runs. `npm run sql` prints
+ * both, which makes the mistake invisible to anybody pasting into the SQL
+ * editor and fatal to anybody using the CLI, and the symptom arrives much later
+ * as a missing table on one deployment and not another.
+ *
+ * Written after doing it: 20260816000000_purchase_intent.sql was added beside
+ * an existing 20260816000000_plan_grants.sql, and nothing anywhere objected.
+ */
+describe('migration versions', () => {
+  it('are unique across every file', () => {
+    const files = readdirSync(path.join(ROOT, 'supabase', 'migrations')).filter((f) =>
+      f.endsWith('.sql'),
+    );
+    const seen = new Map<string, string>();
+    for (const file of files) {
+      const version = file.split('_')[0]!;
+      const first = seen.get(version);
+      assert.equal(
+        first,
+        undefined,
+        `${file} and ${first} share version ${version}: the second would never run.`,
+      );
+      seen.set(version, file);
+    }
+    assert.ok(files.length > 0, 'no migrations found, so this test proved nothing');
+  });
+});

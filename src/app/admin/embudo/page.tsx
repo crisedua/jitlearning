@@ -240,7 +240,7 @@ export default async function EmbudoPage() {
                 <p className="mt-1 text-[13px] leading-relaxed text-ink/80">
                   No se puede contar: falta la migración{' '}
                   <code className="font-mono text-[12px]">
-                    20260816000000_purchase_intent.sql
+                    20260817000000_purchase_intent.sql
                   </code>
                   . Esto no es cero, es desconocido, y es el paso que más caro sale confundir.
                 </p>
