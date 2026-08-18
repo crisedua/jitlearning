@@ -20,9 +20,32 @@ export class ElevenLabsError extends Error {
     readonly body: string,
     readonly endpoint: string,
   ) {
-    super(`ElevenLabs ${status} on ${endpoint}: ${body}`);
+    super(`ElevenLabs ${status} on ${endpoint}: ${redactSecrets(body)}`);
     this.name = 'ElevenLabsError';
   }
+}
+
+/**
+ * Strip credentials out of an error message before anybody can read it.
+ *
+ * A validation error quotes the request back. `setup:tools` registers a webhook
+ * tool whose config carries INGEST_SECRET as a header value, so a 422 from that
+ * endpoint printed the live shared secret to the terminal — and from there into
+ * a scrollback buffer, a CI log, or a screenshot pasted into a chat. That
+ * happened here, and the secret had to be rotated.
+ *
+ * Long hex and base64-ish runs are the shape every credential in this project
+ * takes: INGEST_SECRET is 32 bytes of hex, the ElevenLabs key is `sk_` and 32
+ * more. Matching on shape rather than on a list of variable names is what makes
+ * this hold for the next secret somebody adds without thinking about this file.
+ *
+ * Deliberately blunt. A message that has lost a harmless 40-character id is
+ * still readable; one that has leaked a live secret cannot be unread.
+ */
+export function redactSecrets(text: string): string {
+  return text
+    .replace(/\bsk_[A-Za-z0-9_-]{8,}/g, 'sk_<redacted>')
+    .replace(/\b[0-9a-f]{32,}\b/gi, '<redacted>');
 }
 
 function apiKey(): string {

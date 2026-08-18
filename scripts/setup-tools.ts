@@ -67,14 +67,16 @@ const BUSCAR = {
      * The secret rides in a header rather than the query string: this route
      * spends money on every call, and a URL is the part of a request most likely
      * to end up in a log.
+     *
+     * A plain object, not the array of `{type, name, value}` entries this used
+     * to send. ElevenLabs answers that shape with a 422 — "Input should be a
+     * valid dictionary" — so `buscar` could never be registered at all, which
+     * is why the live agent has no tools. The 422 quotes the offending value
+     * back, which is how this project's shared secret ended up on a terminal.
      */
-    request_headers: [
-      {
-        type: 'value' as const,
-        name: 'x-ingest-secret',
-        value: process.env.INGEST_SECRET?.trim() ?? '',
-      },
-    ],
+    request_headers: {
+      'x-ingest-secret': process.env.INGEST_SECRET?.trim() ?? '',
+    },
     query_params_schema: {
       properties: {
         q: {

@@ -310,7 +310,24 @@ export async function GET(req: Request) {
       const { error } = await supabaseAdmin()
         .from(table)
         .select(column, { count: 'exact', head: true });
-      if (error) broken.push(`${table}.${column} (${why}): ${error.code ?? error.message}`);
+      if (error) {
+        /*
+         * `||`, not `??`.
+         *
+         * PostgREST hands back an error object whose `code` can be the empty
+         * string, and `'' ?? x` is `''` — so this printed "plan_steps.minutes_before
+         * (no plan, and nothing to measure): " with nothing after the colon, on
+         * the one check whose entire job is to say what is wrong. Four columns
+         * were reported missing and not one of them said why.
+         *
+         * Both fields go out now. The code is what a search engine answers
+         * (42703 is a missing column, 42P01 a missing table) and the message is
+         * what a person reads.
+         */
+        const code = error.code || '';
+        const detail = [code, error.message].filter(Boolean).join(' ') || 'no reason given';
+        broken.push(`${table}.${column} (${why}): ${detail}`);
+      }
     }
 
     checks.schema =
