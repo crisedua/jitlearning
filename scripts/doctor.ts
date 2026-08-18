@@ -35,7 +35,22 @@ import { billingConfigured, stripe as stripeClient } from '../src/lib/billing';
 import { breakEven, DEFAULT_INPUTS } from '../src/lib/costs';
 
 const ok = (m: string) => console.log(`  ok    ${m}`);
-const bad = (m: string) => console.log(`  FAIL  ${m}`);
+
+/**
+ * Every failure, in the order it was found, so the end of the run can repeat
+ * them.
+ *
+ * This printed "2 check(s) failed" after thirty lines across six sections, and
+ * left the reader to scroll back and find which two. The README says to run this
+ * after every step of going live, and its whole promise is that it names what is
+ * still missing — a count is not a name.
+ */
+const failed: string[] = [];
+
+const bad = (m: string) => {
+  failed.push(m);
+  console.log(`  FAIL  ${m}`);
+};
 const note = (m: string) => console.log(`        ${m}`);
 
 /** The tables the teacher's memory lives in, and the migration that makes them. */
@@ -934,16 +949,30 @@ async function main() {
     note(`PROMISE_MARKERS has no card on the page for: ${unclaimed.join(', ')}`);
   }
 
-  if (failures > 0) {
-    console.error(`\n${failures} check(s) failed.\n`);
-    process.exit(1);
-  }
-  if (supabaseFailures > 0) {
-    console.error('\nElevenLabs is ready, but learners cannot use the teacher yet.\n');
-    process.exit(1);
-  }
-  if (billingFailures > 0) {
-    console.error('\nThe teacher works, but the checkout would take money and grant nothing.\n');
+  if (failed.length > 0) {
+    /*
+     * The real total, and the names.
+     *
+     * This printed `${failures}`, which is one of three separate counters, so a
+     * run with two agent problems, one Supabase problem and one pricing problem
+     * announced "2 check(s) failed". Under-reporting is worse than a bare count:
+     * somebody fixes the two they were told about, re-runs, and is told about
+     * more, with no way to know when it ends.
+     *
+     * Listed in the order they were found, which is roughly the order to fix
+     * them: connectivity before schema, schema before billing.
+     */
+    console.error(`\n${failed.length} check(s) failed:\n`);
+    failed.forEach((m, i) => console.error(`  ${i + 1}. ${m}`));
+
+    // The section counters still decide the closing line, because which half is
+    // broken changes what the reader should do next.
+    if (supabaseFailures > 0 && failures === 0) {
+      console.error('\nElevenLabs is ready, but learners cannot use the teacher yet.');
+    } else if (billingFailures > 0 && failures === 0 && supabaseFailures === 0) {
+      console.error('\nThe teacher works, but the checkout would take money and grant nothing.');
+    }
+    console.error('');
     process.exit(1);
   }
   console.log('\nReady.\n');

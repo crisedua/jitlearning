@@ -49,7 +49,8 @@ like the *next* thing is broken, which is why the order is worth following.
 #
 #    INGEST_SECRET        every privileged route checks it first and
 #                         returns 503 without it, so steps 3, 5 and 6
-#                         fail looking like the routes are broken
+#                         fail looking like the routes are broken.
+#                         Any long random string: openssl rand -hex 32
 #    NEXT_PUBLIC_SITE_URL the canonical origin, e.g. https://www.modojit.com.
 #                         Decides where the search tool points, every
 #                         Stripe return URL, the OAuth redirect, and the
