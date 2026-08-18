@@ -10,6 +10,7 @@
  * and each had grown its own arithmetic for it. The comparison lives here; the
  * sentences stay with each audience.
  */
+import { CLASS_CAP_SECONDS } from './class-length';
 import {
   dataCollection,
   dynamicVariablePlaceholders,
@@ -33,6 +34,14 @@ export interface LiveAgent {
    * against the live agent instead of trusting the shape.
    */
   dynamicVariables?: Record<string, unknown>;
+  /*
+   * How long the platform lets a class run. A sibling of `agent` under
+   * `conversation_config`, like `dynamicVariables`, and read the same careful
+   * way: this repo went a long time carrying ElevenLabs' own default here
+   * without knowing the number, which silently put every wrap-up prompt the
+   * classroom schedules past the end of the call.
+   */
+  conversation?: { max_duration_seconds?: number };
   platform_settings?: {
     data_collection?: Record<string, unknown>;
     evaluation?: { criteria?: Array<{ id?: string }> };
@@ -60,6 +69,16 @@ export interface Parity {
   missingCriteria: string[];
   /** Empty when retrieval matches; otherwise what differs, in repo terms. */
   retrieval: { enabled: boolean; drift: string[] };
+  /**
+   * What the live agent will actually cut a class off at, when it disagrees
+   * with this repo. null when they agree.
+   *
+   * Worth reporting rather than assuming, because the classroom, the teacher's
+   * pacing and the note above the button all now derive their timing from the
+   * repo's figure. If the agent's is lower, every one of them is wrong again in
+   * the same direction as before, and nothing on this side would notice.
+   */
+  liveClassCapSeconds: number | null;
 }
 
 export function parity(agent: LiveAgent): Parity {
@@ -108,5 +127,10 @@ export function parity(agent: LiveAgent): Parity {
       .map((c) => c.id)
       .filter((id) => !liveCriteria.includes(id)),
     retrieval: { enabled: Boolean(rag?.enabled), drift },
+    liveClassCapSeconds:
+      agent.conversation?.max_duration_seconds === undefined ||
+      agent.conversation.max_duration_seconds === CLASS_CAP_SECONDS
+        ? null
+        : agent.conversation.max_duration_seconds,
   };
 }

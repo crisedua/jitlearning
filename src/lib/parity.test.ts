@@ -7,6 +7,7 @@
  * which is two definitions of "right".
  */
 import assert from 'node:assert/strict';
+import { CLASS_CAP_SECONDS } from './class-length';
 import { describe, it } from 'node:test';
 import { parity, type LiveAgent } from './parity';
 import {
@@ -105,5 +106,35 @@ describe('agent parity', () => {
       prompt: { ...tight.prompt, rag: { ...ragConfig(), enabled: true, max_vector_distance: 0.4 } },
     };
     assert.match(parity(tightAgent).retrieval.drift.join(' '), /relevance gate 0\.4/);
+  });
+});
+
+/*
+ * The ceiling is a copy the agent holds, like the persona and the extraction
+ * fields, and drifts the same way. It matters more than most: the classroom's
+ * wrap-up prompts, the teacher's pacing and the note above the start button all
+ * take their timing from the repo's figure, so an agent that cuts sooner puts
+ * every one of them past the end of the call — which is exactly the state this
+ * repo was in, undetected, until the number was read off the live agent.
+ */
+describe('how long the live agent lets a class run', () => {
+  it('says nothing when the two agree', () => {
+    assert.equal(parity({ ...healthy(true), conversation: { max_duration_seconds: CLASS_CAP_SECONDS } }).liveClassCapSeconds, null);
+  });
+
+  it('reports the live figure when it differs', () => {
+    const p = parity({ ...healthy(true), conversation: { max_duration_seconds: 300 } });
+    assert.equal(p.liveClassCapSeconds, 300);
+  });
+
+  it('treats an unset ceiling as agreement, because the sync will set it', () => {
+    assert.equal(parity({ ...healthy(true), conversation: {} }).liveClassCapSeconds, null);
+    assert.equal(parity(healthy(true)).liveClassCapSeconds, null);
+  });
+
+  it('notices a longer one too, not just a shorter one', () => {
+    // A ceiling above the repo's does not truncate the class, but it does mean
+    // the two disagree, and the next person to read either one is misled.
+    assert.equal(parity({ ...healthy(true), conversation: { max_duration_seconds: 1800 } }).liveClassCapSeconds, 1800);
   });
 });

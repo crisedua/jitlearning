@@ -146,6 +146,7 @@ async function main() {
         prompt,
         dynamicVariables: agent.conversation_config?.agent?.dynamic_variables
           ?.dynamic_variable_placeholders,
+        conversation: agent.conversation_config?.conversation,
         platform_settings: (agent as unknown as { platform_settings?: never }).platform_settings,
       });
 
@@ -199,6 +200,27 @@ async function main() {
       } else {
         const want = ragConfig();
         ok(`Retrieval matches: ${want.embedding_model} at ${want.max_vector_distance}`);
+      }
+
+      /*
+       * The ceiling, checked the same way as everything else the agent holds a
+       * copy of. It went unchecked and unset for a long time, and the classroom,
+       * the teacher's pacing and the note above the start button now all take
+       * their timing from this repo's figure. If the agent cuts sooner, all
+       * three are wrong in the direction that costs the learner the subtraction,
+       * and nothing on this side would see it.
+       */
+      if (check.liveClassCapSeconds !== null) {
+        bad(
+          `The agent ends a class at ${Math.round(check.liveClassCapSeconds / 60)} min; this repo ` +
+            `schedules for ${CLASS_CAP_MINUTES}.`,
+        );
+        note('The wrap-up prompts, the teacher\'s pacing and the note on /coach all use the repo figure.');
+        note('If the agent cuts sooner, the class ends before the subtraction is asked for.');
+        note('Run `npm run sync:agent -- --push`.');
+        failures++;
+      } else {
+        ok(`A class ends at ${CLASS_CAP_MINUTES} min on both sides`);
       }
 
       /*

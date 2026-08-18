@@ -33,6 +33,7 @@ import { MIGRATION_SENSITIVE } from '@/lib/schema';
 import { firstMissingRung } from '@/lib/setup';
 import { deliveryReport } from '@/lib/delivery';
 import { parity } from '@/lib/parity';
+import { CLASS_CAP_MINUTES } from '@/lib/class-length';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
 import { getAgent } from '@/lib/elevenlabs';
 import { agentId } from '@/lib/config';
@@ -298,6 +299,7 @@ async function readAgent(id: string): Promise<AgentRow[]> {
       prompt,
       dynamicVariables: agent.conversation_config?.agent?.dynamic_variables
         ?.dynamic_variable_placeholders,
+      conversation: agent.conversation_config?.conversation,
       platform_settings: (agent as unknown as { platform_settings?: never }).platform_settings,
     });
 
@@ -327,6 +329,22 @@ async function readAgent(id: string): Promise<AgentRow[]> {
                 : check.persona === 'empty'
                   ? 'El agente no tiene prompt. Corre `npm run sync:agent -- --push`.'
                   : 'El agente tiene una versión distinta. Corre `npm run sync:agent -- --push`.',
+      },
+      {
+        /*
+         * The ceiling the agent will actually cut a class at. It sat here
+         * unread and unset for a long time, carrying the platform's own
+         * default, which put every wrap-up prompt the classroom schedules past
+         * the end of the call and cost every class its subtraction.
+         */
+        label: 'Cuánto dura una clase',
+        ok: check.liveClassCapSeconds === null,
+        detail:
+          check.liveClassCapSeconds === null
+            ? `${CLASS_CAP_MINUTES} minutos, igual que en el repo. La clase alcanza a cerrar y medir.`
+            : `El agente corta a los ${Math.round(check.liveClassCapSeconds / 60)} minutos y el repo ` +
+              `programa para ${CLASS_CAP_MINUTES}: la clase termina antes de pedir el segundo número. ` +
+              'Corre `npm run sync:agent -- --push`.',
       },
       {
         label: 'La primera frase',
