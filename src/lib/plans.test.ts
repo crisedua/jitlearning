@@ -61,7 +61,13 @@ describe('saying a saving out loud', () => {
  * than a deploy, which is exactly the change that would have moved one and left
  * the other.
  */
-import { FALLBACK_PLANS, formatMinutes, planFeatures } from './plans';
+import {
+  approximateSessions,
+  ASSUMED_SESSION_MINUTES,
+  FALLBACK_PLANS,
+  formatMinutes,
+  planFeatures,
+} from './plans';
 
 describe('what a plan card claims', () => {
   it('states the allowance the plan actually has', () => {
@@ -92,5 +98,36 @@ describe('what a plan card claims', () => {
     const founder = FALLBACK_PLANS.find((p) => p.id === 'founder')!;
     const said = planFeatures(founder).join(' | ');
     assert.ok(said.includes(`${WEEKLY_MIN} a ${WEEKLY_MAX}`), said);
+  });
+});
+
+/**
+ * One number for how long a class takes.
+ *
+ * `approximateSessions` turns an allowance into "unas N clases" on the pricing
+ * page. The landing page's how-it-works heading and the empty notebook both
+ * quoted the same figure as prose. Three encodings of one estimate, and this
+ * particular estimate has already been wrong in public: it was 8 when a session
+ * meant one answered question, and the pricing page promised 37 classes out of
+ * an allowance holding 20.
+ */
+describe('how long a class is assumed to take', () => {
+  it('divides an allowance into whole classes', () => {
+    assert.equal(approximateSessions(ASSUMED_SESSION_MINUTES * 4), 4);
+    assert.equal(approximateSessions(ASSUMED_SESSION_MINUTES * 4 - 1), 3);
+  });
+
+  it('is null for a plan that does not meter minutes', () => {
+    assert.equal(approximateSessions(null), null);
+  });
+
+  it('never promises more classes than the free tier can hold', () => {
+    // The exact failure this constant caused once.
+    const free = FALLBACK_PLANS.find((p) => p.period === 'total')!;
+    const promised = approximateSessions(free.monthlyMinutes) ?? 0;
+    assert.ok(
+      promised * ASSUMED_SESSION_MINUTES <= (free.monthlyMinutes ?? 0),
+      `promises ${promised} classes out of ${free.monthlyMinutes} minutes`,
+    );
   });
 });

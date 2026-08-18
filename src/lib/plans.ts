@@ -321,6 +321,11 @@ export function formatOverage(plan: Plan): string {
  * pricing page promising 37 classes out of an allowance that holds 20. An
  * estimate, not a measurement, so the copy that uses it says "unas" and never a
  * precise figure.
+ *
+ * The landing page and the empty notebook said "15 minutos" as prose, which is
+ * the same drift one step removed: this number moving would have left two pages
+ * quoting the old one while the class count moved. Both read it from here now,
+ * so there is one place to change and no sentence that can disagree with it.
  */
 export const ASSUMED_SESSION_MINUTES = 15;
 

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { SessionPreview } from '@/components/SessionPreview';
 import { DIFFERENCES, HERO, PROMISES, STEPS, TAGLINE } from '@/lib/site';
 import { LEVELS, lessonsForLevel } from '@/lib/curriculum';
-import { FREE_PLAN, formatMinutes } from '@/lib/plans';
+import { ASSUMED_SESSION_MINUTES, FREE_PLAN, formatMinutes } from '@/lib/plans';
 
 export const metadata = {
   title: `ModoJIT · ${TAGLINE}`,
@@ -227,7 +227,7 @@ export default function HomePage() {
               numbers measured, and both need a screen.
             */}
             <h2 className="reveal mt-4 font-serif text-[clamp(2rem,4.5vw,3rem)] font-normal leading-[1.08] tracking-[-0.02em]">
-              15 minutos, y algo tuyo queda hecho
+              {ASSUMED_SESSION_MINUTES} minutos, y algo tuyo queda hecho
             </h2>
           </div>
 

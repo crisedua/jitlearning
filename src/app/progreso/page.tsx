@@ -26,7 +26,13 @@ import {
 import { subscriptionFor, type Subscription } from '@/lib/billing';
 import { getUsageBalance } from '@/lib/account';
 import { minutesLeft } from '@/lib/balance';
-import { formatMinutes, formatMoney, spellMinutes, type Plan } from '@/lib/plans';
+import {
+  ASSUMED_SESSION_MINUTES,
+  formatMinutes,
+  formatMoney,
+  spellMinutes,
+  type Plan,
+} from '@/lib/plans';
 import { recommendedPlan } from '@/lib/offer';
 import { BillingLink } from '@/components/BillingLink';
 import { CheckoutButton } from '@/components/CheckoutButton';
@@ -378,7 +384,7 @@ function FirstVisit() {
         queda acá. El mapa y el plan vienen después, cuando ya viste funcionar algo tuyo.
       </p>
       <p className="mt-3 text-[15px] leading-relaxed text-muted">
-        Son unos 15 minutos hablando. Esta primera vez, mejor frente al computador: la idea es
+        Son unos {ASSUMED_SESSION_MINUTES} minutos hablando. Esta primera vez, mejor frente al computador: la idea es
         que termines con la tarea hecha.
       </p>
     </section>
