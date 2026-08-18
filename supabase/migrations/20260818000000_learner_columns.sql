@@ -37,3 +37,20 @@ grant update (evidence, minutes_before, minutes_after, updated_at)
 revoke update on public.session_summaries from authenticated;
 grant update (commitment_done)
   on public.session_summaries to authenticated;
+
+-- And one permission nothing uses.
+--
+-- `career_profiles` carried "update own career profile" for the authenticated
+-- role, and every read and write of that table in this codebase goes through the
+-- service role: `careerProfile` and the webhook's writer both call
+-- `supabaseAdmin()`. No form, no action, no page updates it as the learner.
+--
+-- It is the record the teacher opens on — role, field, years, chosen path — so
+-- the cost of leaving it is a learner able to rewrite what the teacher believes
+-- about them, through a client that never asks. Not a breach, and not a
+-- capability anybody asked for either.
+--
+-- `profiles` already made this call, deliberately and with a comment saying so:
+-- no insert or update policy, because those columns come from Google and from
+-- Stripe. This is the same table shape and the same answer. Reading stays.
+drop policy if exists "update own career profile" on public.career_profiles;

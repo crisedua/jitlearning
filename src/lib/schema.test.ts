@@ -409,3 +409,57 @@ describe('migrations in order', () => {
     assert.ok(files.length >= 10, `only ${files.length} migrations found`);
   });
 });
+
+/*
+ * A learner may only write what a form on the page actually writes.
+ *
+ * The policies grant UPDATE per row, so every column of a granted table is
+ * writable from the browser with the anon key, which is public. That was fine
+ * while the only writable thing was a text box; it stopped being fine when the
+ * page gained a number that feeds the headline, and it was never fine on
+ * `career_profiles`, which no form touches at all.
+ *
+ * This pins the list rather than the mechanism: adding a policy that lets a
+ * learner update a table has to be a decision somebody makes on purpose, with
+ * the column grant beside it, not something inherited from a migration written
+ * before the page had forms.
+ */
+describe('what a learner may update', () => {
+  const dir = path.join(ROOT, 'supabase', 'migrations');
+  const sql = readdirSync(dir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .map((f) => readFileSync(path.join(dir, f), 'utf8').replace(/--[^\n]*/g, ''))
+    .join('\n');
+
+  /** Tables whose learner-facing UPDATE policy is still standing at the end. */
+  const writable = new Set<string>();
+  for (const m of sql.matchAll(
+    /create policy "([^"]+)"\s+on public\.([a-z_]+)\s+for update\s+to authenticated/g,
+  )) {
+    writable.add(m[2]!);
+  }
+  for (const m of sql.matchAll(/drop policy if exists "[^"]+" on public\.([a-z_]+);(?![\s\S]{0,200}?create policy[^;]*on public\.\1\s+for update)/g)) {
+    // A drop with no create after it retires the policy.
+    if (!new RegExp(`create policy "[^"]+"\\s+on public\\.${m[1]}\\s+for update`).test(
+      sql.slice(m.index!),
+    )) {
+      writable.delete(m[1]!);
+    }
+  }
+
+  it('is exactly the two tables the progress page has forms for', () => {
+    assert.deepEqual([...writable].sort(), ['plan_steps', 'session_summaries']);
+  });
+
+  it('grants columns on each of them, so status is not writable by hand', () => {
+    for (const table of writable) {
+      assert.match(
+        sql,
+        new RegExp(`revoke update on public\\.${table} from authenticated`),
+        `${table} keeps table-wide UPDATE, so a learner can write every column of it`,
+      );
+      assert.match(sql, new RegExp(`grant update \\([a-z_, \\n]+\\)\\s+on public\\.${table}`));
+    }
+  });
+});
