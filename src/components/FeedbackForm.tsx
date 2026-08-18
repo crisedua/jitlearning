@@ -117,8 +117,23 @@ export function FeedbackForm({
           autoComplete="email"
           className="w-full rounded-md border border-field bg-surface px-3.5 py-2.5 text-[15px] text-ink transition-colors duration-150 ease-out placeholder:text-muted hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft"
         />
+        {/*
+          What this field is actually for, which is not what it said.
+
+          It read "a este correo llegan los 3 meses de acceso", and the months
+          do not arrive by email: the plan is granted against an account, which
+          is why /admin/feedback shows "sin cuenta" for anybody who wrote in
+          without signing in. The success screen was corrected to say so; this
+          label was not, and it is read first and by everybody, while the success
+          screen is read once and after the decision.
+
+          So it names the account for somebody signed in, and for somebody who
+          is not, the thing they have to do for the deal to be claimable at all.
+        */}
         <span className="mt-1.5 block text-[13px] text-soft">
-          A este correo llegan los 3 meses de acceso. Revísalo antes de enviar.
+          {signedIn
+            ? `Es la cuenta donde activamos los ${FEEDBACK_REWARD.months} meses. Revísalo antes de enviar.`
+            : `Los ${FEEDBACK_REWARD.months} meses se activan sobre una cuenta: usa el correo con el que vas a entrar con Google.`}
         </span>
       </label>
 
