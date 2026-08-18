@@ -26,6 +26,7 @@ import {
   dynamicVariablePlaceholders,
   FIRST_MESSAGE,
   PROMISE_MARKERS,
+  dataCollection,
   teacherSystemPrompt,
 } from '../src/lib/agent';
 import { PROMISES } from '../src/lib/site';
@@ -326,6 +327,41 @@ async function main() {
         note('that it cannot search right now, and the class continues.');
         note('Then: `npm run setup:tools -- --push`.');
         failures++;
+      }
+
+      /*
+       * The extraction fields, checked against the agent rather than the repo.
+       *
+       * `agent.test.ts` already ties every field the webhook reads to one this
+       * repo declares, which catches a rename in the code. It cannot see the
+       * agent. `syncAgentKnowledge` pushes `data_collection` on every sync, so
+       * these normally agree, and the way they stop agreeing is somebody editing
+       * the agent in the ElevenLabs dashboard, which is exactly how the persona
+       * drifted before parity was checked.
+       *
+       * A missing field is not a degraded feature. The webhook reads that key,
+       * finds nothing, and writes null: no commitment, no minutes, no lesson
+       * recorded, with a 200 logged at both ends. It is the quietest way this
+       * product has of stopping working.
+       */
+      const liveFields = Object.keys(
+        (agent as unknown as { platform_settings?: { data_collection?: Record<string, unknown> } })
+          .platform_settings?.data_collection ?? {},
+      );
+      const repoFields = Object.keys(dataCollection());
+      const absent = repoFields.filter((f) => !liveFields.includes(f));
+
+      if (liveFields.length === 0) {
+        bad('The live agent extracts nothing, so every session would record null.');
+        note('Run `npm run sync:agent -- --push`.');
+        failures++;
+      } else if (absent.length > 0) {
+        bad(`The live agent is missing ${absent.length} extraction field(s): ${absent.join(', ')}.`);
+        note('The webhook reads those keys, finds nothing, and stores null, with a 200 at both ends.');
+        note('Run `npm run sync:agent -- --push`.');
+        failures++;
+      } else {
+        ok(`All ${repoFields.length} extraction fields present on the live agent`);
       }
     } catch (err) {
       bad(`Agent ${id} could not be fetched: ${err instanceof Error ? err.message : err}`);
