@@ -48,6 +48,10 @@ after each step and names what is still missing.
 #    the value:
 #      curl -o /dev/null -w "%{http_code}\n" https://<app>.vercel.app/api/health
 #      503 = missing there · 401 = set (and this call simply lacks it)
+#
+#    /admin/estado answers the same question with no secret at all: sign
+#    in as an admin and it lists what this deployment is missing and what
+#    each gap turns off. Use it after every step below.
 
 # 1. The database, as one paste. Run ALL of it, to the last line: the
 #    final migration fixes a check constraint that otherwise rejects
@@ -58,7 +62,12 @@ npm run sql | pbcopy        # then run it in the Supabase SQL editor
 # 2. The agent: persona, curriculum, extraction fields, attachment list.
 npm run sync:agent -- --push
 
-# 3. The lookup tool (needs ANTHROPIC_API_KEY deployed first).
+# 3. The lookup tool. Needs INGEST_SECRET (step 0) and nothing else:
+#    /api/ask checks the secret first and returns 503 without it, and a
+#    tool that 503s is a failure the learner hears mid-conversation.
+#    ANTHROPIC_API_KEY is not a prerequisite — without it the tool
+#    answers, out loud, that it cannot search right now, and the class
+#    carries on. Attach the tool first and add the key when you have it.
 npm run setup:tools -- --push
 
 # 4. Stripe prices, created from price_minor so the two never disagree,
