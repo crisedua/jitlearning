@@ -376,16 +376,29 @@ export async function finishCoachSession(
 ): Promise<void> {
   if (!serviceConfigured()) return;
 
-  const { error } = await supabaseAdmin()
+  const { error, count } = await supabaseAdmin()
     .from('coach_sessions')
-    .update({
-      conversation_id: patch.conversationId ?? null,
-      duration_seconds: patch.durationSeconds ?? null,
-      message_count: patch.messageCount ?? null,
-      ended_at: new Date().toISOString(),
-    })
+    .update(
+      {
+        conversation_id: patch.conversationId ?? null,
+        duration_seconds: patch.durationSeconds ?? null,
+        message_count: patch.messageCount ?? null,
+        ended_at: new Date().toISOString(),
+      },
+      { count: 'exact' },
+    )
     .eq('id', sessionId)
     .eq('user_id', userId);
 
   if (error) console.error('[account] could not close usage row:', error.message);
+  /*
+   * Two filters, so matching nothing means the row is gone or belongs to
+   * somebody else, and neither is an error. This row is what carries the
+   * conversation id the post-call webhook matches on and the duration the
+   * allowance is counted from, so losing it quietly costs both the memory of
+   * the class and the minutes it used.
+   */
+  else if (count === 0) {
+    console.error(`[account] session ${sessionId} not closed: no row for that user`);
+  }
 }

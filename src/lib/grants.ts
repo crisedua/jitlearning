@@ -121,13 +121,23 @@ export async function expireGrantIfDue(userId: string): Promise<boolean> {
   const until = (data as { plan_granted_until: string | null }).plan_granted_until;
   if (!until || new Date(until).getTime() > Date.now()) return false;
 
-  const { error: writeError } = await supabaseAdmin()
+  const { error: writeError, count } = await supabaseAdmin()
     .from('profiles')
-    .update({ plan_id: 'free', plan_granted_until: null })
+    .update({ plan_id: 'free', plan_granted_until: null }, { count: 'exact' })
     .eq('id', userId);
 
   if (writeError) {
     console.error('[grants] could not expire a grant:', writeError.message);
+    return false;
+  }
+  /*
+   * Reporting `true` here would say the grant ended when nothing was written,
+   * and this runs on every mint: the caller would stop treating the plan as
+   * comped while the profile still carries it, so somebody keeps a paid tier
+   * for nothing, indefinitely, and the seat is never freed.
+   */
+  if (count === 0) {
+    console.error(`[grants] no profile ${userId}: grant not expired`);
     return false;
   }
   return true;

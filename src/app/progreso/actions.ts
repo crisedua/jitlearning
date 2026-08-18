@@ -34,12 +34,26 @@ export async function saveEvidence(formData: FormData): Promise<void> {
   const evidence = raw ? raw.slice(0, EVIDENCE_CHARS) : null;
 
   const supabase = await createClient();
-  const { error } = await supabase
+  /*
+   * `count`, and it means something different here than on the service-role
+   * writes: this goes through the learner's own client, so RLS applies, and a
+   * policy that refuses an UPDATE returns zero rows with no error — exactly what
+   * a missing row returns. Either way nothing was written while this reported
+   * success, and the learner is looking at a field they believe they saved.
+   *
+   * Not raised to the page: the form revalidates and shows the stored value, so
+   * they do find out. Logged because "my evidence will not save" is otherwise
+   * unanswerable, and RLS is the likeliest cause of it.
+   */
+  const { error, count } = await supabase
     .from('plan_steps')
-    .update({ evidence, updated_at: new Date().toISOString() })
+    .update({ evidence, updated_at: new Date().toISOString() }, { count: 'exact' })
     .eq('id', stepId);
 
   if (error) console.error('[progreso] evidence write failed:', error.message);
+  else if (count === 0) {
+    console.error(`[progreso] evidence not saved for step ${stepId}: no row, or RLS refused it`);
+  }
   revalidatePath('/progreso');
 }
 
@@ -61,11 +75,16 @@ export async function setCommitmentDone(formData: FormData): Promise<void> {
   const done = formData.get('done') === 'true';
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { error, count } = await supabase
     .from('session_summaries')
-    .update({ commitment_done: done })
+    .update({ commitment_done: done }, { count: 'exact' })
     .eq('id', sessionId);
 
   if (error) console.error('[progreso] commitment write failed:', error.message);
+  // Same as above: through the learner's client, so zero rows is a missing row
+  // or a policy refusing it, and neither arrives as an error.
+  else if (count === 0) {
+    console.error(`[progreso] commitment ${sessionId} not answered: no row, or RLS refused it`);
+  }
   revalidatePath('/progreso');
 }

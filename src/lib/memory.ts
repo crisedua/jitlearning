@@ -102,15 +102,20 @@ async function backfillRow(row: SessionRow, persist: boolean): Promise<string | 
   }
 
   if (persist) {
-    const { error } = await supabaseAdmin()
+    const { error, count } = await supabaseAdmin()
       .from('coach_sessions')
-      .update({
-        summary,
-        summary_title: title,
-        summary_synced_at: new Date().toISOString(),
-      })
+      .update(
+        {
+          summary,
+          summary_title: title,
+          summary_synced_at: new Date().toISOString(),
+        },
+        { count: 'exact' },
+      )
       .eq('id', row.id);
     if (error) console.error('[memory] could not store summary:', error.message);
+    // Not an error, and the backfill would ask for this same row forever.
+    else if (count === 0) console.error(`[memory] no session ${row.id}: summary not stored`);
   }
 
   return summary;

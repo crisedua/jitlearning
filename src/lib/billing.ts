@@ -206,9 +206,9 @@ export async function claimEvent(event: Stripe.Event): Promise<boolean> {
 
 /** Mark the claim finished. Only ever called after the handler returned. */
 export async function markHandled(eventId: string): Promise<void> {
-  const { error } = await supabaseAdmin()
+  const { error, count } = await supabaseAdmin()
     .from('billing_events')
-    .update({ handled_at: new Date().toISOString() })
+    .update({ handled_at: new Date().toISOString() }, { count: 'exact' })
     .eq('id', eventId);
 
   /*
@@ -217,6 +217,9 @@ export async function markHandled(eventId: string): Promise<void> {
    * which is safe. Turning this into a 500 would ask Stripe to redo it for sure.
    */
   if (error) console.error('[billing] could not mark event handled:', error.message);
+  // Same swallow, same reason, but say which happened: no row means the claim
+  // is missing, so this event will be treated as new if Stripe sends it again.
+  else if (count === 0) console.error(`[billing] no claim row for event ${eventId}`);
 }
 
 /**

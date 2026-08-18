@@ -77,17 +77,24 @@ export async function storeCommitment(
   const action = field(conversation, 'commitment');
   if (!action) return;
 
-  const { error } = await supabaseAdmin()
+  const { error, count } = await supabaseAdmin()
     .from('coach_sessions')
-    .update({
-      commitment: action,
-      commitment_due: field(conversation, 'commitment_due'),
-      commitment_signal: field(conversation, 'commitment_signal'),
-    })
+    .update(
+      {
+        commitment: action,
+        commitment_due: field(conversation, 'commitment_due'),
+        commitment_signal: field(conversation, 'commitment_signal'),
+      },
+      { count: 'exact' },
+    )
     .eq('id', sessionId);
 
   if (error && error.code !== UNDEFINED_COLUMN) {
     console.error('[commitments] could not store:', error.message);
+  } else if (!error && count === 0) {
+    // No row for that id: the commitment the learner made is gone, and the next
+    // session opens without it, which is the one thing the opening line is for.
+    console.error(`[commitments] no session ${sessionId}: commitment not stored`);
   }
 }
 

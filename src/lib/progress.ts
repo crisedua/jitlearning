@@ -967,9 +967,17 @@ async function advanceStep(userId: string, analysis: CallAnalysis): Promise<stri
     patch.commitment_date = isoDate(due);
   }
 
-  const { error } = await supabaseAdmin().from('plan_steps').update(patch).eq('id', step.id);
+  // `count` too: a filter that matches nothing is not an error, and this is the
+  // write that records what was taught and the two minute figures. Losing it
+  // silently loses the measurement the whole offer is built on.
+  const { error, count } = await supabaseAdmin()
+    .from('plan_steps')
+    .update(patch, { count: 'exact' })
+    .eq('id', step.id);
   if (error && !pending(error.code)) {
     console.error('[progress] step write failed:', error.message);
+  } else if (!error && count === 0) {
+    console.error(`[progress] step ${step.id} vanished between read and write: nothing recorded`);
   }
   return step.lessonId;
 }

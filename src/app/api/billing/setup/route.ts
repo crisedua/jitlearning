@@ -146,10 +146,20 @@ export async function POST(req: Request) {
 
       const update = await supabaseAdmin()
         .from('plans')
-        .update({ stripe_price_id: price.id })
+        .update({ stripe_price_id: price.id }, { count: 'exact' })
         .eq('id', plan.id);
 
-      if (update.error) {
+      /*
+       * `count` as well as `error`, because they are the same failure.
+       *
+       * An update that matches no row is not an error: with no `plans` row for
+       * this id, nothing was written, `error` is null, and this reported
+       * `created` with the price id, which reads as wired up. It is not.
+       * `stripe_price_id` stays null, /planes never shows a checkout button for
+       * that tier, and the operator has been told billing is configured. The
+       * remedy below was already the right one; it was just never reached.
+       */
+      if (update.error || update.count === 0) {
         /*
          * The price exists in Stripe but the id did not land here. Reported as a
          * failure with the id included, because the fix is one SQL statement and
@@ -157,7 +167,9 @@ export async function POST(req: Request) {
          */
         results.push({
           plan: plan.id,
-          error: `Price ${price.id} created but not saved: ${update.error.message}`,
+          error: `Price ${price.id} created but not saved: ${
+            update.error?.message ?? `no plans row with id '${plan.id}'`
+          }`,
           fix: `update public.plans set stripe_price_id = '${price.id}' where id = '${plan.id}';`,
         });
         continue;
