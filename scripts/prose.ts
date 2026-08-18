@@ -62,7 +62,9 @@ const PASSES: Pass[] = [
   },
   {
     title: 'Claims about a number',
-    why: 'Each is a copy of a constant. Two said six months while the product said three.',
+    why:
+      'A number beside the constant it explains is documentation; a number far from one is a copy. ' +
+      'Read for the second kind — two said six months while the product said three.',
     pattern: /\b(one|two|three|four|five|six|ten|fifteen|twenty|thirty|ninety)[- ](seconds?|minutes?|hours?|days?|months?|parts?|people)\b/i,
   },
 ];

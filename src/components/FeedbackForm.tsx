@@ -22,8 +22,8 @@ import { FEEDBACK_REWARD } from '@/lib/site';
  * Meanwhile this told them "te escribiremos para activar tus meses". True only
  * for the half who were signed in. The rest were promised something that
  * required a step nobody mentioned, and would have waited for an email instead
- * of taking it — on the one path that recruits the first ten people, which is
- * the one thing this product cannot do without.
+ * of taking it — on the one path that recruits the first learners, which is the
+ * one thing this product cannot do without.
  *
  * So the success state now says which of the two situations they are in, while
  * they are still looking at the screen, for the same reason the email is

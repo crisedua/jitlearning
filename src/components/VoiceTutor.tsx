@@ -251,8 +251,7 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
    * The record it opens on says how many minutes are left, and the persona is
    * instructed to drop the map and spend what remains finishing the task and
    * measuring it. Both are read once, at connect, by a model with no clock: it
-   * knows it started with twenty minutes and never learns that eighteen have
-   * gone. So the instruction that protects the most important outcome of a first
+   * knows what it started with and never learns how much has gone. So the instruction that protects the most important outcome of a first
    * session could only ever fire on the value it was handed at the start.
    *
    * The gate is at connect too, so a running session is never cut off. A first
