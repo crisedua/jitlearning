@@ -308,3 +308,100 @@ describe('migration versions', () => {
     assert.ok(files.length > 0, 'no migrations found, so this test proved nothing');
   });
 });
+
+/*
+ * The migrations have to survive being run in order, on an empty database.
+ *
+ * `npm run sql` concatenates every file in filename order and the operator
+ * pastes the lot into the SQL editor in one go. Postgres stops at the first
+ * error, so a file that touches a table an earlier file has not created yet
+ * does not fail alone: everything after it is skipped too, and what is left is
+ * a half-applied schema — the exact state `MIGRATION_SENSITIVE` above exists to
+ * detect after the fact.
+ *
+ * This checks it before the fact, which is cheaper than a half-migrated
+ * production database and a person reading /admin/estado trying to work out
+ * which of seventeen files did not run.
+ *
+ * Only the ordering property. Whether the SQL is valid is Postgres's job; this
+ * catches the mistake that is invisible in review, because each file is
+ * perfectly correct on its own and only the sequence is wrong.
+ */
+describe('migrations in order', () => {
+  const dir = path.join(ROOT, 'supabase', 'migrations');
+  const files = readdirSync(dir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
+
+  it('never touch a table before it is created', () => {
+    const created = new Set<string>();
+    const problems: string[] = [];
+
+    for (const file of files) {
+      const sql = readFileSync(path.join(dir, file), 'utf8');
+      // Comments carry prose about tables that do not exist yet, and one of
+      // them is a paragraph about `purchase_intents` written before the create.
+      const code = sql.replace(/--[^\n]*/g, '');
+
+      for (const m of code.matchAll(/create table if not exists public\.([a-z_]+)/g)) {
+        created.add(m[1]!);
+      }
+      // Views are created from tables and altered like them.
+      for (const m of code.matchAll(/create (or replace )?view public\.([a-z_]+)/g)) {
+        created.add(m[2]!);
+      }
+
+      for (const pattern of [
+        /alter table (?:only )?public\.([a-z_]+)/g,
+        /references public\.([a-z_]+)/g,
+        /create index if not exists [a-z_]+\s+on public\.([a-z_]+)/g,
+      ]) {
+        for (const m of code.matchAll(pattern)) {
+          const table = m[1]!;
+          if (!created.has(table)) problems.push(`${file} touches ${table} before it exists`);
+        }
+      }
+    }
+
+    assert.deepEqual(problems, [], problems.join('\n'));
+  });
+
+  /*
+   * Re-running the paste has to be safe.
+   *
+   * The first paste is rarely the only one: a file fails, it gets fixed, the
+   * whole thing goes in again. Every table and column here is written `if not
+   * exists` for that reason, but Postgres has no `create policy if not exists`,
+   * so an unguarded policy turns the second paste into an error at the first
+   * table that already has one — and the operator, who is now debugging a
+   * schema they cannot see, has no reason to suspect the file they already ran.
+   *
+   * All fifteen are currently guarded. This is here so the sixteenth is too.
+   */
+  it('can be pasted twice, so every policy is dropped before it is created', () => {
+    const problems: string[] = [];
+
+    for (const file of files) {
+      const sql = readFileSync(path.join(dir, file), 'utf8').replace(/--[^\n]*/g, '');
+      const drops = new Map<string, number>();
+      for (const m of sql.matchAll(/drop policy if exists "([^"]+)"\s+on public\.([a-z_]+)/g)) {
+        drops.set(`${m[1]}|${m[2]}`, m.index!);
+      }
+      for (const m of sql.matchAll(/create policy "([^"]+)"\s+on public\.([a-z_]+)/g)) {
+        const key = `${m[1]}|${m[2]}`;
+        const dropped = drops.get(key);
+        if (dropped === undefined) {
+          problems.push(`${file}: policy "${m[1]}" on ${m[2]} is created without a drop`);
+        } else if (dropped > m.index!) {
+          problems.push(`${file}: policy "${m[1]}" is dropped after it is created`);
+        }
+      }
+    }
+
+    assert.deepEqual(problems, [], problems.join('\n'));
+  });
+
+  it('has something to check', () => {
+    assert.ok(files.length >= 10, `only ${files.length} migrations found`);
+  });
+});
