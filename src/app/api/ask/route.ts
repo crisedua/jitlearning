@@ -10,14 +10,14 @@
  * so the browser is never in the loop and a session started from anywhere gets
  * the same answer. Register it with `npm run setup:tools -- --push`.
  *
- * ## Why this one is gated when the old pain-search route was not
+ * ## Why this is gated
  *
- * That route read curated public quotes out of Postgres: nothing to protect, and
- * a shared secret in a third-party tool config would have been the worse trade.
  * This route spends money on every call — an Opus 5 turn plus up to 4 billed web
  * searches. Left open it is a way for anyone who finds the URL to run up an
  * Anthropic bill, so it carries the same `INGEST_SECRET` as every other
  * privileged route, sent by ElevenLabs as a static header in the tool config.
+ * That header is also what made gating `/api/pain-search` cheap: the trade this
+ * route already makes and accepts was the one that route was left open to avoid.
  *
  * ## Latency is the real constraint
  *

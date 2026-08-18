@@ -113,7 +113,8 @@ export default async function RadarAdminPage() {
           coach was retired when the product became one voice teacher. Nothing
           queries this table today: /api/pain-search is still there and still
           works, and no agent tool points at it, so the data goes nowhere until
-          somebody wires it up again.
+          somebody wires it up again. It now takes INGEST_SECRET, because an open
+          endpoint serving nobody is load without a reader on the other side.
           
           Kept rather than removed, because the collection still works and the
           rows are real. Said plainly rather than left reading as live, because
@@ -129,8 +130,8 @@ export default async function RadarAdminPage() {
         <p className="mt-3 max-w-[60ch] rounded-md border border-warning/30 bg-warning-soft/40 px-4 py-3 text-[15px] leading-relaxed text-ink/80">
           Hoy nadie consulta esto. Se construyó para el coach de emprendedores, que se retiró
           cuando el producto pasó a ser un solo profesor. <code className="font-mono">
-          /api/pain-search</code> sigue en pie y funciona; ninguna herramienta del agente apunta
-          ahí, así que lo que juntes acá se queda acá hasta que lo vuelvas a conectar.
+          /api/pain-search</code> sigue en pie y funciona, ahora con clave; ninguna herramienta del
+          agente apunta ahí, así que lo que juntes acá se queda acá hasta que lo vuelvas a conectar.
         </p>
       </header>
 

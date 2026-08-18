@@ -12,16 +12,28 @@
  * is the whole reason the sweep is offline — `npm run scrape:pains` fills the
  * table ahead of time and this route only reads it.
  *
- * Open on purpose, and read-only. Every row is an excerpt of a public forum
- * post that already carries a public URL, so there is nothing here to protect;
- * a shared secret sitting in a third-party tool config would be a worse trade
+ * Gated now, and read-only. Every row is an excerpt of a public forum post that
+ * already carries a public URL, so there was never anything here to protect, and
+ * this was left open on the reasoning that a shared secret sitting in a
+ * third-party tool config would be a worse trade
  * than the thing it guarded. Row-level security exposes only `published` rows,
  * and the anon key cannot write, so the worst an unexpected caller can do is
  * read curated public quotes.
+ *
+ * Two things changed. `/api/ask` now carries INGEST_SECRET as a static header in
+ * exactly that tool config, so the trade being avoided is one this product
+ * already makes and finds acceptable. And nothing calls this at all: the coach
+ * it was built for was retired, so what remained was an unauthenticated endpoint
+ * running a text search against Postgres on every request, for no consumer.
+ *
+ * Not a leak. Just load and exposure with nothing on the other side of it, and
+ * the fix costs nothing while that stays true. When the radar is reconnected,
+ * the tool config carries the header the way /api/ask does.
  */
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { anonKey, authConfigured, supabaseUrl } from '@/lib/supabase/env';
+import { requireSecret, UnauthorizedError } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,6 +52,15 @@ const COUNTRIES = new Set([
 ]);
 
 export async function GET(req: Request) {
+  try {
+    requireSecret(req);
+  } catch (err) {
+    if (err instanceof UnauthorizedError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    throw err;
+  }
+
   const params = new URL(req.url).searchParams;
   const q = (params.get('q') ?? '').trim().slice(0, 120);
   const countryRaw = (params.get('pais') ?? params.get('country') ?? '').trim().toUpperCase();
