@@ -143,3 +143,34 @@ describe('the minutes box when the free tier is spent', () => {
     assert.match(progreso, /Entra en tu total cuando la clase dé este paso por hecho/);
   });
 });
+
+/*
+ * The offer says how many tasks its number came from.
+ *
+ * `timeSaved().perWeek` is the sum across every weekly task a learner has
+ * measured, and the offer read "con una sola tarea ya recuperas X" whatever X
+ * was made of. Somebody who measured three read a three-task total attributed to
+ * one, on the screen that asks them for money.
+ *
+ * The persona is told, in as many words, that the number is the learner's and
+ * must not be inflated or estimated for them. The page that sells against that
+ * number was doing exactly that.
+ */
+describe('the offer under the measured hours', () => {
+  const progreso = read('src', 'app', 'progreso', 'page.tsx');
+
+  it('counts the tasks its total came from', () => {
+    assert.match(
+      progreso,
+      /saved\.tasksMeasured === 1\s*\?[\s\S]{0,160}Con una sola tarea/,
+      'the offer attributes a multi-task total to one task again',
+    );
+    assert.match(progreso, /Con \$\{saved\.tasksMeasured\} tareas/);
+  });
+
+  it('still quotes the number the learner produced, not a derived one', () => {
+    // `perWeek` is theirs. Nothing here may scale it, project it, or annualise
+    // it — the whole argument is that the figure came out of their own mouth.
+    assert.doesNotMatch(progreso, /perWeek \* |perWeek \/ |perWeek \+ /);
+  });
+});

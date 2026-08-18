@@ -204,7 +204,23 @@ function Ofrecer({
         semana.
       </h2>
       <p className="mt-3 max-w-[58ch] text-[15px] leading-relaxed text-ink/85">
-        Con una sola tarea ya recuperas {spellMinutes(saved.perWeek)} cada semana, medidos por ti.
+        {/*
+          The number is the sum, so the sentence has to say how many it is from.
+          
+          This read "con una sola tarea ya recuperas X" whatever X was made of,
+          and `perWeek` adds up every weekly task the learner has measured. A
+          person who measured three read their three-task total attributed to
+          one, on the screen that asks them for money.
+          
+          The heading above already counted them — "las otras tareas" against
+          "las tareas que faltan" — so the plural case was known about here and
+          the body was not changed with it. Inflating a number the learner
+          produced is the one thing this product tells its own teacher never to
+          do: "el número es suyo, no lo infles ni lo estimes por ella".
+        */}
+        {saved.tasksMeasured === 1
+          ? `Con una sola tarea ya recuperas ${spellMinutes(saved.perWeek)} cada semana, medidos por ti.`
+          : `Con ${saved.tasksMeasured} tareas ya recuperas ${spellMinutes(saved.perWeek)} cada semana, medidos por ti.`}{' '}
         El plan {plan.name} cuesta {formatMoney(plan.priceMinor, plan.currency)} al mes y son{' '}
         {formatMinutes(plan.monthlyMinutes)} de clase: alcanza para las {WEEKLY_MIN} a {WEEKLY_MAX}{' '}
         tareas de tu semana y para los otros {LEVELS.length - 1} niveles, hasta el portafolio.
