@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { minutesLeft, sessionsLeft, type UsageBalance } from '@/lib/balance';
+import { CLASS_CAP_MINUTES } from '@/lib/class-length';
 
 /**
  * What is left, said before the button rather than discovered at it.
@@ -88,6 +89,23 @@ export function BalanceNote({ balance }: { balance: UsageBalance }) {
         <span>
           {lifetime ? 'Te quedan' : 'Este mes te quedan'} {parts.join(' y ')} de clase
           {lifetime ? ' gratis' : ''}.
+          {/*
+            How long one class is, because the allowance does not say it.
+            
+            A class ends at CLASS_CAP_MINUTES whatever the balance holds. Read
+            "20 de 20 minutos" and pressed start, a learner expects one long
+            session and gets cut at ten with half the allowance apparently
+            unspent, which reads as being shortchanged rather than as a class
+            ending. Saying the length here turns the same event into the thing
+            they were told would happen, and makes the second class an obvious
+            move instead of a workaround.
+            
+            Only when there is more than one class left in the balance: if the
+            ceiling is not what ends the next class, naming it is noise.
+          */}
+          {left !== null && left > CLASS_CAP_MINUTES && (
+            <> Cada clase dura {CLASS_CAP_MINUTES} minutos.</>
+          )}
         </span>
       )}
     </p>

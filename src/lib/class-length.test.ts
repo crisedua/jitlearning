@@ -133,3 +133,30 @@ describe('what the teacher is told it has', () => {
     );
   });
 });
+
+/*
+ * The learner is told the length before they need it.
+ *
+ * The balance note says what is left, and a class ends at the ceiling whatever
+ * that is. Somebody reading "20 de 20 minutos" and getting cut at ten has been
+ * shortchanged as far as they can tell, and the second class they are entitled
+ * to looks like a workaround rather than the design.
+ */
+describe('what the learner is told before pressing start', () => {
+  const note = read('src', 'components', 'BalanceNote.tsx');
+
+  it('says how long a class is', () => {
+    assert.match(note, /Cada clase dura \{CLASS_CAP_MINUTES\} minutos/);
+  });
+
+  it('says it only when the ceiling is what ends the class', () => {
+    // With less than a full class left, the balance is the shorter of the two
+    // and naming the ceiling would be wrong as well as noisy.
+    assert.match(note, /left !== null && left > CLASS_CAP_MINUTES/);
+  });
+
+  it('takes the figure from the same place the agent does', () => {
+    assert.doesNotMatch(note, /dura 10 minutos|dura quince|15 minutos/);
+    assert.match(note, /from '@\/lib\/class-length'/);
+  });
+});
