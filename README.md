@@ -1142,16 +1142,21 @@ teacher speak. That is the first learner's job, and it is still the next thing.
   comparison. A paraphrase far enough from the title falls back to the current
   step, and a session that taught nothing advances nothing. The learner can see
   and correct the result on `/progreso`, which is the backstop.
-- **The free tier is a lifetime 20 minutes**, enforced at mint time against the
-  `plan_usage_total` view. Nothing takes money yet: `CHECKOUT_READY` in
-  [`plans.ts`](src/lib/plans.ts) is false and the paid buttons write to a person.
+- **The free tier is a lifetime allowance**, enforced at mint time against the
+  `plan_usage_total` view. Whether anything can take money is decided by the
+  Stripe keys and by `plans.stripe_price_id`, not by a flag: without them every
+  buy button falls back to a prefilled message and the click is recorded in
+  `purchase_intents`. This used to cite a `CHECKOUT_READY` constant, which said
+  `true` while this line said false, and which nothing read.
 - **Memory needs Supabase and the webhook.** Without the service role there is no
   ledger, so every conversation starts cold. Without
   `ELEVENLABS_WEBHOOK_SECRET` the profile and the plan are never written, and the
   progress page stays empty however many sessions happen. Both fail soft: the
   teacher still talks.
-- **The persona is 14.8k characters** and rides on every turn. `npm run doctor`
-  fails past 15k and warns inside 500 of it, which matters because the prompt
-  grows on its own: every lesson title added to the curriculum lands in it. It is
-  a system prompt, so it caches, but a materially larger one starts to be felt as
-  latency in voice, where it is far more noticeable than in text.
+- **The persona rides on every turn**, and it grows on its own: every lesson
+  title added to the curriculum lands in it. `npm run doctor` prints the current
+  size, fails past the budget, and inside 500 characters of it says how many more
+  lesson titles would fit. The numbers are deliberately not repeated here — this
+  line used to say 14.8k against a 15k limit, and by then it was 15.8k against
+  16k. It is a system prompt, so it caches, but a materially larger one starts to
+  be felt as latency in voice, where it is far more noticeable than in text.
