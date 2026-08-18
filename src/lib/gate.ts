@@ -3,8 +3,17 @@
  *
  * `checkPlanAllowance` runs on the server and returns a sentence. `VoiceTutor`
  * renders it in the browser and, when the limit is one the learner can do
- * something about, turns the mention of the plans page into an actual anchor and
- * strips it from the prose so it is not read twice.
+ * something about, adds an anchor beside it.
+ *
+ * Only the marker is removed. The sentence keeps its own mention of the plans,
+ * deliberately: `gate.test.ts` requires every one of these to still read as a
+ * sentence with the link pulled out, because the same strings are logged, quoted
+ * by the doctor, and could be shown anywhere that cannot render an anchor. A
+ * sentence that depends on a link is broken everywhere the link is absent.
+ *
+ * This said the mention was stripped so it is not read twice, which described a
+ * behaviour that has never existed. The same wrong sentence sat at the call site
+ * and was corrected there a day earlier, without anybody looking here.
  *
  * That is a contract between a server module and a client component held together
  * by a substring, which is exactly the kind of agreement that rots quietly: write
