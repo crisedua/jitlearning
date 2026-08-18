@@ -282,14 +282,21 @@ function Suscripcion({ subscription }: { subscription: Subscription }) {
         )}
         {comped && (
           /*
-           * Say when it ends, because it does.
+           * Say when it ends, and what "ends" actually means.
            *
            * A granted plan reverts to free on `plan_granted_until`, and this
            * said only "no hay nada que pagar ni que cancelar" — true, and quiet
            * about the date. Somebody would have found out by being turned away
-           * mid-question, which is both a bad surprise and the wrong moment to
-           * ask anybody for anything. Said in advance it is the opposite: they
-           * know when, with the hours they recovered sitting right above it.
+           * mid-question, which is both a bad surprise and the worst moment to
+           * ask anybody for anything.
+           *
+           * The first version of this fix said "y después vuelve al plan
+           * gratis", which reads as twenty minutes waiting on the other side.
+           * It is not. `plan_usage_total` counts minutes over the whole life of
+           * the account, and the free tier is twenty of them once, so anybody
+           * who had three months of a paid plan has spent them long ago and
+           * reverting means stopping. Saying "vuelve a gratis" would set up the
+           * same surprise one sentence later.
            */
           <p className="mt-1 text-[13px] leading-relaxed text-muted">
             Te lo activamos nosotros: no hay nada que pagar ni que cancelar.
@@ -297,7 +304,7 @@ function Suscripcion({ subscription }: { subscription: Subscription }) {
               ? ` Va hasta el ${new Date(subscription.grantedUntil).toLocaleDateString('es-CL', {
                   day: 'numeric',
                   month: 'long',
-                })}, y después vuelve al plan gratis.`
+                })}. Los minutos gratis se cuentan una sola vez desde que te registraste, así que para seguir después de esa fecha necesitarías un plan.`
               : ''}
           </p>
         )}

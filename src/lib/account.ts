@@ -246,7 +246,7 @@ export async function checkPlanAllowance(
    * prevents, and it would have been invisible: a granted plan and a paid plan
    * look identical in every other read.
    */
-  await expireGrantIfDue(userId);
+  const grantJustEnded = await expireGrantIfDue(userId);
 
   /*
    * Which window to count depends on the plan.
@@ -270,9 +270,26 @@ export async function checkPlanAllowance(
     };
     if (row.period === 'total') {
       if (row.monthly_minutes !== null && row.minutes >= row.monthly_minutes) {
+        /*
+         * Two ways to arrive at the same wall, and they are not the same event.
+         *
+         * Somebody who tried the free tier and used it up is told what they
+         * used. Somebody whose courtesy plan ended a moment ago is not: they
+         * spent three months and several hundred minutes, and being told they
+         * used twenty free ones reads as a product that has forgotten them, at
+         * the exact moment it is asking to be paid. The grant is what ended, so
+         * that is what the sentence says.
+         *
+         * Only true on the first attempt after expiry, which is the one that
+         * matters: `expireGrantIfDue` clears the date as it reverts, so later
+         * attempts fall back to the plain message, by which point they have
+         * already been told once.
+         */
         return {
           allowed: false,
-          error: `Usaste los ${row.monthly_minutes} minutos gratis. Para seguir con tu plan de clases, mira los planes${UPGRADE_MARKER}.`,
+          error: grantJustEnded
+            ? `Se acabaron tus meses de cortesía. Lo que mediste sigue en tu página de progreso: para seguir con tus clases, mira los planes${UPGRADE_MARKER}.`
+            : `Usaste los ${row.monthly_minutes} minutos gratis. Para seguir con tu plan de clases, mira los planes${UPGRADE_MARKER}.`,
         };
       }
       return { allowed: true };

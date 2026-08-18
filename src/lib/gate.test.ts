@@ -68,14 +68,31 @@ describe('what a learner is told when they run out', () => {
     );
 
     /*
-     * Every templated `error:` string in the file. Matching on the `allowed:
-     * false` above it seemed tighter and was simply wrong: a comment between the
-     * two lines made this find two of the three messages and pass, which would
-     * have left the third unchecked forever. Layout is not a thing to assert on.
+     * Every template literal inside `checkPlanAllowance`.
+     *
+     * Two earlier versions of this scan keyed on layout and both undercounted.
+     * The first matched on the `allowed: false` line above the message and found
+     * two of three, because a comment sat between them. The second matched
+     * ``error: `...` `` and found two of four the moment a message became a
+     * ternary — caught by the count assertion below, which is the whole reason
+     * that assertion exists.
+     *
+     * So: take the function and read every backtick literal in it. The messages
+     * are the only templated strings it contains, and nothing about where they
+     * sit on the page can hide one.
      */
-    const errors = [...source.matchAll(/\berror: `([^`]*)`/g)].map((m) => m[1]!);
+    const start = source.indexOf('export async function checkPlanAllowance');
+    assert.ok(start > 0, 'checkPlanAllowance not found in account.ts');
+    const body = source
+      .slice(start, source.indexOf('\nexport ', start + 1))
+      // Comments in this file quote identifiers in backticks, and those are not
+      // messages. Strip them rather than inventing a filter that tells a
+      // sentence from a table name.
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+    const errors = [...body.matchAll(/`([^`]*)`/g)].map((m) => m[1]!);
 
-    assert.ok(errors.length >= 3, `found ${errors.length} gate messages, expected at least 3`);
+    assert.ok(errors.length >= 4, `found ${errors.length} gate messages, expected at least 4`);
 
     for (const message of errors) {
       assert.ok(
