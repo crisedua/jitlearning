@@ -13,6 +13,7 @@ import { describe, it } from 'node:test';
 import {
   buildRecord,
   currentStep,
+  isOverdue,
   matchStep,
   opening,
   parseMinutes,
@@ -478,5 +479,58 @@ describe('deciding whether this is the first session', () => {
     assert.equal(record.primera_sesion, 'no');
     assert.ok(record.registro.length > 0);
     assert.ok(!record.registro.includes('primera vez'), record.registro);
+  });
+});
+
+/**
+ * Whether a commitment is overdue.
+ *
+ * The date is extracted from the conversation and stored, and the notebook
+ * showed only the text — so a deadline this product collected sat unused while
+ * /coach displayed the same one. The commitment is what brings somebody back
+ * between sessions; a notebook that knows a date has passed and says nothing is
+ * a reminder declined.
+ *
+ * The comparison is on date strings on purpose. `commitment_date` is a plain
+ * YYYY-MM-DD, and turning it into a timestamp makes "today" depend on the
+ * server's timezone — which is how the same commitment reads as overdue in
+ * Santiago and not in Madrid.
+ */
+describe('a commitment past its date', () => {
+  const day = (offset: number) =>
+    new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+
+  const session = (over: Partial<SessionRecord> = {}): SessionRecord => ({
+    id: 'c1',
+    createdAt: new Date().toISOString(),
+    lessonId: null,
+    taught: null,
+    commitment: 'mandar el resumen',
+    commitmentDate: null,
+    commitmentDone: null,
+    ...over,
+  });
+
+  it('is overdue once the day has passed and nobody has answered', () => {
+    assert.equal(isOverdue(session({ commitmentDate: day(-1) })), true);
+  });
+
+  it('is not overdue on the day itself', () => {
+    // The learner still has the day they asked for.
+    assert.equal(isOverdue(session({ commitmentDate: day(0) })), false);
+  });
+
+  it('is not overdue before the day', () => {
+    assert.equal(isOverdue(session({ commitmentDate: day(3) })), false);
+  });
+
+  it('stops being overdue once they answer, either way', () => {
+    assert.equal(isOverdue(session({ commitmentDate: day(-5), commitmentDone: true })), false);
+    assert.equal(isOverdue(session({ commitmentDate: day(-5), commitmentDone: false })), false);
+  });
+
+  it('is never overdue without a date', () => {
+    // The spoken deadline is usually a phrase; only a real ISO date is stored.
+    assert.equal(isOverdue(session({ commitmentDate: null })), false);
   });
 });

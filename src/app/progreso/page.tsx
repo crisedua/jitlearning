@@ -6,6 +6,7 @@ import { signInPath } from '@/lib/paths';
 import {
   careerProfile,
   currentStep,
+  isOverdue,
   planSteps,
   sessionHistory,
   timeSaved,
@@ -138,6 +139,7 @@ export default async function ProgresoPage({
     </div>
   );
 }
+
 
 /**
  * The one place this product asks to be paid.
@@ -710,6 +712,33 @@ function Historial({ history }: { history: SessionRecord[] }) {
                   </span>
                   <br />
                   {session.commitment}
+                  {/*
+                    The date, which was captured and never shown.
+                    
+                    `commitment_date` is extracted from the conversation, stored,
+                    read into the record and rendered nowhere — while /coach
+                    shows the same deadline as "Para:", so the two surfaces
+                    disagreed about one commitment.
+                    
+                    Overdue and unanswered is the state worth marking. The
+                    commitment is what brings somebody back between sessions, and
+                    a notebook that knows a date has passed and says nothing is a
+                    reminder this product collected and declined to use.
+                  */}
+                  {session.commitmentDate && (
+                    <span
+                      className={`mt-1 block text-[12px] ${
+                        isOverdue(session) ? 'font-medium text-warning' : 'text-soft'
+                      }`}
+                    >
+                      {isOverdue(session) ? 'Era para el' : 'Para el'}{' '}
+                      {new Date(`${session.commitmentDate}T12:00:00`).toLocaleDateString('es-CL', {
+                        day: 'numeric',
+                        month: 'long',
+                      })}
+                      {isOverdue(session) && ' · sigue pendiente'}
+                    </span>
+                  )}
                 </p>
 
                 {session.commitmentDone === null ? (

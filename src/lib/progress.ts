@@ -164,6 +164,27 @@ export interface SessionRecord {
   commitmentDone: boolean | null;
 }
 
+/**
+ * A commitment whose date has passed and that nobody has answered for.
+ *
+ * The date is extracted from the conversation and stored, and the notebook
+ * showed only the text — so a deadline this product collected sat unused while
+ * `/coach` displayed the same one. The commitment is what brings somebody back
+ * between sessions; a notebook that knows a date has passed and says nothing is
+ * a reminder declined.
+ *
+ * Compared as date strings rather than as `Date` objects. `commitment_date` is
+ * a plain YYYY-MM-DD, and turning it into a timestamp makes "today" depend on
+ * the server's timezone, which is how one commitment reads as overdue in
+ * Santiago and not in Madrid. The learner keeps the whole of the day they asked
+ * for.
+ */
+export function isOverdue(session: SessionRecord, today = new Date()): boolean {
+  if (!session.commitmentDate || session.commitmentDone !== null) return false;
+  return session.commitmentDate < today.toISOString().slice(0, 10);
+}
+
+
 // ---------------------------------------------------------------- extraction
 
 /**
