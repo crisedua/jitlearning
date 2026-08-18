@@ -1135,6 +1135,15 @@ comparison is the point rather than any individual assertion:
 | Log lines | A list of personal fields | An email in a log aggregator because a query failed once |
 | Four documented paths | The code that implements them | 27 gates between "wants to pay" and "has a plan" |
 
+`npm run prose` is the third kind. Four passes over the comments in this
+repository — claims about failure, about exclusivity, about a transformation,
+about a number — each of which has caught a sentence that was true when written
+and had stopped being. It prints and exits zero on purpose: every pass is a
+heuristic, most of what it lists is fine, and a check that fails on prose is one
+people learn to skip. It is a list of sentences to re-read, not a verdict. Where
+one of them found something a machine can decide, that check moved into the
+suite instead.
+
 `npm run doctor` does the other half: it asks the live agent and the deployment
 what they are, rather than asking this repository what they should be. The two
 answer different questions and both are needed — the suite cannot see a dashboard

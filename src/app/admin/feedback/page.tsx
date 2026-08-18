@@ -1,8 +1,8 @@
 /**
  * The feedback that came in, and the deal it earns.
  *
- * /feedback promises three months of Fundador to the first ten people who say
- * what they really think. Until this page existed, that feedback landed in a
+ * /feedback promises months of Fundador to the first few people who say what
+ * they really think — the length and the count are `FEEDBACK_REWARD`. Until this page existed, that feedback landed in a
  * table nothing read: the form said thank you, the row was inserted, and the
  * promise depended on somebody remembering to go and look with a SQL client.
  *

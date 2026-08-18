@@ -358,10 +358,10 @@ function Suscripcion({ subscription }: { subscription: Subscription }) {
            * ask anybody for anything.
            *
            * The first version of this fix said "y después vuelve al plan
-           * gratis", which reads as twenty minutes waiting on the other side.
-           * It is not. `plan_usage_total` counts minutes over the whole life of
-           * the account, and the free tier is twenty of them once, so anybody
-           * who had three months of a paid plan has spent them long ago and
+           * gratis", which reads as a fresh free allowance waiting on the other
+           * side. It is not. `plan_usage_total` counts minutes over the whole life
+           * of the account and the free tier is spent once, so anybody who had a
+           * comped plan for months has spent them long ago and
            * reverting means stopping. Saying "vuelve a gratis" would set up the
            * same surprise one sentence later.
            */
