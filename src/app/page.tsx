@@ -50,8 +50,25 @@ export default function HomePage() {
             </a>
           </div>
 
+          {/*
+            The most-read line on the site, and the fifth place still selling
+            walking.
+            
+            Round 38 moved the how-it-works heading and the closing call to
+            action off it, because the first class ends with a task actually
+            done and that needs a screen — a session dictated on a walk produces
+            no second number, so no measured saving and no offer. This line sat
+            directly under the main button and kept saying "sirve caminando".
+            
+            What replaces it is the two things somebody hesitates over before a
+            first click, neither of which appeared anywhere near the button: how
+            much it costs and whether it wants a card. Walking is still true and
+            still sold, one section down, for the sessions where it is the right
+            answer.
+          */}
           <p className="animate-fade mt-5 text-[13px] text-soft [animation-delay:900ms]">
-            Se abre en el navegador · necesita micrófono · sirve caminando
+            Se abre en el navegador · necesita micrófono ·{' '}
+            {formatMinutes(FREE_PLAN.monthlyMinutes)} gratis, sin tarjeta
           </p>
         </div>
 
