@@ -183,6 +183,12 @@ export interface RagConfig {
 export interface AgentPromptConfig {
   prompt: string;
   llm?: string;
+  /**
+   * The platform's own tools: `skip_turn`, `end_call`, `language_detection` and
+   * the transfer family. A sibling of `tool_ids` and not the same field, so
+   * nothing that counts `tool_ids` can see them.
+   */
+  built_in_tools?: Record<string, unknown> | null;
   knowledge_base: KnowledgeBaseEntry[];
   rag: RagConfig;
   /**

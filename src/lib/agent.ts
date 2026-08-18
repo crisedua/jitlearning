@@ -712,6 +712,20 @@ export async function syncAgentKnowledge(
    * meant to be chosen. It only stops being able to erase by omission.
    */
   const liveLlm = live.conversation_config.agent.prompt.llm;
+  /*
+   * The platform's own tools, carried for the same reason as everything else
+   * read off the live agent here.
+   *
+   * `built_in_tools` is a sibling of `tool_ids` inside the prompt block, and
+   * holds skip_turn, end_call, language detection and the transfer family.
+   * Nothing in this repo sets them, so this write would have sent a prompt
+   * block without the field and cleared whatever was there.
+   *
+   * They are all null today, so nothing has been lost. The cost lands the first
+   * time somebody turns one on in the dashboard and a routine sync takes it
+   * away again, which is the kind of thing that gets blamed on the platform.
+   */
+  const liveBuiltIn = live.conversation_config.agent.prompt.built_in_tools ?? null;
 
   await updateAgent(id, {
     conversation_config: {
@@ -745,6 +759,7 @@ export async function syncAgentKnowledge(
            * that tool the next time anyone ingested a document. Tools are owned
            * by `setup:tools`; this write must leave them alone.
            */
+          ...(liveBuiltIn ? { built_in_tools: liveBuiltIn } : {}),
           tool_ids: toolIds,
         },
       },

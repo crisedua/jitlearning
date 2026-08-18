@@ -291,3 +291,30 @@ describe('what the sync would erase by omission', () => {
     assert.match(agent, /Read before write[\s\S]{0,200}const live = await getAgent\(id\)/);
   });
 });
+
+/*
+ * `built_in_tools` is a sibling of `tool_ids` inside the prompt block the sync
+ * replaces, and holds the platform's own tools: skip_turn, end_call, language
+ * detection, the transfer family. Nothing here sets them, so the sync would
+ * have sent a block without the field and cleared whatever was configured.
+ */
+describe('the platform tools nothing here configures', () => {
+  const agent = read('src', 'lib', 'agent.ts');
+
+  it('carries them through a sync rather than clearing them', () => {
+    assert.match(agent, /built_in_tools: liveBuiltIn/);
+    assert.match(agent, /live\.conversation_config\.agent\.prompt\.built_in_tools/);
+  });
+
+  it('reads them from the same live agent as the tools and the model', () => {
+    // One read before the write, three things carried out of it.
+    const order = ['tool_ids ?? \\[\\]', 'prompt\\.llm', 'prompt\\.built_in_tools'];
+    let at = agent.indexOf('const live = await getAgent(id)');
+    assert.ok(at > 0);
+    for (const needle of order) {
+      const next = agent.slice(at).search(new RegExp(needle));
+      assert.ok(next > 0, `${needle} is not read after the live agent`);
+      at += next;
+    }
+  });
+});
