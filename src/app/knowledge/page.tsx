@@ -1,4 +1,8 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
+import { checkAdmin } from '@/lib/admin';
+import { signInPath } from '@/lib/paths';
+import { NotAdmin } from '@/components/NotAdmin';
 import { KnowledgeManager } from '@/components/KnowledgeManager';
 
 /**
@@ -22,7 +26,27 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-export default function KnowledgePage() {
+export default async function KnowledgePage() {
+  /*
+   * The third layer, and the one that actually closes it.
+   *
+   * This page was reachable by anybody, deliberately: every call it makes
+   * carries INGEST_SECRET, so it holds nothing and grants nothing. That
+   * reasoning is sound and it left a page headed "Administración", with a secret
+   * field on it, open to the internet — which was worth a `noindex` and a
+   * robots.txt rule, and needing two mitigations is the argument for the third.
+   *
+   * The cost is nothing. `adminEmails` falls back to the owner's address when
+   * ADMIN_EMAILS is unset, precisely so a missing variable cannot lock somebody
+   * out of their own operator pages, and anybody administering the corpus needs
+   * the ingest secret regardless.
+   */
+  const gate = await checkAdmin();
+  if (!gate.ok) {
+    if (gate.reason === 'anonymous') redirect(signInPath('/knowledge'));
+    return <NotAdmin email={gate.email} path="/knowledge" />;
+  }
+
   return (
     <div className="mx-auto max-w-4xl space-y-7 px-6 py-10">
       <header>

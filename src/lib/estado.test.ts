@@ -167,6 +167,27 @@ describe('administrative pages', () => {
     assert.ok(all.length >= 8, `only ${all.length} pages found under src/app`);
   });
 
+  /*
+   * And they all refuse an anonymous visitor.
+   *
+   * `/knowledge` did not. It was open on the reasoning that it holds nothing and
+   * every call it makes carries the ingest secret, which is true and left a page
+   * headed "Administración" with a secret field on it reachable by anybody. It
+   * took a noindex and a robots rule before the obvious answer, and needing two
+   * mitigations was the argument for the third.
+   */
+  it('all refuse an anonymous visitor', () => {
+    const open: string[] = [];
+    for (const file of all) {
+      const source = readFileSync(file, 'utf8');
+      const isAdmin =
+        file.includes(`${path.sep}admin${path.sep}`) || /Administración/.test(source);
+      if (!isAdmin) continue;
+      if (!/checkAdmin\(\)/.test(source)) open.push(path.relative(ROOT, file));
+    }
+    assert.deepEqual(open, [], `administrative pages anybody can open: ${open.join(', ')}`);
+  });
+
   it('are all noindex', () => {
     const leaky: string[] = [];
     for (const file of all) {
