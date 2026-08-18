@@ -52,11 +52,29 @@ async function main() {
   }
 
   const live = agent.conversation_config.agent.prompt.prompt ?? '';
-  const next = teacherSystemPrompt();
+  /*
+   * The persona is pushed to match what this agent can actually do.
+   *
+   * The lookup tool is attached separately, by `npm run setup:tools -- --push`,
+   * which needs INGEST_SECRET. Until that has been run there are no tools, and
+   * pushing the persona that says "usa la herramienta buscar" puts a teacher in
+   * front of a learner promising a search it cannot run. In a voice call that
+   * costs a silence and then an apology, which is worse than never offering.
+   *
+   * Read from the agent rather than from a flag, so nobody has to remember
+   * which one to push: attach the tool and the next sync restores the promise.
+   */
+  const canSearch = (agent.conversation_config.agent.prompt.tool_ids ?? []).length > 0;
+  const next = teacherSystemPrompt({ search: canSearch });
   const attached = agent.conversation_config.agent.prompt.knowledge_base?.length ?? 0;
 
   console.log(`\nAgent:      ${agent.agent_id}`);
   console.log(`Prompt:     live ${live.length} chars · repo ${next.length} chars`);
+  console.log(
+    canSearch
+      ? 'Search:     tool attached, so the persona keeps its lookup promise'
+      : 'Search:     no tool attached, so the persona is pushed without the lookup promise',
+  );
   console.log(`Documents:  ${attached} attached`);
 
   const drifted = live !== next;

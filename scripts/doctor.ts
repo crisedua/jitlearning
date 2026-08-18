@@ -194,9 +194,29 @@ async function main() {
        * Compared on exact text, because a persona is not approximately correct.
        */
       const live = (prompt?.prompt ?? '').trim();
-      const local = teacherSystemPrompt().trim();
+      /*
+       * Which variant is correct depends on the agent, not on a preference: the
+       * persona ships without its lookup promise when no search tool is
+       * attached. Comparing against only the searching one would call a
+       * correctly synced agent drifted, which is how a real drift later gets
+       * ignored.
+       */
+      const hasTool = (prompt?.tool_ids ?? []).length > 0;
+      const local = teacherSystemPrompt({ search: hasTool }).trim();
       if (live === local) {
-        ok('The live agent is running this repo\'s persona, character for character');
+        ok(
+          hasTool
+            ? "The live agent is running this repo's persona, character for character"
+            : "The live agent is running this repo's persona, without the search it cannot do",
+        );
+      } else if (live === teacherSystemPrompt({ search: !hasTool }).trim()) {
+        bad(
+          hasTool
+            ? 'The live persona has no lookup instructions, but a search tool is attached.'
+            : 'The live persona promises a search, but no tool is attached to run it.',
+        );
+        note('`npm run sync:agent -- --push` pushes the variant that matches the agent.');
+        failures++;
       } else if (!live) {
         bad('The live agent has no system prompt at all. Run `npm run sync:agent -- --push`.');
         failures++;
@@ -284,7 +304,7 @@ async function main() {
       if (tools.length > 0) {
         ok(`${tools.length} tool(s) attached, including the lookup the persona promises`);
       } else {
-        bad('No tools attached, but the persona tells the learner it can search.');
+        bad('No search tool attached, so the teacher cannot look anything up.');
         /*
          * Order matters, and this note used to name the wrong prerequisite.
          *

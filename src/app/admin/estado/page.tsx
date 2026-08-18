@@ -191,11 +191,17 @@ async function readAgent(id: string): Promise<AgentRow[]> {
     return [
       {
         label: 'La persona que está corriendo',
-        ok: live === teacherSystemPrompt().trim(),
+        // Either variant is correct: the persona ships without its lookup
+        // promise when no search tool is attached. See `teacherSystemPrompt`.
+        ok:
+          live === teacherSystemPrompt().trim() ||
+          live === teacherSystemPrompt({ search: false }).trim(),
         detail:
           live === teacherSystemPrompt().trim()
             ? 'Es la de este repo, carácter por carácter.'
-            : 'El agente tiene una versión distinta. Corre `npm run sync:agent -- --push`.',
+            : live === teacherSystemPrompt({ search: false }).trim()
+              ? 'Es la de este repo, sin la promesa de buscar, porque no hay herramienta conectada.'
+              : 'El agente tiene una versión distinta. Corre `npm run sync:agent -- --push`.',
       },
       {
         label: 'La primera frase',

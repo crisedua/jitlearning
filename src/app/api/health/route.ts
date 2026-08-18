@@ -124,8 +124,21 @@ export async function GET(req: Request) {
        */
       const live = (prompt?.prompt ?? '').trim();
       checks.persona =
-        live === teacherSystemPrompt().trim()
-          ? { state: 'ok', detail: "The live agent runs this repo's persona, character for character" }
+        /*
+         * Either variant counts as matching. The persona is pushed with or
+         * without its lookup promise depending on whether a tool is attached
+         * (see `teacherSystemPrompt`), so comparing against only the searching
+         * one would report drift on a correctly synced agent that has no tool.
+         */
+        live === teacherSystemPrompt().trim() ||
+        live === teacherSystemPrompt({ search: false }).trim()
+          ? {
+              state: 'ok',
+              detail:
+                live === teacherSystemPrompt({ search: false }).trim()
+                  ? "The live agent runs this repo's persona, without the lookup promise it cannot keep"
+                  : "The live agent runs this repo's persona, character for character",
+            }
           : {
               state: 'fail',
               detail: `The agent's persona differs from this deployment's code (${live.length} chars live). Run \`npm run sync:agent -- --push\`.`,

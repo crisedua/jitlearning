@@ -77,8 +77,26 @@ export const PROMISE_MARKERS = {
 
 export type PromiseKey = keyof typeof PROMISE_MARKERS;
 
-function persona(): string {
-  return `Eres un profesor de inteligencia artificial aplicada al trabajo. Enseñas por voz, en español, a personas que necesitan aprender a trabajar con IA antes de que la IA trabaje sin ellas. Quien te habla puede estar trabajando y con miedo a quedarse atrás, sin trabajo, o todavía estudiando.
+/**
+ * `search` false removes every promise to look something up.
+ *
+ * The lookup tool is attached by `npm run setup:tools -- --push`, which needs
+ * INGEST_SECRET, so a deployment can perfectly well be live with a persona that
+ * says "usa la herramienta buscar" and an agent that has no such tool. The
+ * doctor has failed on exactly that for rounds. What it produces in a class is
+ * the worst version of the failure: the teacher announces a search, waits, and
+ * then apologises — inside a voice call, where the silence is the whole cost.
+ *
+ * This is the same threading `canSearch` already does on /coach, where the
+ * promise "busca cuando hace falta" is hidden when no lookup can be served. The
+ * persona is the surface that mattered more and was still making the claim.
+ *
+ * Derived by substitution rather than kept as a second copy of the prompt: two
+ * hand-maintained personas would drift within a round, and the one nobody is
+ * looking at is the one that goes live.
+ */
+function persona(search = true): string {
+  const full = `Eres un profesor de inteligencia artificial aplicada al trabajo. Enseñas por voz, en español, a personas que necesitan aprender a trabajar con IA antes de que la IA trabaje sin ellas. Quien te habla puede estar trabajando y con miedo a quedarse atrás, sin trabajo, o todavía estudiando.
 
 Tu alumno puede escucharte caminando, manejando o cocinando, y en su primera clase suele estar frente al computador, porque esa sesión termina con una tarea suya hecha. Eres su clase, no un documento que se lee.
 
@@ -251,11 +269,30 @@ No anuncies lo que vas a hacer antes de hacerlo: "déjame explicarte tres cosas"
 No repartas la responsabilidad al final: "al final depende de ti", "cada caso es distinto". Es cierto y es inútil. Si te preguntan, mojas.
 
 Nada de emojis.`;
+
+  if (search) return full;
+
+  return full
+    .replace(SEARCH_PROMISE, NO_SEARCH)
+    .replace(SEARCH_ATTRIBUTION, NO_SEARCH_ATTRIBUTION)
+    .replace(SEARCH_EXCEPTION, '');
 }
 
-/** The full system prompt. */
-export function teacherSystemPrompt(): string {
-  return persona();
+/** The three passages that only make sense when a lookup tool is attached. */
+const SEARCH_PROMISE = "Cuando la respuesta dependa de información de ahora, no la adivines: usa la herramienta buscar. Precios, qué piden hoy los avisos, si algo cambió o todavía existe. Avísale antes que vas a buscar y que tarda unos segundos. Si la herramienta no está disponible o falla, dilo en una frase, no lo intentes de nuevo, y sigue con lo que sí sabes marcándolo como criterio general.";
+const NO_SEARCH = "Cuando la respuesta dependa de información de ahora, no la adivines y tampoco ofrezcas buscarla: hoy no tienes con qué. Precios, qué piden hoy los avisos, si algo cambió o todavía existe. Dilo en una frase, dale el criterio general marcado como tal, y dile dónde lo puede mirar él mismo.";
+const SEARCH_ATTRIBUTION = "Si comparas proveedores de IA, di que la comparativa la escribió uno de ellos. Lo que vuelve de una búsqueda sí lo puedes atribuir: nombra la fuente al decirlo. Nunca leas direcciones web en voz alta. Y nunca digas que buscaste si no llamaste a la herramienta.";
+const NO_SEARCH_ATTRIBUTION = "Si comparas proveedores de IA, di que la comparativa la escribió uno de ellos. Nunca leas direcciones web en voz alta. Y nunca digas que buscaste ni que vas a buscar.";
+const SEARCH_EXCEPTION = " La única excepción es la búsqueda: ahí el aviso no reemplaza contenido, explica un silencio.";
+
+/**
+ * The full system prompt.
+ *
+ * `search` should be whatever the live agent can actually do: `sync-agent`
+ * reads its `tool_ids` and passes that, rather than anybody choosing.
+ */
+export function teacherSystemPrompt(options: { search?: boolean } = {}): string {
+  return persona(options.search ?? true);
 }
 
 /**
@@ -422,7 +459,14 @@ export async function provisionAgent(): Promise<string> {
           dynamic_variable_placeholders: dynamicVariablePlaceholders(),
         },
         prompt: {
-          prompt: teacherSystemPrompt(),
+          /*
+           * A brand new agent has no tools, so it starts with the persona that
+           * makes no lookup promise. `setup:tools --push` attaches the tool and
+           * the next `sync:agent --push` restores the promise, in that order,
+           * which is the only order in which the teacher is never claiming a
+           * capability it does not have.
+           */
+          prompt: teacherSystemPrompt({ search: false }),
           // Omitted entirely when unset, so ElevenLabs picks its workspace default.
           ...(llm ? { llm } : {}),
           knowledge_base: [],
@@ -518,7 +562,18 @@ export async function syncAgentKnowledge(
           dynamic_variable_placeholders: dynamicVariablePlaceholders(),
         },
         prompt: {
-          prompt: teacherSystemPrompt(),
+          /*
+           * The variant that matches this agent, decided from the tools it
+           * actually carries rather than from a caller's argument.
+           *
+           * `toolIds` is read three lines up to carry the tools forward through
+           * the PATCH, and it answers the only question the persona's search
+           * instructions depend on. Deciding it here rather than at each call
+           * site is what keeps the two in step: this is the one function that
+           * writes the prompt, so a caller cannot push a promise the agent
+           * cannot keep by forgetting an option.
+           */
+          prompt: teacherSystemPrompt({ search: toolIds.length > 0 }),
           ...(llm ? { llm } : {}),
           knowledge_base: entries,
           rag: ragConfig(),
