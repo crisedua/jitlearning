@@ -82,8 +82,11 @@ export default function PrivacidadPage() {
         >
           {PROFILE.email}
         </a>{' '}
-        y borramos tu cuenta y todo lo que tenga tu nombre, incluido lo que quede en ElevenLabs. Lo
-        hacemos a mano, así que toma un día o dos, y te avisamos cuando esté.
+        y borramos tu cuenta y todo lo que tenga tu nombre, incluido el audio y las transcripciones
+        que queden en ElevenLabs. Lo hacemos con un comando, no a mano, así que no se nos escapa
+        una tabla; toma un día o dos porque lo aprieta una persona, y te avisamos cuando esté.
+        Sobrevive una cosa: si dejaste feedback sobre el producto, el texto se queda sin tu
+        nombre ni tu cuenta asociada.
       </p>
 
       <p className="mt-12 border-t border-line pt-6 text-[15px] leading-relaxed text-soft">

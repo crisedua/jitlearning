@@ -18,7 +18,8 @@
     "radar": "tsx scripts/radar-llm.ts",
     "setup:tools": "tsx scripts/setup-tools.ts",
     "sql": "tsx scripts/sql.ts",
-    "test": "tsx --test --test-timeout=20000 \"scripts/**/*.test.ts\" \"src/**/*.test.ts\""
+    "test": "tsx --test --test-timeout=20000 \"scripts/**/*.test.ts\" \"src/**/*.test.ts\"",
+    "forget": "tsx scripts/forget.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

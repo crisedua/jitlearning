@@ -583,6 +583,28 @@ Setup, in order:
    price id. Each of those is a state where a button takes money and grants
    nothing.
 
+### Deleting somebody
+
+[`/privacidad`](src/app/privacidad/page.tsx) promises that writing in gets your
+account and everything carrying your name deleted, ElevenLabs included. That is
+one command, and it refuses to do anything until told twice.
+
+```bash
+npm run forget -- alguien@ejemplo.com            # prints what it would delete
+npm run forget -- alguien@ejemplo.com --confirm  # does it
+```
+
+Order matters and the script keeps it: the conversations at ElevenLabs go first,
+because they are found through `coach_sessions.conversation_id` and deleting the
+account first would strand the audio with nothing pointing at it. If any of them
+refuses to delete, it stops before touching the database and says which, so the
+run can be repeated rather than half-done.
+
+`feedback` and `purchase_intents` are `on delete set null` rather than cascade,
+so those rows survive without an id. Deliberate: feedback about the product
+outlives the person who gave it, and a count of purchase attempts is not personal
+once the id is gone. The page says so.
+
 ### Granting a plan by hand
 
 The feedback deal (`/feedback`) promises 3 months of a paid plan to the first ten
