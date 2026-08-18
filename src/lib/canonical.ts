@@ -24,6 +24,19 @@
  * `setup-tools` runs in a plain Node script, and both need this.
  */
 
+/**
+ * Where this product is served from, when nothing says otherwise.
+ *
+ * `setup-tools` has always fallen back to this literal for the search tool's
+ * endpoint, so the repo already declares a canonical origin — it just declared
+ * it in one place and let the redirect that protects sign-in wait on a variable
+ * nobody had set.
+ *
+ * A fork deploying elsewhere sets NEXT_PUBLIC_SITE_URL, which is the same thing
+ * it already has to do for the tool endpoint to point anywhere useful.
+ */
+export const DEFAULT_ORIGIN = 'https://www.modojit.com';
+
 /** The configured canonical origin, normalised, or null when unset or unusable. */
 export function configuredOrigin(): string | null {
   const raw =
@@ -40,9 +53,24 @@ export function configuredOrigin(): string | null {
   }
 }
 
-/** The host part of the canonical origin, or null. */
+/**
+ * The host every request should be served from, or null when there is nothing
+ * to compare against.
+ *
+ * Falls back to `DEFAULT_ORIGIN` rather than to nothing, because the redirect
+ * this feeds is what stops a second hostname from breaking sign-in — and an
+ * inert safety mechanism protects nobody. This app answers on its custom domain
+ * and on the `.vercel.app` alias; Supabase allow-lists OAuth redirect URLs one
+ * at a time, and a flow begun on the wrong one cannot be completed on the other,
+ * because the PKCE verifier is a cookie. Which link somebody was sent decided
+ * whether they could sign in at all.
+ *
+ * `configuredOrigin()` still wins, and `siteOrigin()` still prefers the
+ * forwarded headers over this: guessing an origin for a generated URL is a
+ * different and worse thing than refusing to serve a second one.
+ */
 export function canonicalHost(): string | null {
-  const origin = configuredOrigin();
+  const origin = configuredOrigin() ?? DEFAULT_ORIGIN;
   if (!origin) return null;
   try {
     return new URL(origin).host;

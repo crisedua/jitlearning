@@ -53,9 +53,11 @@ like the *next* thing is broken, which is why the order is worth following.
 #                         Any long random string: openssl rand -hex 32
 #    NEXT_PUBLIC_SITE_URL the canonical origin, e.g. https://www.modojit.com.
 #                         Decides where the search tool points, every
-#                         Stripe return URL, the OAuth redirect, and the
-#                         redirect that stops a second hostname from
-#                         breaking sign-in. One value, four jobs.
+#                         Stripe return URL, and the OAuth redirect. One
+#                         value, three jobs. Unset, those fall back to the
+#                         forwarded host and to the origin compiled into
+#                         canonical.ts, which is right for this deployment
+#                         and wrong for a fork.
 #
 #    Which state a deployment is in, without holding the secret:
 #      curl -o /dev/null -w "%{http_code}\n" https://www.modojit.com/api/health

@@ -17,7 +17,7 @@ import './env';
 import { createTool, listTools, updateAgent, updateTool } from '../src/lib/elevenlabs';
 import { currentAgent } from '../src/lib/agent';
 import { requireAgentId } from '../src/lib/config';
-import { configuredOrigin } from '../src/lib/canonical';
+import { configuredOrigin, DEFAULT_ORIGIN } from '../src/lib/canonical';
 
 /**
  * Where the deployed route lives.
@@ -29,7 +29,7 @@ import { configuredOrigin } from '../src/lib/canonical';
  * who forked this — which is why the script prints the URL it is about to
  * register before it registers it.
  */
-const BASE_URL = configuredOrigin() ?? 'https://www.modojit.com';
+const BASE_URL = configuredOrigin() ?? DEFAULT_ORIGIN;
 
 /**
  * The lookup tool.
