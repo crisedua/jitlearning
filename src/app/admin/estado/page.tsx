@@ -31,6 +31,10 @@ import { signInPath } from '@/lib/paths';
 import { NotAdmin } from '@/components/NotAdmin';
 import { MIGRATION_SENSITIVE } from '@/lib/schema';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
+import { getAgent } from '@/lib/elevenlabs';
+import { agentId } from '@/lib/config';
+import { FIRST_MESSAGE, teacherSystemPrompt } from '@/lib/agent';
+import { ownsDocument } from '@/lib/teacher';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -92,6 +96,75 @@ function environment(): { label: string; set: boolean; missing: string }[] {
   ];
 }
 
+/**
+ * The live agent, checked from inside the deployment.
+ *
+ * `npm run doctor` asks these questions of whatever `.env.local` points at.
+ * This page asks them of the agent that learners are actually talking to, using
+ * the key this deployment holds, which is the only place the answer is true.
+ *
+ * Every one of these fails silently. A persona a push behind is a teacher
+ * running old instructions while the repo looks right; a blanked first message
+ * is a session that opens on a greeting instead of on the learner's own record;
+ * a document from a retired corpus is a confident answer about a subject nobody
+ * maintains.
+ */
+async function agentState(): Promise<{ label: string; ok: boolean; detail: string }[] | null> {
+  const id = agentId();
+  if (!id || !process.env.ELEVENLABS_API_KEY?.trim()) return null;
+
+  try {
+    const agent = await getAgent(id);
+    const prompt = agent.conversation_config?.agent?.prompt;
+    const attached = prompt?.knowledge_base ?? [];
+    const foreign = attached.filter((d) => !ownsDocument(d.name));
+    const live = (prompt?.prompt ?? '').trim();
+
+    return [
+      {
+        label: 'La persona que está corriendo',
+        ok: live === teacherSystemPrompt().trim(),
+        detail:
+          live === teacherSystemPrompt().trim()
+            ? 'Es la de este repo, carácter por carácter.'
+            : 'El agente tiene una versión distinta. Corre `npm run sync:agent -- --push`.',
+      },
+      {
+        label: 'La primera frase',
+        ok: (agent.conversation_config?.agent?.first_message ?? '').trim() === FIRST_MESSAGE,
+        detail:
+          (agent.conversation_config?.agent?.first_message ?? '').trim() === FIRST_MESSAGE
+            ? 'Abre con lo que sabe de la persona, no con un saludo fijo.'
+            : 'Abre con un texto fijo: nadie oye su propio compromiso al empezar.',
+      },
+      {
+        label: 'El material adjunto',
+        ok: foreign.length === 0,
+        detail:
+          foreign.length === 0
+            ? `${attached.length} documento(s), todos del corpus vivo.`
+            : `${foreign.length} documento(s) de un corpus retirado: ${foreign.map((d) => d.name).join(', ')}.`,
+      },
+      {
+        label: 'La herramienta de búsqueda',
+        ok: (prompt?.tool_ids ?? []).length > 0,
+        detail:
+          (prompt?.tool_ids ?? []).length > 0
+            ? 'Adjunta. El profesor puede buscar lo que promete buscar.'
+            : 'Sin adjuntar, y la persona dice que puede buscar. Corre `npm run setup:tools -- --push`.',
+      },
+    ];
+  } catch (err) {
+    return [
+      {
+        label: 'El agente',
+        ok: false,
+        detail: `No se pudo leer: ${err instanceof Error ? err.message : 'error desconocido'}`,
+      },
+    ];
+  }
+}
+
 export default async function EstadoPage() {
   const gate = await checkAdmin();
   if (!gate.ok) {
@@ -101,7 +174,7 @@ export default async function EstadoPage() {
     return <NotAdmin email={gate.email} path="/admin/estado" />;
   }
 
-  const rows = await probe();
+  const [rows, agent] = await Promise.all([probe(), agentState()]);
   const env = environment();
   const brokenRows = rows?.filter((r) => !r.ok) ?? [];
   const missingEnv = env.filter((e) => !e.set);
@@ -148,6 +221,32 @@ export default async function EstadoPage() {
             ))}
           </ul>
         </>
+      )}
+
+      <h2 className="mt-12 font-serif text-[22px] font-normal">El profesor</h2>
+      {agent === null ? (
+        <p className="mt-4 rounded-lg border border-warning/35 bg-warning-soft/50 px-4 py-3 text-[15px] leading-relaxed text-ink/80">
+          Falta <code className="font-mono text-[13px]">ELEVENLABS_AGENT_ID</code> o{' '}
+          <code className="font-mono text-[13px]">ELEVENLABS_API_KEY</code>, así que no hay agente
+          que revisar. Sin eso no hay clase.
+        </p>
+      ) : (
+        <ul className="mt-4 space-y-2">
+          {agent.map((row) => (
+            <li
+              key={row.label}
+              className={`rounded-lg border px-5 py-3.5 ${
+                row.ok ? 'border-line bg-surface' : 'border-danger/25 bg-surface'
+              }`}
+            >
+              <p className="text-[15px] font-medium">
+                {row.ok ? '' : '· '}
+                {row.label}
+              </p>
+              <p className="mt-1 text-[15px] leading-relaxed text-muted">{row.detail}</p>
+            </li>
+          ))}
+        </ul>
       )}
 
       <h2 className="mt-12 font-serif text-[22px] font-normal">Variables de entorno</h2>
