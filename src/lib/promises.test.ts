@@ -42,10 +42,31 @@ const PERFORMED: ReadonlyArray<[string, RegExp]> = [
 ];
 
 describe('what the page says the teacher does', () => {
-  it('has a page to check against', () => {
-    // If these ever empty out, every assertion below would pass on nothing.
-    assert.ok(PROMISES.length >= 4, `only ${PROMISES.length} promises on the page`);
-    assert.ok(STEPS.length >= 4, `only ${STEPS.length} how-it-works steps`);
+  /*
+   * Exact counts, not floors.
+   *
+   * A floor answers "is there still a page here" and misses the thing that
+   * actually happens: somebody adds a sixth step describing a new behaviour, the
+   * list below does not grow with it, and the new promise is checked by nothing.
+   * That is precisely how the walking learner sat on the page unperformed for
+   * weeks, and how the courtesy-plan message ended up scanned but never read.
+   *
+   * Pinned so adding one fails here and makes somebody decide: either the new
+   * claim describes something the teacher does, and belongs in the list, or it
+   * describes something else and the number moves. Both are fine. Neither is
+   * silent.
+   */
+  it('has the page it was written against', () => {
+    assert.equal(
+      PROMISES.length,
+      4,
+      'the promises on the page changed: check each is still performed and update PERFORMED',
+    );
+    assert.equal(
+      STEPS.length,
+      5,
+      'a how-it-works step was added or removed: a new one may describe a behaviour the persona has to perform',
+    );
   });
 
   for (const search of [true, false]) {

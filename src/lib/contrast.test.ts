@@ -13,7 +13,7 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 /*
@@ -88,9 +88,83 @@ const rgb = (name: string): Rgb => {
 const AA = 4.5;
 
 const SURFACES = ['bg', 'surface', 'surface-alt'] as const;
-const FOREGROUNDS = ['ink', 'muted', 'soft', 'accent', 'success', 'warning', 'danger'] as const;
+/*
+ * Every colour the pages actually paint text in.
+ *
+ * This listed seven and the components use eleven. The four missing ones —
+ * brand, accent-hover, accent-deep and body — all pass comfortably, so nothing
+ * was wrong; nothing was checking either, which is the same position the palette
+ * was in before this file existed.
+ *
+ * Derived would be better than listed, and is not available: Tailwind writes
+ * `text-soft` and the custom property is `--color-soft`, so the mapping is a
+ * convention rather than a fact, and a class can be composed at runtime. The
+ * test below closes the gap the other way, by failing when a `text-` class names
+ * a colour absent from here.
+ */
+const FOREGROUNDS = [
+  'ink',
+  'muted',
+  'soft',
+  'body',
+  'accent',
+  'accent-hover',
+  'accent-deep',
+  'brand',
+  'success',
+  'warning',
+  'danger',
+] as const;
 
 describe('palette contrast', () => {
+  /*
+   * The list above has to keep pace with the components.
+   *
+   * A colour added to the palette and painted as text would otherwise be
+   * unchecked, silently, which is how four of them got here. Scanning the JSX
+   * for `text-<name>` is crude and it is the only source of truth available:
+   * the alternative is remembering, and remembering is what failed.
+   */
+  it('checks every colour the pages paint text in', () => {
+    const dir = path.join(import.meta.dirname, '..');
+    const files: string[] = [];
+    const walk = (d: string) => {
+      for (const e of readdirSync(d, { withFileTypes: true })) {
+        if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+        const full = path.join(d, e.name);
+        if (e.isDirectory()) walk(full);
+        else if (e.name.endsWith('.tsx')) files.push(full);
+      }
+    };
+    walk(dir);
+
+    const painted = new Set<string>();
+    for (const file of files) {
+      for (const m of readFileSync(file, 'utf8').matchAll(/\btext-([a-z][a-z-]*)\b/g)) {
+        if (colours.has(m[1]!)) painted.add(m[1]!);
+      }
+    }
+
+    /*
+     * `bg` is a foreground on the buttons.
+     *
+     * The primary call to action is `bg-accent text-bg`: the page colour painted
+     * on the accent, which is the pair somebody reads on every "empezar" button
+     * in the product and which nothing here checked, because the model assumed
+     * text sits on a surface. It is checked below, against the button rather
+     * than against the page, where comparing it would be meaningless.
+     */
+    const unchecked = [...painted]
+      .filter((c) => c !== 'bg')
+      .filter((c) => !FOREGROUNDS.includes(c as never))
+      .sort();
+    assert.deepEqual(
+      unchecked,
+      [],
+      `painted as text and never checked for contrast: ${unchecked.join(', ')}`,
+    );
+  });
+
   it('reads the palette it is meant to check', () => {
     // A rename would otherwise turn every assertion below into a silent pass.
     assert.ok(colours.size >= 12, `only found ${colours.size} colours in globals.css`);
@@ -103,6 +177,25 @@ describe('palette contrast', () => {
         assert.ok(r >= AA, `${fg} on ${bg} is ${r.toFixed(2)}:1, needs ${AA}`);
       });
     }
+  }
+
+  /*
+   * The buttons, where the page colour becomes the text colour.
+   *
+   * `bg-accent text-bg` is the primary call to action on every page, and the
+   * white-on-navy pair it produces was checked by nothing: the surfaces above
+   * are backgrounds and `bg` was never treated as a foreground.
+   */
+  const BUTTONS: Array<[string, string]> = [
+    ['bg', 'accent'],
+    ['bg', 'accent-hover'],
+  ];
+
+  for (const [text, button] of BUTTONS) {
+    it(`${text} on the ${button} button clears AA`, () => {
+      const r = contrast(rgb(text), rgb(button));
+      assert.ok(r >= AA, `${text} on ${button} is ${r.toFixed(2)}:1, needs ${AA}`);
+    });
   }
 
   /*
