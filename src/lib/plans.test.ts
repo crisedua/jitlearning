@@ -12,6 +12,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { spellMinutes } from './plans';
+import type { Plan } from './plans';
 import { WEEKLY_MAX, WEEKLY_MIN } from './curriculum';
 
 describe('saying a saving out loud', () => {
@@ -64,6 +65,7 @@ describe('saying a saving out loud', () => {
 import {
   approximateSessions,
   ASSUMED_SESSION_MINUTES,
+  dominatedBy,
   FALLBACK_PLANS,
   formatMinutes,
   planFeatures,
@@ -129,5 +131,73 @@ describe('how long a class is assumed to take', () => {
       promised * ASSUMED_SESSION_MINUTES <= (free.monthlyMinutes ?? 0),
       `promises ${promised} classes out of ${free.monthlyMinutes} minutes`,
     );
+  });
+});
+
+/*
+ * The dominated tier.
+ *
+ * `dominatedBy` decides whether /planes offers a plan or shows it as a list
+ * price. Getting it wrong in one direction puts a strictly worse purchase in
+ * front of somebody deciding whether to trust this product with money; in the
+ * other it hides a tier the operator is trying to sell.
+ */
+describe('dominatedBy', () => {
+  const base = FALLBACK_PLANS.find((p) => p.id === 'founder')!;
+  const plan = (over: Partial<Plan>): Plan => ({ ...base, ...over }) as Plan;
+
+  it('names the cheaper plan when the dearer one gives no more', () => {
+    const cheap = plan({ id: 'a', priceMinor: 900, monthlyMinutes: 300 });
+    const dear = plan({ id: 'b', priceMinor: 1900, monthlyMinutes: 300 });
+    assert.equal(dominatedBy(dear, [cheap, dear])?.id, 'a');
+    assert.equal(dominatedBy(cheap, [cheap, dear]), null);
+  });
+
+  it('leaves a real ladder alone: more money buys more minutes', () => {
+    const cheap = plan({ id: 'a', priceMinor: 900, monthlyMinutes: 120 });
+    const dear = plan({ id: 'b', priceMinor: 1900, monthlyMinutes: 300 });
+    assert.equal(dominatedBy(dear, [cheap, dear]), null);
+  });
+
+  /*
+   * The property the page depends on. The demotion is derived, so applying
+   * `supabase/optional/founder_allowance_120.sql` has to restore the card
+   * without anybody editing this file.
+   */
+  it('stops demoting once the cheaper allowance drops', () => {
+    const dear = plan({ id: 'standard', priceMinor: 1900, monthlyMinutes: 300 });
+    const before = plan({ id: 'founder', priceMinor: 900, monthlyMinutes: 300 });
+    const after = plan({ id: 'founder', priceMinor: 900, monthlyMinutes: 120 });
+    assert.ok(dominatedBy(dear, [before, dear]), 'dominated at 300');
+    assert.equal(dominatedBy(dear, [after, dear]), null, 'not dominated at 120');
+  });
+
+  it('treats unlimited as beating any number, in both directions', () => {
+    const unlimited = plan({ id: 'a', priceMinor: 900, monthlySessions: null });
+    const counted = plan({ id: 'b', priceMinor: 1900, monthlySessions: 8 });
+    assert.ok(dominatedBy(counted, [unlimited, counted]));
+    const cheapCounted = plan({ id: 'a', priceMinor: 900, monthlySessions: 4 });
+    const dearUnlimited = plan({ id: 'b', priceMinor: 1900, monthlySessions: null });
+    assert.equal(dominatedBy(dearUnlimited, [cheapCounted, dearUnlimited]), null);
+  });
+
+  it('does not compare across currencies or against hidden and free tiers', () => {
+    const clp = plan({ id: 'a', priceMinor: 900, currency: 'CLP' });
+    const usd = plan({ id: 'b', priceMinor: 1900, currency: 'USD' });
+    assert.equal(dominatedBy(usd, [clp, usd]), null);
+
+    const hidden = plan({ id: 'a', priceMinor: 900, isPublic: false });
+    assert.equal(dominatedBy(usd, [hidden, usd]), null);
+
+    const free = plan({ id: 'a', priceMinor: 0 });
+    assert.equal(dominatedBy(usd, [free, usd]), null);
+    assert.equal(dominatedBy(free, [free, usd]), null, 'the free tier is never demoted');
+  });
+
+  it('names the cheapest alternative, not merely a cheaper one', () => {
+    const cheapest = plan({ id: 'a', priceMinor: 500 });
+    const middle = plan({ id: 'b', priceMinor: 900 });
+    const dear = plan({ id: 'c', priceMinor: 1900 });
+    assert.equal(dominatedBy(dear, [middle, cheapest, dear])?.id, 'a');
   });
 });

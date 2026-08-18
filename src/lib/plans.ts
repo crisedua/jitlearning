@@ -231,6 +231,49 @@ export function planFeatures(plan: Plan): readonly string[] {
 }
 
 /**
+ * The cheaper plan that makes this one pointless, if there is one.
+ *
+ * A plan is dominated when a cheaper public plan in the same currency gives at
+ * least as much of everything metered. Today Estándar is: US$19 for the same 300
+ * minutes and the same unlimited sessions as Fundador at US$9, and without
+ * Fundador's price lock. There is no axis on which the dearer one wins.
+ *
+ * `npm run doctor` has failed on this since the ladder was written, and it is a
+ * pricing decision, so the numbers are not this function's business. What is its
+ * business is the moment of decision: somebody comparing two cards where one is
+ * strictly worse does not conclude "I will take the cheap one", they conclude
+ * they have misread something and go away to think about it. A confusing choice
+ * costs a sale more reliably than a dear one.
+ *
+ * So the page stops *offering* the dominated tier and shows it as the price
+ * without the founder discount. Derived rather than hardcoded, deliberately:
+ * lower Fundador's allowance (`supabase/optional/founder_allowance_120.sql`) or
+ * raise Estándar's and the domination disappears, and the card becomes a real
+ * option again with no code change. The code defers to the pricing decision
+ * instead of pre-empting it.
+ *
+ * null limits mean unlimited, which beats every number. Same rule as the doctor,
+ * because two definitions of "dominated" would eventually disagree.
+ */
+export function dominatedBy(plan: Plan, all: readonly Plan[]): Plan | null {
+  if (plan.priceMinor <= 0 || !plan.isPublic) return null;
+  const limit = (value: number | null) => (value === null ? Infinity : value);
+  const cheaper = all.filter(
+    (c) =>
+      c.id !== plan.id &&
+      c.isPublic &&
+      c.priceMinor > 0 &&
+      c.currency === plan.currency &&
+      c.priceMinor < plan.priceMinor &&
+      limit(c.monthlyMinutes) >= limit(plan.monthlyMinutes) &&
+      limit(c.monthlySessions) >= limit(plan.monthlySessions),
+  );
+  // The cheapest of them, so the copy names the best alternative and not merely
+  // a better one.
+  return cheaper.sort((a, b) => a.priceMinor - b.priceMinor)[0] ?? null;
+}
+
+/**
  * Checkout exists now: `plans.stripe_price_id` names the Stripe price, the button
  * on /planes opens a Checkout Session, and `profiles.plan_id` is written by the
  * Stripe webhook and by nothing else. See `src/lib/billing.ts`.

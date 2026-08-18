@@ -28,6 +28,7 @@ import {
   planFeatures,
   RECOMMENDED_PLAN_ID,
   approximateSessions,
+  dominatedBy,
   formatMinutes,
   formatMoney,
   formatOverage,
@@ -220,18 +221,34 @@ function PlanAction({ plan, buyable }: { plan: Plan; buyable: boolean }) {
   );
 }
 
-function PlanCard({ plan, buyable }: { plan: Plan; buyable: boolean }) {
-  const recommended = plan.id === RECOMMENDED_PLAN_ID;
+function PlanCard({
+  plan,
+  buyable,
+  supersededBy,
+}: {
+  plan: Plan;
+  buyable: boolean;
+  supersededBy: Plan | null;
+}) {
+  // A dominated tier is not an option, so it does not get the recommendation
+  // ring or the button. See `dominatedBy` for why it stays on the page at all.
+  const recommended = !supersededBy && plan.id === RECOMMENDED_PLAN_ID;
   const organisation = plan.seatMinimum !== null;
   const features = planFeatures(plan);
   const sessions = approximateSessions(plan.monthlyMinutes);
 
   return (
     <li
-      className={`reveal relative flex flex-col rounded-lg border bg-surface p-7 transition duration-300 ease-out hover:-translate-y-1.5 hover:shadow-md ${
+      className={`reveal relative flex flex-col rounded-lg border p-7 transition duration-300 ease-out ${
+        supersededBy
+          ? 'border-line bg-surface-alt/30'
+          : 'bg-surface hover:-translate-y-1.5 hover:shadow-md'
+      } ${
         recommended || organisation
           ? 'border-accent/45 shadow-sm ring-1 ring-accent/15'
-          : 'border-line hover:border-accent/35'
+          : supersededBy
+            ? ''
+            : 'border-line hover:border-accent/35'
       }`}
     >
       {/*
@@ -251,6 +268,11 @@ function PlanCard({ plan, buyable }: { plan: Plan; buyable: boolean }) {
       {recommended && (
         <span className="absolute -top-3 left-7 rounded-full border border-gold/45 bg-gold-soft px-3 py-1 text-[10px] font-semibold uppercase leading-none tracking-[0.1em] text-accent">
           El que recomendamos
+        </span>
+      )}
+      {supersededBy && (
+        <span className="absolute -top-3 left-7 rounded-full border border-line-strong bg-surface px-3 py-1 text-[10px] font-semibold uppercase leading-none tracking-[0.1em] text-soft">
+          Precio de lista
         </span>
       )}
       {organisation && (
@@ -313,7 +335,21 @@ function PlanCard({ plan, buyable }: { plan: Plan; buyable: boolean }) {
 
       <p className="mt-6 text-[13px] leading-relaxed text-soft">{formatOverage(plan)}</p>
 
-      <PlanAction plan={plan} buyable={buyable} />
+      {/*
+        No button. Charging somebody more for less is not an option to present
+        politely, and a card with a button reads as a choice worth weighing.
+        The sentence says the useful thing instead: which plan to take, and why
+        this number is on the page at all.
+      */}
+      {supersededBy ? (
+        <p className="mt-6 border-t border-line pt-5 text-[14px] leading-relaxed text-muted">
+          Este es el precio sin el descuento de fundador. Mientras {supersededBy.name} siga
+          abierto, cuesta {formatMoney(supersededBy.priceMinor, supersededBy.currency)} y te da lo
+          mismo, así que toma ese.
+        </p>
+      ) : (
+        <PlanAction plan={plan} buyable={buyable} />
+      )}
     </li>
   );
 }
@@ -378,7 +414,12 @@ export default async function PlanesPage() {
         {/* Five across only where five fit; below that the cards pair up. */}
         <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {selfServe.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} buyable={buyable.has(plan.id)} />
+            <PlanCard
+              key={plan.id}
+              plan={plan}
+              buyable={buyable.has(plan.id)}
+              supersededBy={dominatedBy(plan, selfServe)}
+            />
           ))}
         </ul>
 

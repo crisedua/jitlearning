@@ -758,6 +758,14 @@ async function main() {
       );
     }
     note('supabase/optional/founder_allowance_120.sql lowers the cheaper tier, which does both.');
+    /*
+     * Still a failure, because the ladder is still wrong. But an operator
+     * reading this should not picture a page asking somebody to pay more for
+     * less: /planes demotes a dominated tier to a list price with no button,
+     * derived from these same rows. Fix the numbers and the card comes back on
+     * its own.
+     */
+    note('Meanwhile /planes shows it as a list price with no button, so nobody is offered it.');
     note('Or retire a tier, or make the difference something other than minutes.');
     failures++;
   }
