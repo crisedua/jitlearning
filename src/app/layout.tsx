@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { BrandMark, Wordmark } from '@/components/BrandMark';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { PROFILE, TAGLINE, hasContact } from '@/lib/site';
+import { configuredOrigin, DEFAULT_ORIGIN } from '@/lib/canonical';
 import './globals.css';
 
 /**
@@ -35,6 +36,18 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  /*
+   * Absolute URLs for anything a scraper has to fetch.
+   *
+   * The preview image is served from a relative path, and WhatsApp, Slack and
+   * every other unfurler resolve it against this. Without it Next emits a
+   * relative URL and the card arrives without its image — which is the whole
+   * failure this was added to fix.
+   *
+   * Resolved from the same place the canonical redirect and the search tool
+   * endpoint come from, so one setting keeps them together.
+   */
+  metadataBase: new URL(configuredOrigin() ?? DEFAULT_ORIGIN),
   title: 'ModoJIT',
   icons: { icon: '/icono.svg' },
   description: TAGLINE,
@@ -44,6 +57,9 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'es_CL',
   },
+  // Falls back to the OpenGraph image; `summary_large_image` is what makes it
+  // render as a picture rather than a thumbnail beside two lines of text.
+  twitter: { card: 'summary_large_image', title: 'ModoJIT', description: TAGLINE },
 };
 
 /**
