@@ -1,14 +1,20 @@
 'use server';
 
 /**
- * The only two things a learner may change by hand.
+ * The three things a learner may change by hand.
  *
  * Everything else on the progress page comes out of a transcript. That is the
  * point: a plan somebody can edit into "done" measures nothing, so the status of
  * a step is set by what was taught and shown out loud, not by a checkbox.
  *
- * What the learner does own is the answer to "did you do it" and the description
- * of what they built. Both are things only they can know.
+ * What the learner owns is what only they can know: whether they did the thing
+ * they promised, what they built, and how long the task took them before and
+ * after. The last of those was added when a class produced no numbers because
+ * the person answered "un día" and the extractor would not guess a working day's
+ * length. It belongs on this list rather than off it — the persona already calls
+ * that number theirs, sourced from their own two answers — and it changes
+ * nothing about the rule above, because the status of the step still comes from
+ * the class.
  *
  * ## Why the request-scoped client, not the service role
  *

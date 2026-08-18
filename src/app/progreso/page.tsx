@@ -701,7 +701,14 @@ function Step({
         correct the teacher next session if a number is wrong.
       */}
       {step.minutesBefore !== null && step.minutesAfter !== null && (
-        <p className="mt-3 inline-flex flex-wrap items-baseline gap-x-2 rounded-md bg-success-soft/50 px-3 py-2 text-[14px] text-ink/85">
+        <p
+          className={`mt-3 inline-flex flex-wrap items-baseline gap-x-2 rounded-md px-3 py-2 text-[14px] text-ink/85 ${
+            // Green is a verdict. On a task that did not get faster it would
+            // congratulate somebody for a number that saved them nothing, one
+            // line above the sentence saying so.
+            step.minutesBefore > step.minutesAfter ? 'bg-success-soft/50' : 'bg-surface-alt/60'
+          }`}
+        >
           <span className="text-soft line-through">{step.minutesBefore} min</span>
           <span aria-hidden className="text-soft">
             →
@@ -718,6 +725,18 @@ function Step({
               ahorras {spellMinutes(step.minutesBefore - step.minutesAfter)} cada semana
             </span>
           )}
+          {/*
+            And when it did not get faster, say so.
+            
+            The pair on its own reads like a bug: two numbers, no verdict, and
+            the reader left to do the subtraction and wonder whether the page
+            noticed. It contributes zero to the total either way, which is what
+            `timeSaved` clamps to, so the honest thing is to name it rather than
+            leave a silence that looks like a failure to compute.
+          */}
+          {step.minutesBefore <= step.minutesAfter && (
+            <span className="text-soft">esta tarea todavía no te ahorra tiempo</span>
+          )}
         </p>
       )}
 
@@ -731,7 +750,7 @@ function Step({
         their own hours. Leaving that to one extraction from speech was a single
         point of failure for the only part of this somebody would pay for.
       */}
-      {(step.minutesBefore === null || step.minutesAfter === null) && (
+      {level === 'semana' && (step.minutesBefore === null || step.minutesAfter === null) && (
         <form action={saveMinutes} className="mt-3 rounded-md border border-line bg-surface-alt/30 px-3.5 py-3">
           <input type="hidden" name="stepId" value={step.id} />
           <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-soft">
@@ -739,6 +758,8 @@ function Step({
           </p>
           <p className="mt-1 text-[13px] leading-relaxed text-muted">
             En minutos. Si lo hablaste en la clase y no quedó anotado, ponlo tú.
+            {step.status !== 'done' &&
+              ' Entra en tu total cuando la clase dé este paso por hecho.'}
           </p>
           <div className="mt-2.5 flex flex-wrap items-end gap-2.5">
             <label className="text-[13px] text-muted">
