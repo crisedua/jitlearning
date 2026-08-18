@@ -41,8 +41,34 @@ export const CLASS_CAP_SECONDS = CLASS_CAP_MINUTES * 60;
  * warn — under about two minutes there is nothing useful to say that is not
  * itself the interruption.
  */
-export function wrapUpAt(minutesLeft: number | null): { close: number; last: number } | null {
+export function wrapUpAt(
+  minutesLeft: number | null,
+): { close: number; last: number; closeRemaining: number } | null {
   const end = Math.min(minutesLeft ?? CLASS_CAP_MINUTES, CLASS_CAP_MINUTES);
   if (end <= 2) return null;
-  return { close: Math.max(end - 5, 0.5), last: Math.max(end - 1, 1) };
+
+  /*
+   * How much of the class to spend closing, as a share of it rather than a
+   * fixed five minutes.
+   *
+   * Five was calibrated for a class that no longer exists. Against the real
+   * ceiling it told the teacher to stop working and start closing at the
+   * halfway mark, and against a learner with six minutes of balance left it
+   * fired at minute one, leaving 83 percent of the class to a wind-down.
+   *
+   * The closing is short work: finish what is open, ask how long it took, say
+   * the difference, take a commitment. It does not need half a class. What
+   * does need the time is the task itself, because a class that does not
+   * finish one produces no second number and therefore nothing to sell.
+   *
+   * Never less than two minutes, because the subtraction and the commitment
+   * both have to fit, and never more than five, because beyond that the extra
+   * warning buys nothing.
+   */
+  const closing = Math.min(5, Math.max(2, end * 0.3));
+  return {
+    close: Math.max(end - closing, 0.5),
+    last: Math.max(end - 1, 1),
+    closeRemaining: Math.round(closing),
+  };
 }

@@ -285,8 +285,9 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
     const timers = [
       at(
         when.close,
-        'Quedan unos 5 minutos de esta clase. Cierra la tarea con lo que ya tienen y pregúntale ' +
-          'cuánto tardó, para poder decirle la resta antes de terminar. El mapa y el plan pueden esperar.',
+        `Quedan unos ${when.closeRemaining} minutos de esta clase. Cierra la tarea con lo que ya ` +
+          'tienen y pregúntale cuánto tardó, para poder decirle la resta antes de terminar. ' +
+          'El mapa y el plan pueden esperar.',
       ),
       at(
         when.last,

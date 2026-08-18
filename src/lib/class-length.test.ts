@@ -43,8 +43,44 @@ describe('when the teacher is told to wrap up', () => {
 
   it('follows the balance when the balance is the thing that ends first', () => {
     const when = wrapUpAt(6)!;
-    assert.equal(when.close, 1, 'six minutes left should close five minutes in');
+    assert.ok(when.close > 0 && when.close < 6);
     assert.equal(when.last, 5);
+  });
+
+  /*
+   * The closing is short work — finish what is open, ask how long it took, say
+   * the difference, take a commitment — and it was taking half the class,
+   * because five minutes was calibrated against a class three times longer.
+   * What needs the time is the task, since a class that does not finish one
+   * produces no second number and therefore nothing to sell.
+   */
+  it('leaves most of the class for the task', () => {
+    for (const balance of [6, 8, 10, 20, 300]) {
+      const when = wrapUpAt(balance);
+      if (!when) continue;
+      const end = Math.min(balance, CLASS_CAP_MINUTES);
+      assert.ok(
+        when.close / end >= 0.6,
+        `a ${end}-minute class spends only ${when.close} min on the task before closing`,
+      );
+    }
+  });
+
+  it('always leaves at least two minutes to close in', () => {
+    // The subtraction and the commitment both have to fit.
+    for (const balance of [3, 6, 10, 300]) {
+      const when = wrapUpAt(balance);
+      if (!when) continue;
+      const end = Math.min(balance, CLASS_CAP_MINUTES);
+      assert.ok(end - when.close >= 1.99, `only ${end - when.close} min to close a ${end}-min class`);
+    }
+  });
+
+  it('tells the teacher the real number of minutes left, not a fixed one', () => {
+    assert.equal(wrapUpAt(300)!.closeRemaining, 3);
+    const tutor = read('src', 'components', 'VoiceTutor.tsx');
+    assert.match(tutor, /Quedan unos \$\{when\.closeRemaining\} minutos/);
+    assert.doesNotMatch(tutor, /Quedan unos 5 minutos/);
   });
 
   it('says nothing when there is no room to say it', () => {
