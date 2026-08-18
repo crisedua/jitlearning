@@ -307,14 +307,17 @@ describe('the platform tools nothing here configures', () => {
   });
 
   it('reads them from the same live agent as the tools and the model', () => {
-    // One read before the write, three things carried out of it.
-    const order = ['tool_ids ?? \\[\\]', 'prompt\\.llm', 'prompt\\.built_in_tools'];
-    let at = agent.indexOf('const live = await getAgent(id)');
-    assert.ok(at > 0);
-    for (const needle of order) {
-      const next = agent.slice(at).search(new RegExp(needle));
-      assert.ok(next > 0, `${needle} is not read after the live agent`);
-      at += next;
+    // One read before the write, three things carried out of it. Plain string
+    // search, because the first attempt used a regex and `??` is a quantifier.
+    const read0 = agent.indexOf('const live = await getAgent(id)');
+    assert.ok(read0 > 0, 'the sync no longer reads the live agent first');
+    for (const carried of [
+      'live.conversation_config.agent.prompt.tool_ids',
+      'live.conversation_config.agent.prompt.llm',
+      'live.conversation_config.agent.prompt.built_in_tools',
+    ]) {
+      const at = agent.indexOf(carried);
+      assert.ok(at > read0, `${carried} is not carried out of that read`);
     }
   });
 });
