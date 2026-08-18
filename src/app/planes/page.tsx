@@ -32,6 +32,7 @@ import {
   formatMoney,
   formatOverage,
   rowToPlan,
+  spellMinutes,
   type Plan,
 } from '@/lib/plans';
 
@@ -353,7 +354,7 @@ export default async function PlanesPage() {
           it belongs: it answers a question people ask second.
         */}
         <p className="mt-6 max-w-[58ch] text-[17px] leading-relaxed text-muted">
-          Los {formatMinutes(FREE_PLAN.monthlyMinutes)} gratis alcanzan para resolver una tarea real de tu semana y medir cuánto
+          Los {spellMinutes(FREE_PLAN.monthlyMinutes ?? 0)} gratis alcanzan para resolver una tarea real de tu semana y medir cuánto
           tiempo te ahorra cada vez que la vuelves a hacer. Ese número lo pones tú. Compáralo con
           estos precios y la decisión se toma sola.
         </p>

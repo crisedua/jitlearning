@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { SessionPreview } from '@/components/SessionPreview';
 import { DIFFERENCES, HERO, PROMISES, STEPS, TAGLINE } from '@/lib/site';
 import { LEVELS, lessonsForLevel } from '@/lib/curriculum';
-import { ASSUMED_SESSION_MINUTES, FREE_PLAN, formatMinutes } from '@/lib/plans';
+import { ASSUMED_SESSION_MINUTES, FREE_PLAN, spellMinutes } from '@/lib/plans';
 
 export const metadata = {
   title: `ModoJIT · ${TAGLINE}`,
@@ -68,7 +68,7 @@ export default function HomePage() {
           */}
           <p className="animate-fade mt-5 text-[13px] text-soft [animation-delay:900ms]">
             Se abre en el navegador · necesita micrófono ·{' '}
-            {formatMinutes(FREE_PLAN.monthlyMinutes)} gratis, sin tarjeta
+            {spellMinutes(FREE_PLAN.monthlyMinutes ?? 0)} gratis, sin tarjeta
           </p>
         </div>
 
@@ -304,7 +304,8 @@ export default function HomePage() {
               Said here, at the moment somebody decides how to start.
             */}
             <span className="text-sm text-bg/75">
-              Se abre en el navegador · necesita micrófono · {formatMinutes(FREE_PLAN.monthlyMinutes)} gratis · la primera vez,
+              Se abre en el navegador · necesita micrófono ·{' '}
+              {spellMinutes(FREE_PLAN.monthlyMinutes ?? 0)} gratis · la primera vez,
               mejor frente al computador
             </span>
           </div>
