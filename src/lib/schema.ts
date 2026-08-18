@@ -63,6 +63,24 @@ export const MIGRATION_SENSITIVE: ReadonlyArray<{
   },
   {
     /*
+     * The second half of the same table, and a worse failure than the first.
+     *
+     * Once the route began writing a transcript, every row it inserts names
+     * `content` and `role`. Postgres rejects an insert naming a column that
+     * does not exist — the whole statement, not the unknown field — and
+     * `finish()` swallows its own errors so the learner never loses an answer
+     * to a bookkeeping problem. So a deployment that applied
+     * 20260820000000 and not 20260821000000 serves every practice message,
+     * stores none of them, and bills none of them either. The first migration
+     * failing loses the money; this one failing loses the money silently on a
+     * table that exists and looks right.
+     */
+    table: 'practice_messages',
+    column: 'content',
+    why: 'every practice message fails to record, so none of them is billed',
+  },
+  {
+    /*
      * A view rather than a table, and the only entry here that costs money when
      * it is absent. `checkPlanAllowance` reads it to learn that the free tier is
      * a lifetime allowance; without it the code falls through to the monthly

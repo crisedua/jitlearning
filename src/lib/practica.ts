@@ -106,6 +106,104 @@ export function practiceModel(id: string): PracticeModel | null {
   return PRACTICE_MODELS.find((m) => m.id === id) ?? null;
 }
 
+/**
+ * How a model named out loud becomes one we are willing to bill.
+ *
+ * The teacher fires `open_model_sandbox` with whatever the learner said, and
+ * what arrives is a word from a conversation: "gemini", "el de Google",
+ * "google/gemini-3.7-flash", "chat gpt". Two things must not happen with that
+ * string. It must not reach OpenRouter — an agent that can name any slug can
+ * name an expensive one, or a hallucinated one, and either way we pay for the
+ * attempt. And it must not fail the tool call, because a failed tool inside a
+ * voice class is a teacher apologising for a panel that did not open.
+ *
+ * So it resolves to one of the three configured models or to null, and null is
+ * handled by opening on the default rather than by refusing.
+ */
+export function resolveModel(spoken: string | null | undefined): PracticeModel | null {
+  if (!spoken) return null;
+  const said = spoken.trim().toLowerCase();
+  if (!said) return null;
+
+  const byId = practiceModel(said);
+  if (byId) return byId;
+
+  // The full OpenRouter slug, when the agent repeats one back to us.
+  const bySlug = PRACTICE_MODELS.find((m) => m.model.toLowerCase() === said);
+  if (bySlug) return bySlug;
+
+  /*
+   * Otherwise by family name inside whatever was said. "chatgpt" and "gpt" both
+   * have to land on OpenAI, and "openai" too, because the teacher refers to
+   * these three by several names in the same class.
+   */
+  const families: Array<[PracticeModelId, readonly string[]]> = [
+    ['gemini', ['gemini', 'google', 'bard']],
+    ['claude', ['claude', 'anthropic', 'sonnet', 'opus']],
+    ['chatgpt', ['chatgpt', 'chat gpt', 'gpt', 'openai']],
+  ];
+  for (const [id, words] of families) {
+    if (words.some((w) => said.includes(w))) return practiceModel(id);
+  }
+  return null;
+}
+
+/** What the picker starts on when nobody said which. */
+export const DEFAULT_MODEL: PracticeModelId = 'gemini';
+
+/**
+ * The client tool the teacher fires to open the bench mid-class.
+ *
+ * A *client* tool: ElevenLabs relays the call over the open socket to the
+ * browser, nothing runs on our server, and the panel appears while the teacher
+ * is still speaking. A webhook tool could not do this — the server has no way
+ * to reach into the page.
+ *
+ * The description is an instruction rather than documentation, the same as the
+ * lookup tool's. It is the only thing deciding when the bench opens, and both
+ * failure modes are real: a teacher that never opens it teaches a class about
+ * an assistant the learner cannot reach, and one that opens it constantly puts
+ * a panel in front of somebody walking with no screen.
+ *
+ * `expects_response` is true so the browser can answer with what happened. The
+ * teacher needs to know whether the panel is actually in front of them before
+ * saying "escríbele esto".
+ */
+export const SANDBOX_TOOL = {
+  type: 'client' as const,
+  name: 'open_model_sandbox',
+  description:
+    'Abre el banco de práctica en la pantalla del alumno, con un asistente listo para que le escriba. ' +
+    'Úsala cuando vayan a practicar con un asistente: cuando el alumno pida probar uno, cuando le vayas ' +
+    'a dictar una petición para pegar, o cuando la clase llegue a la parte de hacer la tarea. ' +
+    'Úsala también si el alumno pide cambiar a otro asistente. ' +
+    'No la uses si te dijo que va caminando o manejando: ahí no hay pantalla y el panel no sirve de nada. ' +
+    'Después de llamarla, dile en una frase que ya lo tiene abajo y dictale qué escribir. ' +
+    'Lo que el alumno escriba y lo que el asistente responda te van a llegar solos: no se los preguntes.',
+  response_timeout_secs: 10,
+  expects_response: true,
+  parameters: {
+    type: 'object' as const,
+    properties: {
+      model: {
+        type: 'string',
+        description:
+          'Con cuál va a practicar, en una palabra: "gemini", "claude" o "chatgpt". ' +
+          'Si el alumno no dijo cuál, manda "gemini", que es el más parecido a lo que tiene gratis.',
+      },
+      task: {
+        type: 'string',
+        description:
+          'Opcional. La tarea concreta que van a practicar, en una frase y en las palabras del alumno, ' +
+          'por ejemplo "consolidar las tres planillas de ventas del mes". Se muestra arriba del ' +
+          'cuadro de texto para que no se le olvide qué estaba haciendo. No pongas acá la petición ' +
+          'que le dictaste: esa la escribe él.',
+      },
+    },
+    required: ['model'],
+  },
+};
+
 // ------------------------------------------------------------------ limits --
 
 /**

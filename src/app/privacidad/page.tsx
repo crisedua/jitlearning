@@ -56,11 +56,17 @@ export default function PrivacidadPage() {
         que escribas tú en tu página de progreso. No guardamos el audio.
       </p>
       <p className="mt-3 text-[17px] leading-relaxed text-muted">
-        Del banco de práctica, donde le escribes a Gemini, Claude o ChatGPT durante la clase, no
-        guardamos nada de lo que escribes ni los archivos que subas. Los archivos se leen para
-        armar el mensaje y se descartan. Lo que queda en la base es la cuenta: con cuál
-        practicaste, cuántos archivos adjuntaste, cuántos caracteres tenía el mensaje y lo que
-        costó, porque eso descuenta de tus minutos.
+        Del banco de práctica, donde le escribes a Gemini, Claude o ChatGPT durante la clase,
+        guardamos lo que escribes y lo que te responden. Sirve para que el profesor pueda
+        enseñarte sobre tus propias peticiones de una clase a otra: sin eso solo puede comentar
+        la que acaba de pasar. Guardamos también con cuál practicaste, cuántos archivos
+        adjuntaste y lo que costó, porque eso descuenta de tus minutos.
+      </p>
+      <p className="mt-3 text-[17px] leading-relaxed text-muted">
+        Los archivos que subes no se guardan: se leen para armar el mensaje y se descartan. Pero
+        el texto sí queda, así que la regla del banco vale doble: quita nombres, RUT y datos de
+        clientes antes de subir algo del trabajo. Es un ensayo, y no hay ninguna razón para que
+        lo real de tus clientes salga de tu computador.
       </p>
 
       <h2 className="mt-10 font-serif text-[24px] font-normal leading-snug">
@@ -74,10 +80,8 @@ export default function PrivacidadPage() {
         cuenta. Cuando usas el banco de práctica, tu mensaje y tus archivos van a OpenRouter, que
         los pasa a Google, Anthropic u OpenAI según con cuál elegiste practicar; van sin tu nombre,
         sin tu correo y sin tu cuenta, y el profesor recibe una copia de lo que escribiste y de lo
-        que te respondieron para poder enseñarte sobre eso. Por eso el banco te pide que quites
-        nombres, RUT y datos de clientes antes de subir algo del trabajo: es un ensayo, y no hay
-        motivo para que lo real de tus clientes salga de tu computador. Y si algún día pagas, la
-        tarjeta la recibe Stripe y nunca pasa por acá.
+        que te respondieron para poder enseñarte sobre eso. Y si algún día pagas, la tarjeta la
+        recibe Stripe y nunca pasa por acá.
       </p>
 
       <h2 className="mt-10 font-serif text-[24px] font-normal leading-snug">Quién lo ve</h2>

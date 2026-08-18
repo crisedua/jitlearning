@@ -9,7 +9,10 @@ import {
   practiceModel,
   refusalFor,
   secondsForSpend,
+  DEFAULT_MODEL,
   MAX_UPLOAD_BYTES,
+  resolveModel,
+  SANDBOX_TOOL,
   sheetToText,
   textToPrompt,
   tooLarge,
@@ -254,6 +257,94 @@ describe('the three the learner can pick', () => {
 });
 
 /*
+ * The teacher opens the bench by naming a model out loud, and what arrives is a
+ * word from a conversation rather than an identifier. Two things must not
+ * happen with it: it must not reach OpenRouter — an agent that can name any
+ * slug can name an expensive one, or one that does not exist, and we pay for
+ * the attempt either way — and it must not fail the tool call, because a failed
+ * tool inside a voice class is a teacher apologising for a panel.
+ */
+describe('when the teacher names a model', () => {
+  it('takes the three ids it was told to send', () => {
+    for (const id of ['gemini', 'claude', 'chatgpt']) {
+      assert.equal(resolveModel(id)?.id, id);
+    }
+  });
+
+  it('takes the full slug, for when the agent repeats one back', () => {
+    assert.equal(resolveModel('google/gemini-3.7-flash')?.id, 'gemini');
+  });
+
+  it('takes the family names people actually say', () => {
+    assert.equal(resolveModel('el de Google')?.id, 'gemini');
+    assert.equal(resolveModel('Chat GPT')?.id, 'chatgpt');
+    assert.equal(resolveModel('OpenAI')?.id, 'chatgpt');
+    assert.equal(resolveModel('Anthropic')?.id, 'claude');
+    assert.equal(resolveModel('SONNET')?.id, 'claude');
+  });
+
+  it('refuses a model we do not serve rather than passing it through', () => {
+    assert.equal(resolveModel('mistralai/mixtral-8x22b'), null);
+    assert.equal(resolveModel('llama'), null);
+  });
+
+  it('refuses nothing at all, so the caller falls back rather than sending ""', () => {
+    assert.equal(resolveModel(''), null);
+    assert.equal(resolveModel(null), null);
+    assert.equal(resolveModel(undefined), null);
+  });
+
+  it('has a default that is one of the three', () => {
+    assert.ok(practiceModel(DEFAULT_MODEL), `${DEFAULT_MODEL} is not a model we serve`);
+  });
+});
+
+/*
+ * The tool's description is the only thing deciding when the bench opens, so it
+ * is an instruction and not documentation. Both failure modes are real: never
+ * opening teaches a class about an assistant the learner cannot reach, and
+ * opening always puts a panel in front of somebody walking with no screen.
+ */
+describe('the tool the teacher fires', () => {
+  it('is a client tool, because nothing on our server can open a panel', () => {
+    assert.equal(SANDBOX_TOOL.type, 'client');
+  });
+
+  it('requires the model, so the panel never opens on a guess', () => {
+    assert.deepEqual(SANDBOX_TOOL.parameters.required, ['model']);
+    assert.ok(SANDBOX_TOOL.parameters.properties.model);
+    assert.ok(SANDBOX_TOOL.parameters.properties.task);
+  });
+
+  it('tells the teacher when NOT to open it', () => {
+    assert.match(SANDBOX_TOOL.description, /caminando|manejando/);
+  });
+
+  it('names the three by the words the learner would use', () => {
+    for (const model of PRACTICE_MODELS) {
+      assert.match(
+        SANDBOX_TOOL.description + JSON.stringify(SANDBOX_TOOL.parameters),
+        new RegExp(model.id, 'i'),
+        `${model.label} is not named anywhere the agent can see`,
+      );
+    }
+  });
+
+  /*
+   * Every exchange reaches the teacher on its own over the open call. Without
+   * this line the teacher asks what the assistant said, which is the exact
+   * interrogation the bench exists to end.
+   */
+  it('tells the teacher the exchanges arrive by themselves', () => {
+    assert.match(SANDBOX_TOOL.description, /te van a llegar solos/);
+  });
+
+  it('waits for the browser, so the teacher knows the panel is really there', () => {
+    assert.equal(SANDBOX_TOOL.expects_response, true);
+  });
+});
+
+/*
  * The behaviour the bench was built to end.
  *
  * A real class went three turns deep asking a learner how many rows their
@@ -282,7 +373,7 @@ describe('the persona, on asking for what the tool can see', () => {
     });
 
     it(`knows the bench exists and what arrives from it (${which})`, () => {
-      assert.match(prompt, /banco de práctica/);
+      assert.match(prompt, /Cuando le abras el banco de práctica/);
       assert.match(prompt, /cada envío te llega con lo que escribió y lo que le respondieron/);
     });
 

@@ -24,15 +24,15 @@
  * Never returns key material — only whether things work.
  */
 import { NextResponse } from 'next/server';
-import { getAgent, listDocuments } from '@/lib/elevenlabs';
+import { getAgent, listDocuments, listTools } from '@/lib/elevenlabs';
 import { agentId, embeddingModel } from '@/lib/config';
 import { ownsDocument, TEACHER } from '@/lib/teacher';
-import { FIRST_MESSAGE, teacherSystemPrompt } from '@/lib/agent';
+import { FIRST_MESSAGE, LOOKUP_TOOL_NAME, teacherSystemPrompt } from '@/lib/agent';
 import { requireSecret, UnauthorizedError } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { MIGRATION_SENSITIVE } from '@/lib/schema';
 import { openrouterConfigured } from '@/lib/openrouter';
-import { PRACTICE_MODELS } from '@/lib/practica';
+import { PRACTICE_MODELS, SANDBOX_TOOL } from '@/lib/practica';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -178,15 +178,53 @@ export async function GET(req: Request) {
               detail: `The agent opens with ${first ? `"${first}"` : 'nothing'} instead of ${FIRST_MESSAGE}, so nobody hears their own commitment.`,
             };
 
-      const tools = prompt?.tool_ids ?? [];
-      checks.lookupTool =
-        tools.length > 0
-          ? { state: 'ok', detail: `${tools.length} tool(s) attached, including the lookup the persona promises` }
+      /*
+       * Which tools, not how many.
+       *
+       * This counted `tool_ids` and called any non-empty list "the lookup the
+       * persona promises", which was true while there was one tool and stopped
+       * being true the moment the sandbox tool existed: an agent carrying only
+       * `open_model_sandbox` would have reported a healthy search it cannot
+       * make. Ids are opaque, so the names have to be fetched.
+       */
+      const toolIds = prompt?.tool_ids ?? [];
+      let attachedNames: string[] = [];
+      try {
+        const byId = new Map((await listTools()).tools.map((t) => [t.id, t.tool_config?.name]));
+        attachedNames = toolIds.map((id) => byId.get(id) ?? id);
+      } catch {
+        attachedNames = toolIds;
+      }
+
+      checks.lookupTool = attachedNames.includes(LOOKUP_TOOL_NAME)
+        ? { state: 'ok', detail: `\`${LOOKUP_TOOL_NAME}\` is attached, so the teacher can look things up` }
+        : {
+            state: 'fail',
+            detail: `No \`${LOOKUP_TOOL_NAME}\` tool attached${
+              attachedNames.length ? ` (found: ${attachedNames.join(', ')})` : ''
+            }. Needs INGEST_SECRET deployed, then \`npm run setup:tools -- --push\`.`,
+          };
+
+      /*
+       * The sandbox tool is the only way the practice panel ever opens: it is
+       * gated on the teacher calling it, so an agent without it has a bench no
+       * learner can reach and a teacher that will keep offering one.
+       *
+       * A failure rather than a note, but only where the bench is switched on.
+       * A deployment with no OpenRouter key has no panel to open and should not
+       * be told it is missing the key to a door it does not have.
+       */
+      if (openrouterConfigured()) {
+        checks.sandboxTool = attachedNames.includes(SANDBOX_TOOL.name)
+          ? {
+              state: 'ok',
+              detail: `\`${SANDBOX_TOOL.name}\` is attached, so the teacher can open the practice bench`,
+            }
           : {
               state: 'fail',
-              detail:
-                'No tools attached while the persona tells learners it can search. Needs INGEST_SECRET deployed, then `npm run setup:tools -- --push`.',
+              detail: `The bench is on and \`${SANDBOX_TOOL.name}\` is not attached, so nothing can open it. Run \`npm run setup:tools -- --push\`.`,
             };
+      }
 
       checks.agent =
         foreign.length > 0

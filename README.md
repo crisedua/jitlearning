@@ -524,7 +524,7 @@ curl -X POST https://<app>.vercel.app/api/agent \
 | `/api/agent/provision` | POST | secret | Create the agent |
 | `/api/health` | GET | secret | Config diagnostics: key, scope, agent, corpus, sign-in |
 | `/api/signed-url` | GET | learner session | Short-lived WebSocket URL, the dynamic variables, opens a usage row |
-| `/api/practica` | POST | learner session | The practice bench: one message to Gemini/Claude/ChatGPT, metered against the same minutes |
+| `/api/practica` | POST | learner session | The practice bench: one streamed message to Gemini/Claude/ChatGPT, metered against the same minutes |
 | `/api/sessions/[id]` | POST | learner session | Closes their own usage row when a call ends |
 | `/api/webhooks/elevenlabs` | POST | HMAC signature | Post-call analysis becomes the profile, the plan and the session row |
 | `/auth/login` | GET | open | Starts the Google handshake (sets the PKCE cookie) |

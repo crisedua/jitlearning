@@ -15,7 +15,8 @@
  */
 import './env';
 import { createTool, listTools, updateAgent, updateTool } from '../src/lib/elevenlabs';
-import { currentAgent, syncAgentKnowledge, teacherSystemPrompt } from '../src/lib/agent';
+import { canSearch, currentAgent, syncAgentKnowledge, teacherSystemPrompt } from '../src/lib/agent';
+import { SANDBOX_TOOL } from '../src/lib/practica';
 import { requireAgentId } from '../src/lib/config';
 import { configuredOrigin, DEFAULT_ORIGIN } from '../src/lib/canonical';
 
@@ -95,6 +96,24 @@ const BUSCAR = {
   },
 };
 
+/**
+ * Both tools, and why the secret gates only one of them.
+ *
+ * `buscar` is a webhook: ElevenLabs calls our deployed route and carries
+ * INGEST_SECRET as a header, so registering it without the secret registers a
+ * tool that answers 503 to every call — a failure the learner hears.
+ *
+ * `open_model_sandbox` is a client tool. ElevenLabs relays it to the browser
+ * over the open socket, nothing on our side is called, and it needs no secret
+ * at all. Bundling them behind one guard, which is what this script used to do,
+ * meant a deployment missing INGEST_SECRET could register neither — including
+ * the one that does not need it.
+ */
+const TOOLS = [
+  { config: BUSCAR, needsSecret: true, where: BUSCAR.api_schema.url },
+  { config: SANDBOX_TOOL, needsSecret: false, where: 'the browser (client tool)' },
+];
+
 async function main() {
   const push = process.argv.includes('--push');
 
@@ -102,44 +121,61 @@ async function main() {
     console.error('ELEVENLABS_API_KEY is not set. Copy .env.example to .env.local first.');
     process.exit(1);
   }
-  if (!process.env.INGEST_SECRET?.trim()) {
+
+  const hasSecret = Boolean(process.env.INGEST_SECRET?.trim());
+  const wanted = TOOLS.filter((t) => hasSecret || !t.needsSecret);
+
+  if (!hasSecret) {
     console.error(
-      '\nINGEST_SECRET is not set. The tool sends it as a header, and /api/ask refuses\n' +
-        'every call without it, so registering the tool now would register a broken one.\n',
+      '\n! INGEST_SECRET is not set, so `buscar` is being skipped: it sends the secret as a\n' +
+        '  header and /api/ask refuses every call without it. Registering it now would\n' +
+        '  register a tool that fails audibly mid-class. The sandbox tool needs no secret\n' +
+        '  and is registered below.\n',
     );
-    process.exit(1);
   }
 
-  const existing = (await listTools()).tools.find(
-    (t) => (t.tool_config as { name?: string } | undefined)?.name === BUSCAR.name,
+  const registry = (await listTools()).tools;
+  const found = new Map(
+    wanted.map((t) => [
+      t.config.name,
+      registry.find((r) => (r.tool_config as { name?: string } | undefined)?.name === t.config.name),
+    ]),
   );
 
-  console.log(`\nTool:  ${BUSCAR.name}`);
-  console.log(`URL:   ${BUSCAR.api_schema.url}`);
-  console.log(existing ? `State: exists (${existing.id})` : 'State: not registered yet');
+  for (const tool of wanted) {
+    const existing = found.get(tool.config.name);
+    console.log(`\nTool:  ${tool.config.name}`);
+    console.log(`Runs:  ${tool.where}`);
+    console.log(existing ? `State: exists (${existing.id})` : 'State: not registered yet');
+  }
 
   if (!push) {
     console.log('\nDry run. Re-run with --push to apply:\n\n  npm run setup:tools -- --push\n');
     return;
   }
 
-  // The typed client models client tools; a webhook tool has a different config
-  // shape, so the cast is the honest way through rather than widening the shared
-  // type for one caller.
-  const record = existing
-    ? await updateTool(existing.id, BUSCAR as never)
-    : await createTool(BUSCAR as never);
-  console.log(`✓ ${existing ? 'Updated' : 'Created'} ${record.id}`);
+  const ids: string[] = [];
+  for (const tool of wanted) {
+    const existing = found.get(tool.config.name);
+    // The typed client models client tools; a webhook tool has a different
+    // config shape, so the cast is the honest way through rather than widening
+    // the shared type for one caller.
+    const record = existing
+      ? await updateTool(existing.id, tool.config as never)
+      : await createTool(tool.config as never);
+    ids.push(record.id);
+    console.log(`✓ ${existing ? 'Updated' : 'Created'} ${tool.config.name} (${record.id})`);
+  }
 
   const agent = await currentAgent();
   if (!agent) {
-    console.log('! ELEVENLABS_AGENT_ID is not set, so the tool was not attached to any agent.');
+    console.log('! ELEVENLABS_AGENT_ID is not set, so nothing was attached to any agent.');
     return;
   }
 
   const prompt = agent.conversation_config.agent.prompt;
   const attached = new Set(prompt.tool_ids ?? []);
-  attached.add(record.id);
+  for (const id of ids) attached.add(id);
 
   /*
    * `tools` has to go, or the write is rejected.
@@ -173,10 +209,12 @@ async function main() {
   const after = await currentAgent();
   const live = new Set(after?.conversation_config.agent.prompt.tool_ids ?? []);
 
-  if (!live.has(record.id)) {
+  const missing = ids.filter((id) => !live.has(id));
+  if (missing.length > 0) {
     console.error(
-      `\n! The update was accepted and ${record.id} is not attached to ${agent.agent_id}.\n` +
-        '  The persona still tells learners it can search, and nothing can answer.\n' +
+      `\n! The update was accepted and ${missing.join(', ')} is not attached to ${agent.agent_id}.\n` +
+        '  A missing `buscar` means the persona promises a search nothing can answer; a missing\n' +
+        '  `open_model_sandbox` means the teacher can never open the practice panel.\n' +
         '  Check the agent in the ElevenLabs dashboard before sending anybody to it.\n',
     );
     process.exit(1);
@@ -203,7 +241,15 @@ async function main() {
   const check = await currentAgent();
   const livePrompt = (check?.conversation_config.agent.prompt.prompt ?? '').trim();
 
-  if (livePrompt !== teacherSystemPrompt({ search: true }).trim()) {
+  /*
+   * Which variant to expect is now a question, not a constant. `buscar` may
+   * have been skipped for a missing secret, in which case the correct live
+   * persona is the one that makes no lookup promise — and asserting the
+   * searching one would fail a run that did exactly the right thing.
+   */
+  const searching = await canSearch([...live]);
+
+  if (livePrompt !== teacherSystemPrompt({ search: searching }).trim()) {
     console.error(
       '\n! The tool is attached and the live persona is not the one that uses it.\n' +
         '  Run `npm run sync:agent -- --push` and read what it says.\n',
@@ -212,7 +258,8 @@ async function main() {
   }
 
   console.log(
-    `✓ Persona re-synced with its lookup promise · ${livePrompt.length} chars · ${synced.attached} document(s)\n`,
+    `✓ Persona re-synced ${searching ? 'with' : 'without'} its lookup promise · ` +
+      `${livePrompt.length} chars · ${synced.attached} document(s)\n`,
   );
 }
 

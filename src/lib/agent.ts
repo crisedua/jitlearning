@@ -41,6 +41,7 @@ import { CLASS_CAP_SECONDS } from './class-length';
 import {
   createAgent,
   getAgent,
+  listTools,
   updateAgent,
   type AgentConfig,
   type DataCollectionConfig,
@@ -220,7 +221,7 @@ Cierra con el compromiso y di si el paso quedó hecho o en progreso.
 
 Al empezar, pregunta: "¿estás frente al computador o caminando?".
 
-Frente al computador: guíala un paso por turno, esperando que confirme. En esa pantalla tiene un banco de práctica donde le escribe a Gemini, Claude o ChatGPT y adjunta archivos, y cada envío te llega con lo que escribió y lo que le respondieron: dile qué subir y qué escribir, y trabaja sobre lo que vuelva. Una respuesta con un error es mejor clase que una correcta, así que no la arregles tú.
+Frente al computador: guíala un paso por turno, esperando que confirme. Cuando le abras el banco de práctica, le escribe ahí a Gemini, Claude o ChatGPT y adjunta archivos, y cada envío te llega con lo que escribió y lo que le respondieron: dile qué subir y qué escribir, y trabaja sobre lo que vuelva. Una respuesta con un error es mejor clase que una correcta, así que no la arregles tú.
 
 Es un ensayo: ahí corren los mismos modelos por API, sin la memoria, el Drive ni los botones de cada producto. Díselo una vez, porque la tarea de verdad la repite después en su propia cuenta, que es donde el ahorro le va a seguir sirviendo.
 
@@ -634,6 +635,31 @@ function conversationConfig() {
   return { max_duration_seconds: CLASS_CAP_SECONDS };
 }
 
+/** The lookup tool's name, as `setup:tools` registers it. */
+export const LOOKUP_TOOL_NAME = 'buscar';
+
+/**
+ * Whether these attached tool ids include one that can actually search.
+ *
+ * Tools are workspace objects referenced by id, so an id says nothing on its
+ * own and the names have to be fetched. Fails *closed*: an unreadable tool list
+ * yields the persona that makes no promise to look anything up, because the
+ * cost of being wrong is asymmetric — a teacher that could search and says it
+ * cannot is a missed feature, and one that announces a search it cannot make
+ * goes silent mid-call and then apologises.
+ */
+export async function canSearch(toolIds: readonly string[]): Promise<boolean> {
+  if (toolIds.length === 0) return false;
+  try {
+    const { tools } = await listTools();
+    const byId = new Map(tools.map((t) => [t.id, t.tool_config?.name]));
+    return toolIds.some((id) => byId.get(id) === LOOKUP_TOOL_NAME);
+  } catch (err) {
+    console.error('[agent] could not read the tool list, assuming no search:', err);
+    return false;
+  }
+}
+
 /**
  * Create the agent. Returns the new id, which the caller must persist into the
  * environment under `TEACHER.envKey` — nothing is written back at runtime.
@@ -793,14 +819,20 @@ export async function syncAgentKnowledge(
            * The variant that matches this agent, decided from the tools it
            * actually carries rather than from a caller's argument.
            *
-           * `toolIds` is read three lines up to carry the tools forward through
-           * the PATCH, and it answers the only question the persona's search
-           * instructions depend on. Deciding it here rather than at each call
-           * site is what keeps the two in step: this is the one function that
-           * writes the prompt, so a caller cannot push a promise the agent
-           * cannot keep by forgetting an option.
+           * Deciding it here rather than at each call site is what keeps the two
+           * in step: this is the one function that writes the prompt, so a
+           * caller cannot push a promise the agent cannot keep by forgetting an
+           * option.
+           *
+           * This asked `toolIds.length > 0`, which was true while there was
+           * exactly one tool and became a bug the moment there were two:
+           * attaching only the sandbox tool would have flipped the persona to
+           * the variant that promises a web search, on an agent with nothing
+           * that can run one. That is precisely the failure the two variants
+           * exist to prevent, arriving through the door left open by counting
+           * instead of looking.
            */
-          prompt: teacherSystemPrompt({ search: toolIds.length > 0 }),
+          prompt: teacherSystemPrompt({ search: await canSearch(toolIds) }),
           ...(llm ?? liveLlm ? { llm: llm ?? liveLlm } : {}),
           knowledge_base: entries,
           rag: ragConfig(),

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { offersUpgrade, withoutUpgradeMarker } from '@/lib/gate';
 import {
   ACCEPTED_EXTENSIONS,
   MAX_FILES,
@@ -41,10 +42,16 @@ interface Exchange {
  */
 export function PracticeBench({
   sessionId,
+  initialModel,
+  task,
   onExchange,
   onFailure,
 }: {
   sessionId: string | null;
+  /** Which one the teacher opened it on. The learner can still switch. */
+  initialModel: PracticeModelId;
+  /** The exercise, in the learner's own words, shown above the box. */
+  task: string | null;
   /** Fired with the prompt and the answer once an exchange completes. */
   onExchange: (exchange: {
     modelId: PracticeModelId;
@@ -55,7 +62,15 @@ export function PracticeBench({
   /** Fired when it did not complete, so the teacher is not left waiting. */
   onFailure: (reason: string) => void;
 }) {
-  const [modelId, setModelId] = useState<PracticeModelId>('gemini');
+  /*
+   * Seeded once, then owned by the learner.
+   *
+   * `initialModel` is what the teacher named when it opened the panel, and it
+   * is deliberately not kept in sync afterwards: somebody who switches to
+   * Claude mid-exercise has made a choice, and having the next tool call pull
+   * them back would be the panel arguing with them.
+   */
+  const [modelId, setModelId] = useState<PracticeModelId>(initialModel);
   const [prompt, setPrompt] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [turns, setTurns] = useState<Exchange[]>([]);
@@ -64,6 +79,8 @@ export function PracticeBench({
   /** The cause, sent only to operators. See `detailFor` in /api/practica. */
   const [detail, setDetail] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<readonly string[]>([]);
+  /** Minutes of allowance left, as of the last exchange. Null = not metered. */
+  const [left, setLeft] = useState<number | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const feed = useRef<HTMLDivElement>(null);
 
@@ -122,14 +139,18 @@ export function PracticeBench({
       for (const file of sent) body.append('file', file);
 
       const res = await fetch('/api/practica', { method: 'POST', body });
-      const data = (await res.json()) as {
-        answer?: string;
-        warnings?: string[];
-        error?: string;
-        detail?: string;
-      };
 
-      if (!res.ok || data.error) {
+      /*
+       * Two response shapes, told apart by content type.
+       *
+       * Anything that fails before the first token — not signed in, out of
+       * allowance, no key — is a status code and a JSON body, because nothing
+       * has been sent yet and a real status is what a log or a probe can see.
+       * Once the answer starts arriving the status is already 200 and cannot be
+       * taken back, so failures after that point travel inside the stream.
+       */
+      if (!res.headers.get('content-type')?.includes('ndjson')) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
         const reason = data.error ?? 'No se pudo enviar.';
         setError(reason);
         setDetail(data.detail ?? null);
@@ -137,10 +158,72 @@ export function PracticeBench({
         return;
       }
 
-      setWarnings(data.warnings ?? []);
-      const answer = data.answer ?? '';
-      setTurns((t) => [...t, { role: 'assistant', content: answer }]);
-      onExchange({ modelId, prompt: text, attachments: names, answer });
+      /*
+       * The assistant's turn is appended empty and filled in as text arrives,
+       * so the learner watches it being written. Fifteen seconds of a
+       * motionless panel inside a ten-minute class reads as broken, and
+       * somebody who thinks it broke presses send again — which bills twice.
+       */
+      setTurns((t) => [...t, { role: 'assistant', content: '' }]);
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let answer = '';
+      let failed: string | null = null;
+
+      const handle = (raw: string) => {
+        if (!raw.trim()) return;
+        let msg: {
+          t: string;
+          v?: string;
+          warnings?: string[];
+          error?: string;
+          detail?: string;
+          minutesLeft?: number | null;
+        };
+        try {
+          msg = JSON.parse(raw);
+        } catch {
+          return;
+        }
+
+        if (msg.t === 'text' && msg.v) {
+          answer += msg.v;
+          setTurns((t) => {
+            const next = [...t];
+            next[next.length - 1] = { role: 'assistant', content: answer };
+            return next;
+          });
+        } else if (msg.t === 'warn') {
+          setWarnings(msg.warnings ?? []);
+        } else if (msg.t === 'error') {
+          failed = msg.error ?? 'No se pudo enviar.';
+          setError(failed);
+          setDetail(msg.detail ?? null);
+        } else if (msg.t === 'done') {
+          setLeft(typeof msg.minutesLeft === 'number' ? msg.minutesLeft : null);
+        }
+      };
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        // The tail may be half a line; it waits for the next chunk.
+        buffer = lines.pop() ?? '';
+        for (const l of lines) handle(l);
+      }
+      handle(buffer);
+
+      /*
+       * The teacher hears about it either way, and after the stream rather than
+       * during: a contextual update per token would be absurd, and what it has
+       * to coach on is the finished answer.
+       */
+      if (failed) onFailure(failed);
+      else if (answer) onExchange({ modelId, prompt: text, attachments: names, answer });
     } catch {
       /*
        * A dropped connection, said plainly. The learner is mid-class with a
@@ -161,9 +244,28 @@ export function PracticeBench({
   return (
     <section className="rounded-lg border border-line bg-surface p-5 shadow-sm sm:p-6">
       <header className="mb-4">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-muted">
-          Banco de práctica
-        </h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-muted">
+            Banco de práctica
+          </h2>
+          {/*
+            The meter, and only when there is something to meter.
+            
+            Null means this plan does not count minutes, and a countdown shown
+            to somebody who is not being counted is a lie they would believe.
+            It appears after the first exchange rather than on open, because
+            before then the number would be the class's balance and this is the
+            panel's own cost — showing it early invites the reading that the
+            bench spent it.
+          */}
+          {left !== null && (
+            <p className={left <= 2 ? 'text-xs font-medium text-danger' : 'text-xs text-muted'}>
+              {left === 0
+                ? 'Sin minutos'
+                : `Te quedan ${left} ${left === 1 ? 'minuto' : 'minutos'}`}
+            </p>
+          )}
+        </div>
         <p className="mt-2 text-sm text-ink/85">
           Escríbele acá y el profesor ve lo que te responde. Es un ensayo: la tarea de verdad
           la haces después en tu propia cuenta, para que te siga sirviendo cada semana.
@@ -197,6 +299,20 @@ export function PracticeBench({
           encima (memoria entre chats, tu Drive, sus botones).
         </span>
       </p>
+
+      {/*
+        What they are here to do, kept in front of them.
+        
+        The teacher says the exercise out loud once and then the learner spends
+        two minutes typing; by the end of a long prompt the original task is
+        three turns of audio ago and gone. Voice does not persist, which is the
+        same reason the notebook exists.
+      */}
+      {task && (
+        <p className="mt-4 rounded-md border border-line bg-surface-alt/60 px-3.5 py-2.5 text-sm text-ink/85">
+          <span className="font-medium">Ejercicio:</span> {task}
+        </p>
+      )}
 
       {turns.length > 0 && (
         <div
@@ -299,8 +415,9 @@ export function PracticeBench({
         to attach a client list is deciding right here.
       */}
       <p className="mt-3 text-xs text-muted">
-        Los archivos se leen para mandar el mensaje y no se guardan. Aun así, quita nombres,
-        RUT y datos de clientes antes de subir algo del trabajo.{' '}
+        Los archivos no se guardan, pero lo que escribas acá sí, para que el profesor pueda
+        enseñarte sobre tus peticiones. Quita nombres, RUT y datos de clientes antes de subir
+        algo del trabajo.{' '}
         <a
           href="/privacidad"
           className="underline underline-offset-2 transition-colors duration-150 hover:text-accent"
@@ -325,7 +442,23 @@ export function PracticeBench({
           role="alert"
           className="mt-3 rounded-md border border-danger/25 bg-danger-soft/60 px-3.5 py-2.5 text-sm text-ink/85"
         >
-          <p>{error}</p>
+          <p>
+            {withoutUpgradeMarker(error)}{' '}
+            {/*
+              Running out of allowance is the one failure with somewhere to go.
+              The message comes from the server, which cannot render a link, so
+              the marker it carries becomes one here — the same contract
+              `VoiceTutor` has with `gate.ts`.
+            */}
+            {offersUpgrade(error) && (
+              <a
+                href="/planes"
+                className="font-semibold text-accent underline underline-offset-2 hover:text-accent-hover"
+              >
+                Ver los planes
+              </a>
+            )}
+          </p>
           {/*
             Operators only, and the server decides who that is: `detail` is
             simply absent from the response for everybody else. It is English,

@@ -10,7 +10,10 @@ import { PracticeBench } from './PracticeBench';
 import {
   benchFailureUpdate,
   benchUpdate,
+  DEFAULT_MODEL,
   practiceModel,
+  resolveModel,
+  SANDBOX_TOOL,
   type PracticeModelId,
 } from '@/lib/practica';
 import { CoachExplorer } from './CoachExplorer';
@@ -84,6 +87,21 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
    * session attached partway through a session.
    */
   const [benchSession, setBenchSession] = useState<string | null>(null);
+
+  /*
+   * The bench opens when the teacher opens it, not whenever there is a call.
+   *
+   * It used to render for every connected session, which put a chat panel in
+   * front of somebody who had just said they were walking, and left the model
+   * choice to a learner who is here precisely because they do not yet know the
+   * difference. Now the teacher decides — it knows whether there is a screen,
+   * what the exercise is, and which assistant fits — and fires
+   * `open_model_sandbox` when the class reaches the doing part.
+   *
+   * `null` is closed. Kept as one object so opening on a new model and a new
+   * task is a single render.
+   */
+  const [bench, setBench] = useState<{ model: PracticeModelId; task: string | null } | null>(null);
 
   /*
    * Usage bookkeeping. Refs rather than state: none of it is rendered, and the
@@ -181,6 +199,33 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
   }, []);
 
   const conversation = useConversation({
+    /*
+     * The tools the browser runs on the teacher's behalf.
+     *
+     * A *client* tool: ElevenLabs relays the call over the open socket, nothing
+     * runs on our server, and the panel appears while the teacher is still
+     * mid-sentence. A webhook tool could not do this — the server has no way to
+     * reach into this page.
+     *
+     * The return value is spoken back into the model's context, so it is
+     * written as a fact the teacher can act on rather than as a status code. It
+     * matters most when the model is not one we serve: the panel still opens,
+     * on the default, and the teacher is told which one it actually got so it
+     * does not spend the next turn saying "Claude" at somebody looking at
+     * Gemini.
+     */
+    clientTools: {
+      [SANDBOX_TOOL.name]: ({ model, task }: { model?: string; task?: string }) => {
+        const picked = resolveModel(model);
+        const chosen = picked?.id ?? DEFAULT_MODEL;
+        setBench({ model: chosen, task: task?.trim() || null });
+
+        const label = practiceModel(chosen)!.label;
+        return picked
+          ? `Listo, el banco de práctica está abierto con ${label} en la pantalla del alumno.`
+          : `No tengo "${model ?? 'ese'}" en el banco. Lo abrí con ${label}, que es de los que hay. Dile con cuál está trabajando.`;
+      },
+    },
     onConnect: ({ conversationId }: { conversationId: string }) => {
       // The id ElevenLabs bills under. Without it a usage row cannot be
       // reconciled against their side later.
@@ -404,6 +449,8 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
       lastTypedRef.current = null;
       minutesLeftRef.current = typeof data.minutesLeft === 'number' ? data.minutesLeft : null;
       setBenchSession(data.sessionId ?? null);
+      // A new class starts with the panel closed, whatever the last one left open.
+      setBench(null);
       usageRef.current = {
         // Null when this deployment records no usage. Everything downstream
         // checks for it rather than assuming a row exists.
@@ -706,17 +753,23 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
         {connected && <TextFallback onSend={sendTyped} />}
 
         {/*
-          During the class only.
+          During the class, and only once the teacher has opened it.
 
-          Not a limitation to work around later: the bench is worth having
-          because the teacher is watching, and outside a call nobody is. It is
-          also metered against the same allowance as the class, and a free tier
-          of twenty minutes that can be spent without ever opening a class is a
-          free tier that buys the learner nothing and us nothing.
+          The class part is not a limitation to work around later: the bench is
+          worth having because the teacher is watching, and outside a call
+          nobody is. It is also metered against the same allowance, and a free
+          tier of twenty minutes that can be spent without ever opening a class
+          buys the learner nothing and us nothing.
+
+          The teacher part is the fix for a panel that used to appear for
+          everybody — including the learner who had just said they were walking.
         */}
-        {connected && (
+        {connected && bench && (
           <PracticeBench
+            key={benchSession ?? 'bench'}
             sessionId={benchSession}
+            initialModel={bench.model}
+            task={bench.task}
             onExchange={onBenchExchange}
             onFailure={onBenchFailure}
           />

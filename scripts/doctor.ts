@@ -1901,12 +1901,26 @@ async function main() {
     const body = (await res.json().catch(() => ({}))) as {
       bench?: boolean;
       benchDetail?: string;
+      checks?: Record<string, { state?: string; detail?: string }>;
     };
 
     if (typeof body.bench !== 'boolean') {
       note(`${benchOrigin} does not report a bench, so it predates this check. Deploy first.`);
     } else if (body.bench) {
       ok(`${benchOrigin}: ${body.benchDetail}`);
+
+      /*
+       * The panel only ever opens because the teacher calls a tool, so a bench
+       * that is on with nothing attached to open it is a teacher promising a
+       * screen that never appears. `/api/health` already fails on this; it is
+       * repeated here because this is the command an operator runs.
+       */
+      const tool = body.checks?.sandboxTool;
+      if (tool?.state === 'ok') ok(`  ${tool.detail}`);
+      else if (tool) {
+        bad(`  ${tool.detail}`);
+        failures++;
+      }
     } else {
       note(`${benchOrigin}: ${body.benchDetail}`);
     }

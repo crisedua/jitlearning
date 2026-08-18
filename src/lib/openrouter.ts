@@ -76,8 +76,14 @@ export interface ChatMessage {
   content: string | ContentPart[];
 }
 
-export interface ChatResult {
-  text: string;
+/**
+ * What OpenRouter reports about a call once it has finished.
+ *
+ * Split out from the text on purpose: the text arrives token by token and this
+ * arrives once, at the end, which is the ordering the whole billing path is
+ * built around.
+ */
+export interface CallUsage {
   /**
    * What OpenRouter says the call cost, in USD, or null when it did not say.
    *
@@ -92,19 +98,6 @@ export interface ChatResult {
   model: string | null;
 }
 
-interface CompletionResponse {
-  choices?: { message?: { content?: string | null } }[];
-  usage?: {
-    prompt_tokens?: number;
-    completion_tokens?: number;
-    cost?: number;
-  };
-  model?: string;
-  error?: { message?: string };
-}
-
-// --------------------------------------------------------------- the call ---
-
 export interface ChatOptions {
   model: string;
   messages: readonly ChatMessage[];
@@ -114,9 +107,45 @@ export interface ChatOptions {
   timeoutMs?: number;
 }
 
-export async function chat(options: ChatOptions): Promise<ChatResult> {
+/**
+ * A call to a practice model, streamed.
+ *
+ * Yields text as it arrives and resolves the usage once, at the end. That
+ * ordering is the whole difficulty: the price of the call is only known after
+ * the last token, so the ledger write and the meter update cannot happen until
+ * the stream closes — including when it closes badly. `onDone` therefore fires
+ * on every exit path, with whatever was learned, and the caller bills from it.
+ *
+ * ## Why stream at all
+ *
+ * The first version of the bench did not stream, on the argument that the learner is
+ * waiting for the teacher's reaction rather than the text, and the reaction
+ * cannot start until the answer is whole. That argument is sound about the
+ * teaching and wrong about the waiting: fifteen seconds of a motionless panel
+ * in the middle of a ten-minute class reads as broken, and a learner who thinks
+ * it broke presses the button again, which bills twice.
+ *
+ * The teacher still receives the answer whole, after the stream ends. Nothing
+ * about the coaching changed; only what the learner watches while it happens.
+ */
+export interface StreamHandlers {
+  onText: (chunk: string) => void;
+  onDone: (usage: CallUsage) => void;
+}
+
+export async function chatStream(
+  options: ChatOptions,
+  handlers: StreamHandlers,
+): Promise<void> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 90_000);
+
+  let usage: CallUsage = {
+    costUsd: null,
+    promptTokens: null,
+    completionTokens: null,
+    model: null,
+  };
 
   try {
     const res = await fetch(`${BASE_URL}/chat/completions`, {
@@ -131,65 +160,90 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
         model: options.model,
         messages: options.messages,
         max_tokens: options.maxTokens ?? 2_000,
+        stream: true,
         /*
-         * The reason this provider was chosen. Without it the response carries
-         * token counts and no price, and pricing them ourselves means a table
-         * of nine models' rates that goes stale silently.
+         * Without this the streamed response carries no usage chunk at all and
+         * every practice message would be billed from an estimate. It is the
+         * same flag the non-streaming call sends, and it is the reason this
+         * provider was chosen.
          */
         usage: { include: true },
-        /*
-         * PDF handling, left on OpenRouter's default on purpose, with the cost
-         * of that default written down because it is not obvious.
-         *
-         * With no `pdf.engine` named, OpenRouter uses the model's own file
-         * support first and falls back to `mistral-ocr` when there is none.
-         * All three families here take files natively, so the fallback should
-         * never fire — but if one is ever swapped for a model that does not,
-         * OCR is billed per page to our OpenRouter account whatever key is in
-         * play. It reaches us as part of `usage.cost`, so the learner's meter
-         * stays correct; what would change without anybody deciding it is how
-         * much a practice message costs.
-         *
-         * The alternative, pinning `cloudflare-ai`, is free and always parses —
-         * which also means never using the native support that reads a PDF
-         * better than an extraction of it. Native is the right default for
-         * these three; revisit if the model list changes.
-         */
         plugins: [{ id: 'file-parser' }],
       }),
       signal: controller.signal,
     });
 
-    const body = await res.text();
-    if (!res.ok) throw new OpenRouterError(res.status, body);
+    if (!res.ok) throw new OpenRouterError(res.status, await res.text());
+    if (!res.body) throw new OpenRouterError(res.status, 'The response carried no body to read.');
 
-    let parsed: CompletionResponse;
-    try {
-      parsed = JSON.parse(body) as CompletionResponse;
-    } catch {
-      throw new OpenRouterError(res.status, body);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      /*
+       * SSE frames are separated by a blank line, and a chunk from the network
+       * can end anywhere — including inside a JSON payload. Everything up to
+       * the last separator is complete; the remainder stays in the buffer.
+       */
+      const frames = buffer.split('\n\n');
+      buffer = frames.pop() ?? '';
+
+      for (const frame of frames) {
+        for (const line of frame.split('\n')) {
+          if (!line.startsWith('data:')) continue;
+          const payload = line.slice(5).trim();
+          if (!payload || payload === '[DONE]') continue;
+
+          let parsed: StreamChunk;
+          try {
+            parsed = JSON.parse(payload) as StreamChunk;
+          } catch {
+            // OpenRouter sends `: OPENROUTER PROCESSING` comment frames as a
+            // keep-alive. Anything unparseable is skipped rather than fatal:
+            // dropping one frame costs a few characters, throwing costs the
+            // whole answer the learner is watching arrive.
+            continue;
+          }
+
+          if (parsed.error?.message) throw new OpenRouterError(200, parsed.error.message);
+
+          const text = parsed.choices?.[0]?.delta?.content;
+          if (text) handlers.onText(text);
+
+          if (parsed.model) usage.model = parsed.model;
+          if (parsed.usage) {
+            usage = {
+              model: parsed.model ?? usage.model,
+              costUsd: numberOrNull(parsed.usage.cost),
+              promptTokens: numberOrNull(parsed.usage.prompt_tokens),
+              completionTokens: numberOrNull(parsed.usage.completion_tokens),
+            };
+          }
+        }
+      }
     }
-
-    /*
-     * A 200 carrying an error object. OpenRouter answers this way when a
-     * downstream provider refuses — content filter, region, a model that has
-     * been retired — and reading only `res.ok` turns that into an empty answer
-     * with no explanation anywhere.
-     */
-    if (parsed.error?.message) throw new OpenRouterError(200, parsed.error.message);
-
-    const text = parsed.choices?.[0]?.message?.content?.trim() ?? '';
-
-    return {
-      text,
-      costUsd: numberOrNull(parsed.usage?.cost),
-      promptTokens: numberOrNull(parsed.usage?.prompt_tokens),
-      completionTokens: numberOrNull(parsed.usage?.completion_tokens),
-      model: parsed.model ?? null,
-    };
   } finally {
     clearTimeout(timer);
+    /*
+     * In `finally`, so a thrown error still bills. A call that failed halfway
+     * has already been generated and charged by the provider, and a ledger that
+     * only counts the calls that worked cannot be reconciled against an invoice
+     * that counts all of them.
+     */
+    handlers.onDone(usage);
   }
+}
+
+interface StreamChunk {
+  choices?: { delta?: { content?: string | null } }[];
+  usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
+  model?: string;
+  error?: { message?: string };
 }
 
 function numberOrNull(value: unknown): number | null {

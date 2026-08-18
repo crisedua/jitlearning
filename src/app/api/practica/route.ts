@@ -28,9 +28,10 @@ import readXlsxFile from 'read-excel-file/node';
 import type { Row } from 'read-excel-file/node';
 import { currentUser } from '@/lib/supabase/server';
 import { supabaseAdmin, serviceConfigured } from '@/lib/supabase/admin';
-import { checkPlanAllowance } from '@/lib/account';
+import { checkPlanAllowance, getUsageBalance } from '@/lib/account';
+import { minutesLeft } from '@/lib/balance';
 import { isAdminEmail } from '@/lib/admin';
-import { chat, openrouterConfigured, type ChatMessage, type ContentPart } from '@/lib/openrouter';
+import { chatStream, openrouterConfigured, type ChatMessage, type ContentPart } from '@/lib/openrouter';
 import {
   attachmentKind,
   BENCH_SYSTEM,
@@ -75,11 +76,27 @@ function detailFor(email: string | null | undefined, reason: string): { detail?:
   return isAdminEmail(email) ? { detail: reason.slice(0, 500) } : {};
 }
 
+/** What OpenRouter reports about a finished call, once it has finished. */
+interface Spend {
+  costUsd: number | null;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  model: string | null;
+}
+
 /** Every failure the learner has no action for resolves to one of these. */
 const UNAVAILABLE =
   'El banco de práctica no está disponible en este momento. Sigue con el profesor por voz y lo intentamos en un rato.';
 const OFF =
   'El banco de práctica todavía no está encendido en esta instalación. Trabaja la tarea con el profesor por voz.';
+/*
+ * A stream that died with something already on screen needs its own sentence.
+ * Telling somebody the bench is unavailable while half an answer sits in front
+ * of them reads as a second bug, and the useful instruction is different: what
+ * is there is real, it is just not finished.
+ */
+const PARTIAL =
+  'La respuesta se cortó a la mitad. Lo que alcanzó a escribir sirve igual, pero pídeselo de nuevo si necesitas el resto.';
 
 export async function POST(req: Request) {
   const user = await currentUser();
@@ -261,81 +278,118 @@ export async function POST(req: Request) {
 
   // ------------------------------------------------------------- the call --
 
-  try {
-    const result = await chat({ model: model.model, messages, timeoutMs: 100_000 });
+  /*
+   * From here the response is a stream, so failures change shape.
+   *
+   * Everything above answers with a status code and a JSON body, because
+   * nothing has been sent yet. Once the first byte of the stream is out the
+   * status is already 200 and cannot be taken back, so a failure after that
+   * point travels as an `error` line inside the stream and the client decides
+   * what to show. The two paths are deliberately not merged: a pre-flight
+   * failure should be a 403 or a 409 that a log or a probe can see.
+   */
+  const encoder = new TextEncoder();
+  const line = (value: unknown) => encoder.encode(`${JSON.stringify(value)}\n`);
 
-    /*
-     * A price that never arrived is charged as an estimate, not as zero.
-     *
-     * `costUsd` is null when OpenRouter omits usage accounting, which does
-     * happen. Treating that as free makes an unmetered path through a paid API
-     * that only opens under a condition we do not control — the shape of a bill
-     * nobody notices until it arrives.
-     */
-    const seconds =
-      result.costUsd !== null
-        ? secondsForSpend(result.costUsd)
-        : estimateSeconds(prompt.length, charsUsed);
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let answer = '';
+      /*
+       * A holder rather than a plain `let`, because the assignment happens
+       * inside a callback and TypeScript's flow analysis cannot see it: read
+       * back afterwards, a `let` initialised to null narrows to `never` and
+       * every field access below stops compiling. The object is opaque to that
+       * analysis, which is the honest fix — the value really is assigned by
+       * then, and the alternative is a cast that asserts it without saying why.
+       */
+      const captured: { spend: Spend | null } = { spend: null };
 
-    await record({
-      userId: user.id,
-      sessionId,
-      provider: model.id,
-      model: result.model ?? model.model,
-      result,
-      seconds,
-      attachments: attached.length,
-      promptChars: prompt.length + charsUsed,
-      answerChars: result.text.length,
-      error: null,
-    });
+      if (warnings.length) controller.enqueue(line({ t: 'warn', warnings }));
 
-    if (!result.text) {
-      return NextResponse.json({
-        answer: '',
-        warnings: [
-          ...warnings,
-          'El modelo no devolvió nada. Suele pasar cuando el mensaje quedó vacío o se cortó: vuelve a mandarlo.',
-        ],
-        attachments: attached,
-        seconds,
-      });
-    }
+      try {
+        await chatStream(
+          { model: model.model, messages, timeoutMs: 100_000 },
+          {
+            onText: (chunk) => {
+              answer += chunk;
+              controller.enqueue(line({ t: 'text', v: chunk }));
+            },
+            /*
+             * Captured rather than acted on. `chatStream` fires this from its
+             * own `finally`, so it runs on a thrown call too — which is the
+             * point, because a call that died halfway was still generated and
+             * charged by the provider. The billing happens below, on the one
+             * path both outcomes share.
+             */
+            onDone: (final) => {
+              captured.spend = final;
+            },
+          },
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[practica] call failed:', message);
+        controller.enqueue(
+          line({
+            t: 'error',
+            error: answer ? PARTIAL : UNAVAILABLE,
+            ...detailFor(user.email, message),
+          }),
+        );
+      } finally {
+        /*
+         * Bill, then read the balance, then tell the panel — in that order, and
+         * awaited, so the meter the learner sees already counts the message
+         * they just sent. A meter that lags by one message is reported as
+         * broken the first time somebody watches it.
+         *
+         * It costs a moment of the connection staying open after the last
+         * token, which nobody is waiting on: the answer is already on screen.
+         */
+        const { spend } = captured;
+        const seconds = spend
+          ? spend.costUsd !== null
+            ? secondsForSpend(spend.costUsd)
+            : estimateSeconds(prompt.length, charsUsed)
+          : estimateSeconds(prompt.length, charsUsed);
 
-    return NextResponse.json({
-      answer: result.text,
-      warnings,
-      attachments: attached,
-      seconds,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[practica] call failed:', message);
+        await finish({
+          userId: user.id,
+          sessionId,
+          provider: model.id,
+          model: spend?.model ?? model.model,
+          usage: {
+            costUsd: spend?.costUsd ?? null,
+            promptTokens: spend?.promptTokens ?? null,
+            completionTokens: spend?.completionTokens ?? null,
+          },
+          seconds,
+          attachments: attached,
+          prompt,
+          answer,
+        });
 
-    /*
-     * A failed call is still recorded, at a floor of one second. It may well
-     * have cost money — a timeout after the provider generated the answer bills
-     * the same as a success — and a ledger that only counts what worked cannot
-     * be reconciled against an invoice that counts everything.
-     */
-    await record({
-      userId: user.id,
-      sessionId,
-      provider: model.id,
-      model: model.model,
-      result: null,
-      seconds: 1,
-      attachments: attached.length,
-      promptChars: prompt.length + charsUsed,
-      answerChars: 0,
-      error: message.slice(0, 500),
-    });
+        controller.enqueue(
+          line({ t: 'done', seconds, minutesLeft: await remaining(user.id, user.email) }),
+        );
+        controller.close();
+      }
+    },
+  });
 
-    return NextResponse.json(
-      { error: UNAVAILABLE, ...detailFor(user.email, message) },
-      { status: 502 },
-    );
-  }
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/x-ndjson; charset=utf-8',
+      'Cache-Control': 'no-store',
+      /*
+       * Vercel's edge buffers a response without this, which turns a stream
+       * into one delivery at the end — the exact behaviour streaming was added
+       * to remove, and invisible in local development where there is no proxy.
+       */
+      'X-Accel-Buffering': 'no',
+    },
+  });
 }
 
 // ----------------------------------------------------------------- helpers --
@@ -410,37 +464,92 @@ function parseHistory(raw: FormDataEntryValue | null): ChatMessage[] {
   }
 }
 
-/** The ledger write. Never throws: a lost row must not cost the learner the answer. */
-async function record(entry: {
+/**
+ * Everything that happens after the learner has their answer: the transcript,
+ * the charge, and the balance the meter reads.
+ *
+ * Never throws. A lost row must not cost somebody the answer they are looking
+ * at, and by the time this runs the response has already been streamed — there
+ * is nothing left to fail into.
+ */
+async function finish(entry: {
   userId: string;
   sessionId: string | null;
   provider: string;
   model: string;
-  result: { costUsd: number | null; promptTokens: number | null; completionTokens: number | null } | null;
+  usage: { costUsd: number | null; promptTokens: number | null; completionTokens: number | null };
   seconds: number;
-  attachments: number;
-  promptChars: number;
-  answerChars: number;
-  error: string | null;
+  attachments: readonly string[];
+  prompt: string;
+  answer: string;
 }): Promise<void> {
   if (!serviceConfigured()) return;
+
+  /*
+   * Two rows, one per turn, which is what makes this a transcript rather than a
+   * ledger with text bolted on. Read back in `created_at` order it is an
+   * ordinary conversation, and the teacher can be handed a learner's history of
+   * prompts across sessions — the thing that turns a reaction into a lesson
+   * ("escribiste la petición sin decir para quién es, igual que la semana
+   * pasada").
+   *
+   * The charge sits on the assistant row. Both views sum `billed_seconds`, so a
+   * user row at zero changes no arithmetic.
+   */
   try {
-    const { error } = await supabaseAdmin().from('practice_messages').insert({
-      user_id: entry.userId,
-      session_id: entry.sessionId,
-      provider: entry.provider,
-      model: entry.model,
-      prompt_tokens: entry.result?.promptTokens ?? null,
-      completion_tokens: entry.result?.completionTokens ?? null,
-      cost_usd: entry.result?.costUsd ?? null,
-      billed_seconds: entry.seconds,
-      attachments: entry.attachments,
-      prompt_chars: entry.promptChars,
-      answer_chars: entry.answerChars,
-      error: entry.error,
-    });
-    if (error) console.error('[practica] could not record usage:', error.message);
+    const { error } = await supabaseAdmin()
+      .from('practice_messages')
+      .insert([
+        {
+          user_id: entry.userId,
+          session_id: entry.sessionId,
+          provider: entry.provider,
+          model: entry.model,
+          role: 'user',
+          content: entry.prompt,
+          billed_seconds: 0,
+          attachments: entry.attachments.length,
+          prompt_chars: entry.prompt.length,
+          answer_chars: 0,
+        },
+        {
+          user_id: entry.userId,
+          session_id: entry.sessionId,
+          provider: entry.provider,
+          model: entry.model,
+          role: 'assistant',
+          content: entry.answer,
+          prompt_tokens: entry.usage.promptTokens,
+          completion_tokens: entry.usage.completionTokens,
+          cost_usd: entry.usage.costUsd,
+          billed_seconds: entry.seconds,
+          attachments: 0,
+          prompt_chars: 0,
+          answer_chars: entry.answer.length,
+        },
+      ]);
+    if (error) console.error('[practica] could not record the exchange:', error.message);
   } catch (err) {
-    console.error('[practica] usage write threw:', err);
+    console.error('[practica] transcript write threw:', err);
+  }
+}
+
+/**
+ * What the learner has left, for the meter in the panel.
+ *
+ * Read after the charge rather than before, so the number the learner sees is
+ * the one that includes the message they just sent. A meter that lags by one
+ * message is a meter somebody reports as broken the first time they watch it.
+ *
+ * Null whenever the plan does not meter, and the panel renders nothing at all
+ * in that case — a countdown shown to somebody who is not being counted is a
+ * lie, and one they would believe.
+ */
+async function remaining(userId: string, email: string | null | undefined): Promise<number | null> {
+  try {
+    return minutesLeft(await getUsageBalance(userId, email));
+  } catch (err) {
+    console.error('[practica] could not read the balance:', err);
+    return null;
   }
 }
