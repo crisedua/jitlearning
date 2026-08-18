@@ -87,6 +87,22 @@ export async function POST(request: NextRequest) {
        * an already-upgraded account here is how a product looks broken at the
        * exact moment somebody has just paid.
        */
+      /*
+       * Back to the notebook on success, to the prices on a change of mind.
+       *
+       * `/progreso` reads `pago=listo` and says the plan takes a moment,
+       * because Stripe redirects the moment the card clears and the plan is
+       * applied by the webhook after. Without that sentence somebody who has
+       * just paid lands on a page still describing them as free.
+       *
+       * `/planes` reads nothing, and that is deliberate rather than missing.
+       * Somebody who backed out of a checkout does not need to be told they
+       * backed out, and the page revalidates: reading a search parameter there
+       * would opt it out of static rendering and put a Postgres query on every
+       * view of the public price list, which is exactly what `loadPlans` was
+       * written to avoid. The parameter stays because it costs nothing and says
+       * in a log which returns were abandoned.
+       */
       success_url: `${origin}/progreso?pago=listo`,
       cancel_url: `${origin}/planes?pago=cancelado`,
     });

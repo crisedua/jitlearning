@@ -10,6 +10,8 @@
  * A small error in the one sentence whose whole job is to look careful.
  */
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, it } from 'node:test';
 import { spellMinutes } from './plans';
 import type { Plan } from './plans';
@@ -199,5 +201,41 @@ describe('dominatedBy', () => {
     const middle = plan({ id: 'b', priceMinor: 900 });
     const dear = plan({ id: 'c', priceMinor: 1900 });
     assert.equal(dominatedBy(dear, [middle, cheapest, dear])?.id, 'a');
+  });
+});
+
+/*
+ * The pricing page has to stay statically rendered.
+ *
+ * `loadPlans` exists in the shape it does because this page is public and
+ * identical for everyone: reading it from Postgres on every view would be a
+ * query per visitor for rows that never differ. Next opts a page out of static
+ * rendering the moment it reads `searchParams`, and there is a standing
+ * temptation to read one — Stripe returns an abandoned checkout to
+ * `/planes?pago=cancelado`, and handling that looks like an obvious small
+ * improvement.
+ *
+ * It is not small. It would turn the page dynamic and undo the reason the
+ * fallback and the revalidation were built.
+ */
+describe('the pricing page stays cacheable', () => {
+  it('never reads a search parameter', () => {
+    const source = readFileSync(
+      path.join(import.meta.dirname, '..', 'app', 'planes', 'page.tsx'),
+      'utf8',
+    );
+    assert.doesNotMatch(
+      source,
+      /\bsearchParams\b/,
+      'reading searchParams here opts the public price list out of static rendering',
+    );
+  });
+
+  it('still declares a revalidation window', () => {
+    const source = readFileSync(
+      path.join(import.meta.dirname, '..', 'app', 'planes', 'page.tsx'),
+      'utf8',
+    );
+    assert.match(source, /export const revalidate/, 'the page no longer revalidates');
   });
 });
