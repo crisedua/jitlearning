@@ -67,6 +67,7 @@ describe('saying a saving out loud', () => {
 import {
   approximateSessions,
   ASSUMED_SESSION_MINUTES,
+  RECOMMENDED_PLAN_ID,
   dominatedBy,
   FALLBACK_PLANS,
   formatMinutes,
@@ -237,5 +238,46 @@ describe('the pricing page stays cacheable', () => {
       'utf8',
     );
     assert.match(source, /export const revalidate/, 'the page no longer revalidates');
+  });
+});
+
+/*
+ * Every gate on the offer, in one place.
+ *
+ * `/progreso` renders it when three things hold: the subscription reads `free`,
+ * the learner has measured something, and `recommendedPlan()` returns a plan.
+ * Two of those three have already failed in production-shaped ways and both were
+ * fixed alone — a missing billing migration made every learner read as having no
+ * subscription, and a learner with no profile row read the same way.
+ *
+ * Each time, somebody finished a task, measured their hours, saw the number, and
+ * was never asked to pay. Nothing logged. This is the list of doors into that
+ * room, written down so the next one is closed knowing there were three.
+ */
+describe('what the offer needs to appear', () => {
+  it('a recommended plan exists in the compiled rows', () => {
+    // The fallback `recommendedPlan()` returns when the database cannot answer.
+    // Without it that function can go back to returning null on any error.
+    const compiled = FALLBACK_PLANS.find((p) => p.id === RECOMMENDED_PLAN_ID);
+    assert.ok(compiled, `no compiled row for ${RECOMMENDED_PLAN_ID}`);
+    assert.ok(compiled.priceMinor > 0, 'the recommended plan is free, so there is nothing to offer');
+    assert.equal(compiled.stripePriceId, null, 'a compiled row must never open a real checkout');
+  });
+
+  it('recommendedPlan cannot answer null while that row exists', () => {
+    const source = readFileSync(
+      path.join(import.meta.dirname, 'offer.ts'),
+      'utf8',
+    );
+    assert.match(
+      source,
+      /\?\?\s*COMPILED/,
+      'recommendedPlan can answer null again, and the offer disappears when it does',
+    );
+  });
+
+  it('subscriptionFor cannot answer null for a missing profile', () => {
+    const source = readFileSync(path.join(import.meta.dirname, 'billing.ts'), 'utf8');
+    assert.match(source, /if \(!data\) \{[\s\S]{0,200}planId: 'free'/);
   });
 });
