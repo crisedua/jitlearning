@@ -324,9 +324,24 @@ export async function GET(req: Request) {
          * (42703 is a missing column, 42P01 a missing table) and the message is
          * what a person reads.
          */
-        const code = error.code || '';
-        const detail = [code, error.message].filter(Boolean).join(' ') || 'no reason given';
-        broken.push(`${table}.${column} (${why}): ${detail}`);
+        /*
+         * Every field, because the obvious two came back empty.
+         *
+         * `code ?? message` printed nothing, so it was widened to `code ||
+         * message` — and that printed "no reason given", which means both are
+         * empty on an error object that is nonetheless truthy. A check that
+         * reports four missing columns and cannot say why about any of them is
+         * not evidence of anything, and acting on it means running migrations
+         * to fix a problem nobody has confirmed exists.
+         *
+         * PostgrestError carries `details` and `hint` as well, and a failure
+         * that is not from PostgREST at all (a fetch that threw, a gateway
+         * answering HTML) has a `name` and little else. All of it goes out.
+         */
+        const parts = [error.code, error.message, error.details, error.hint, error.name]
+          .filter((v) => typeof v === 'string' && v.length > 0)
+          .join(' | ');
+        broken.push(`${table}.${column} (${why}): ${parts || `empty error: ${JSON.stringify(error)}`}`);
       }
     }
 

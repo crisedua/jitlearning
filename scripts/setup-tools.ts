@@ -117,31 +117,39 @@ const TOOLS = [
 ];
 
 /**
- * Whether the deployed route can actually authenticate a call.
+ * Whether the secret this machine holds is the one the deployment accepts.
  *
- * Sent deliberately without the secret, because the two failures we need to
- * tell apart are both refusals: 503 means the server has no secret configured
- * and every tool call would fail, 401 means it has one and simply rejected this
- * unsigned probe, which is the answer we want.
+ * Three outcomes, and the middle one is what this project has already produced:
  *
- * Unreachable is treated as not-ready. Registering a tool against a URL that
- * does not answer is how a class ends up announcing a search into silence, and
- * a run that is merely deferred costs nothing.
+ *   503 — the deployment has no secret at all. Registering `buscar` would
+ *         register a tool that fails every call.
+ *   401 — the deployment has a secret and it is not ours. That is what a
+ *         rotation looks like from here: Vercel was updated, `.env.local` was
+ *         not, and the value about to be baked into the tool's header is the
+ *         old one. The tool would be created successfully and refused on every
+ *         call, which is worse than not creating it, because every step reports
+ *         success.
+ *   else — ours works.
+ *
+ * The first version of this check sent no secret and treated 401 as healthy.
+ * That answers "is a gate configured", which is not the question that matters
+ * here: the header we are about to store has to be one the route will accept.
+ * It was written the day before a rotation made the difference visible.
+ *
+ * Unreachable counts as not-ready. Attaching a billable tool to a URL that does
+ * not answer is how a class ends up announcing a search into silence, and
+ * deferring a run costs nothing.
  */
-async function deployedSecretWorks(url: string): Promise<boolean> {
+type SecretState = 'ok' | 'none-deployed' | 'mismatch' | 'unreachable';
+
+async function deployedSecretState(url: string, secret: string): Promise<SecretState> {
   try {
-    const res = await fetch(url, { method: 'GET' });
-    if (res.status === 401) return true;
-    if (res.status === 503) return false;
-    /*
-     * A 200 means the route answered without a secret at all, which it should
-     * never do. Treated as not-ready rather than as success: something is wrong
-     * with the gate, and attaching a billable tool to it is the wrong response.
-     */
-    console.error(`  (${url} answered ${res.status} to an unsigned probe, which is unexpected.)`);
-    return false;
+    const res = await fetch(url, { headers: { 'x-ingest-secret': secret } });
+    if (res.status === 503) return 'none-deployed';
+    if (res.status === 401) return 'mismatch';
+    return 'ok';
   } catch {
-    return false;
+    return 'unreachable';
   }
 }
 
@@ -167,17 +175,21 @@ async function main() {
    * the server has none configured, 401 when it has one and we did not send it.
    * A 401 is therefore the healthy answer here.
    */
-  const secretIsDeployed = await deployedSecretWorks(BUSCAR.api_schema.url);
-  const wanted = TOOLS.filter((t) => secretIsDeployed || !t.needsSecret);
+  const localSecret = process.env.INGEST_SECRET?.trim() ?? '';
+  const secretState = await deployedSecretState(BUSCAR.api_schema.url, localSecret);
+  const wanted = TOOLS.filter((t) => secretState === 'ok' || !t.needsSecret);
 
-  if (!secretIsDeployed) {
+  if (secretState !== 'ok') {
+    const why = {
+      'none-deployed': `${BUSCAR.api_schema.url} has no INGEST_SECRET configured, so that\n  route refuses every call. Set it in the Vercel project settings and redeploy.`,
+      mismatch: `${BUSCAR.api_schema.url} rejects the INGEST_SECRET in this .env.local.\n  The deployment's secret was rotated and this copy was not, so the header about to be\n  baked into the tool is the old one: it would register cleanly and be refused on every\n  call. Copy the current value into .env.local and run this again.`,
+      unreachable: `${BUSCAR.api_schema.url} did not answer, so there is no way to tell\n  whether the tool would work. Nothing is lost by running this again in a minute.`,
+    }[secretState];
+
     console.error(
-      `\n! ${BUSCAR.api_schema.url} has no INGEST_SECRET, so \`buscar\` is being skipped.\n` +
-        '  It sends the secret as a header and that route refuses every call without one,\n' +
-        '  so registering it now would register a tool that answers 503 mid-class — which\n' +
-        '  the learner hears as the teacher announcing a search and then apologising.\n' +
-        '  Set INGEST_SECRET in the Vercel project settings, redeploy, and run this again.\n' +
-        '  The sandbox tool needs no secret and is handled below.\n',
+      `\n! Skipping \`buscar\`: ${why}\n` +
+        '  A tool that 401s or 503s is heard by the learner as the teacher announcing a search\n' +
+        '  and then apologising. The sandbox tool needs no secret and is handled below.\n',
     );
   }
 
