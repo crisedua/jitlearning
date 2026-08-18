@@ -1402,10 +1402,25 @@ async function main() {
         note(`The oldest of them is ${mins} min old, which is usually a build still running.`);
         note('Check again in a few minutes before digging.');
       } else {
-        note(`The oldest of them was pushed ${mins} min ago, which is too long to be a queue.`);
-        note('Look for a failed build in the Vercel dashboard, or a git integration that is');
-        note('no longer connected. `npx next build` passing here does not mean it passed there:');
-        note('the deployment builds with the project\'s environment variables, and this does not.');
+        /*
+         * Ninety minutes of silence turned out not to mean a broken pipeline.
+         *
+         * This first said the gap was too long to be a queue and to go looking
+         * for a failed build. Then a further push deployed all six waiting
+         * commits inside a minute, so the pipeline had been fine the whole
+         * time and the advice sent the operator to the wrong dashboard.
+         *
+         * A burst of pushes can leave the last of them unbuilt without anything
+         * having failed, and the cheapest remedy is the one to try first,
+         * because it costs a commit and settles the question either way.
+         */
+        note(`The oldest of them was pushed ${mins} min ago, which is longer than a build takes.`);
+        note('Push again before assuming anything is broken: a burst of commits can leave the');
+        note('last one unbuilt, and one more push has deployed the whole backlog in a minute.');
+        note('If that changes nothing, look for a failed build in the Vercel dashboard, or a');
+        note('git integration no longer connected. `npx next build` passing here is not');
+        note('evidence it passed there: that build has the project\'s environment variables');
+        note('and this one does not, so code paths run there that never run here.');
       }
       failures++;
     }
