@@ -112,7 +112,40 @@ describe('summarising what the classes produced', () => {
     const r = summarise([]);
     assert.deepEqual(
       { ...r },
-      { analysed: 0, measurable: 0, measured: 0, graded: 0, finished: 0, whyNot: null },
+      { analysed: 0, measurable: 0, measured: 0, graded: 0, finished: 0, passed: {}, whyNot: null },
     );
+  });
+});
+
+/*
+ * All four criteria are counted.
+ *
+ * The funnel leads with "finished a real task" and the other three are what
+ * tell somebody which fix to make: no numbers is usually a unit or a clock, a
+ * missing commitment is the closing being skipped, and a failed honesty check
+ * is the persona. Counting only the first would send them rewriting the session
+ * order for a fault in its last minute.
+ */
+describe('the verdicts on a graded class', () => {
+  const graded = (results: Record<string, 'success' | 'failure'>): Analysis => ({
+    data_collection_results: { commitment: { value: 'algo' } },
+    evaluation_criteria_results: Object.fromEntries(
+      Object.entries(results).map(([k, v]) => [k, { result: v }]),
+    ),
+  });
+
+  it('counts each criterion separately', () => {
+    const r = summarise([
+      graded({ tarea_terminada: 'success', dos_numeros: 'failure', sin_inventar: 'success' }),
+      graded({ tarea_terminada: 'failure', dos_numeros: 'failure', sin_inventar: 'success' }),
+    ]);
+    assert.equal(r.graded, 2);
+    assert.deepEqual(r.passed, { tarea_terminada: 1, sin_inventar: 2 });
+    assert.equal(r.finished, 1, 'the headline number still agrees with its criterion');
+  });
+
+  it('records nothing for a criterion nobody graded', () => {
+    const r = summarise([graded({ tarea_terminada: 'success' })]);
+    assert.equal(r.passed.dos_numeros, undefined, 'absent is not zero');
   });
 });

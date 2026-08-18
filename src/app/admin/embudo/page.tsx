@@ -32,6 +32,19 @@ import { NotAdmin } from '@/components/NotAdmin';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
 import { classReport } from '@/lib/classes';
 
+/**
+ * The four criteria the agent grades every class against, in the order a class
+ * happens. Named here rather than read from `evaluationCriteria()` because the
+ * ids are terse by design — they are prompts for an evaluator, not labels for a
+ * person reading a dashboard.
+ */
+const CRITERIA_LABELS: ReadonlyArray<[string, string]> = [
+  ['tarea_terminada', 'Terminó una tarea real'],
+  ['dos_numeros', 'Dejó los dos números'],
+  ['compromiso_completo', 'Cerró con un compromiso completo'],
+  ['sin_inventar', 'No inventó nada'],
+];
+
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -232,11 +245,40 @@ export default async function EmbudoPage() {
             this panel did exactly that, one paragraph after warning that zero
             reads as broken.
           */}
-          <p className="mt-1 text-[14px] leading-relaxed text-muted">
-            {classes.graded === 0
-              ? 'Todavía ninguna clase viene calificada: los criterios son más nuevos que todas ellas.'
-              : `${classes.finished} de ${classes.graded} calificada(s) terminó una tarea real.`}
-          </p>
+          {/*
+            All four criteria, not just the first.
+            
+            They fail for different reasons and ask for different fixes: no task
+            finished is the session shape, no numbers is usually a unit or a
+            clock, a missing commitment is the closing being skipped, and a
+            failed honesty check is the persona. Showing only "terminó una
+            tarea" would send somebody rewriting the session order for a fault
+            in its last minute.
+          */}
+          {classes.graded === 0 ? (
+            <p className="mt-1 text-[14px] leading-relaxed text-muted">
+              Todavía ninguna clase viene calificada: los criterios son más nuevos que todas ellas.
+            </p>
+          ) : (
+            <ul className="mt-3 grid gap-1.5 text-[14px] leading-relaxed text-ink/85 sm:grid-cols-2">
+              {CRITERIA_LABELS.map(([id, label]) => {
+                const passed = classes.passed[id] ?? 0;
+                return (
+                  <li key={id} className="flex items-baseline gap-2">
+                    <span
+                      aria-hidden
+                      className={passed === classes.graded ? 'text-success' : 'text-warning'}
+                    >
+                      {passed === classes.graded ? '·' : '!'}
+                    </span>
+                    <span>
+                      {label}: {passed} de {classes.graded}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
           {classes.measurable > 0 && classes.measured === 0 && (
             <p className="mt-2 text-[14px] leading-relaxed text-warning">
               Sin los dos números nadie ve la oferta en su progreso, así que a nadie se le pide

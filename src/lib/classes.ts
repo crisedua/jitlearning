@@ -39,7 +39,18 @@ export interface ClassReport {
   measured: number;
   /** How many were graded at all. Zero until the success criteria were pushed. */
   graded: number;
-  /** Of the graded ones, how many finished a real task. */
+  /**
+   * Of the graded ones, how many passed each criterion.
+   *
+   * All four rather than the one, because they fail for different reasons and
+   * ask for different fixes: a class that finished no task is a session shape
+   * problem, one that produced no numbers is usually a unit or a clock problem,
+   * a missing commitment is the closing being skipped, and a failed honesty
+   * check is the persona. Reporting only the first would send somebody
+   * rewriting the session order for a fault in the last minute of it.
+   */
+  passed: Record<string, number>;
+  /** Kept for the one the funnel leads with. */
   finished: number;
   /** The extractor's own words on the most recent class that missed a number. */
   whyNot: string | null;
@@ -124,6 +135,7 @@ export function summarise(analyses: readonly Analysis[]): Omit<
   let measured = 0;
   let graded = 0;
   let finished = 0;
+  const passed: Record<string, number> = {};
   let whyNot: string | null = null;
 
   for (const analysis of analyses) {
@@ -153,11 +165,14 @@ export function summarise(analyses: readonly Analysis[]): Omit<
     const verdicts = analysis.evaluation_criteria_results;
     if (verdicts && Object.keys(verdicts).length > 0) {
       graded++;
+      for (const [name, verdict] of Object.entries(verdicts)) {
+        if (verdict?.result === 'success') passed[name] = (passed[name] ?? 0) + 1;
+      }
       if (verdicts.tarea_terminada?.result === 'success') finished++;
     }
   }
 
-  return { analysed, measurable, measured, graded, finished, whyNot };
+  return { analysed, measurable, measured, graded, finished, passed, whyNot };
 }
 
 
