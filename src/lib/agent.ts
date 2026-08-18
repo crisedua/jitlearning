@@ -266,6 +266,22 @@ export function teacherSystemPrompt(): string {
  * conversation when nothing supplies it, and the failure surfaces as a
  * connection error with no clue about the cause.
  */
+/**
+ * The agent's opening line, as a template.
+ *
+ * `{{apertura}}` is substituted at connect time from `learnerRecord`, which is
+ * what lets a returning learner be greeted with the commitment they made last
+ * time rather than with a greeting. It lives in `first_message` rather than in
+ * the prompt, so every check that reads the persona is blind to it: the doctor's
+ * variable check correctly lists only the two the prompt uses, and nothing
+ * looked at this one at all.
+ *
+ * Blanked or edited on the live agent, every session would open on something
+ * other than the record, and the memory work behind it would be invisible while
+ * every other check stayed green.
+ */
+export const FIRST_MESSAGE = '{{apertura}}';
+
 export function dynamicVariablePlaceholders(): Record<string, string> {
   return {
     apertura: OPENING_FIRST,
@@ -400,7 +416,7 @@ export async function provisionAgent(): Promise<string> {
         // do, on a later one it names the step and the commitment. A fixed
         // greeting cannot do both, and the memory opening is too important to
         // leave to the model remembering to perform it.
-        first_message: '{{apertura}}',
+        first_message: FIRST_MESSAGE,
         language: agentLanguage(),
         dynamic_variables: {
           dynamic_variable_placeholders: dynamicVariablePlaceholders(),
@@ -497,7 +513,7 @@ export async function syncAgentKnowledge(
   await updateAgent(id, {
     conversation_config: {
       agent: {
-        first_message: '{{apertura}}',
+        first_message: FIRST_MESSAGE,
         dynamic_variables: {
           dynamic_variable_placeholders: dynamicVariablePlaceholders(),
         },

@@ -21,7 +21,12 @@ import { createClient } from '@supabase/supabase-js';
 import { getAgent, listDocuments } from '../src/lib/elevenlabs';
 import { agentId, embeddingModel } from '../src/lib/config';
 import { ownsDocument, TEACHER } from '../src/lib/teacher';
-import { dynamicVariablePlaceholders, PROMISE_MARKERS, teacherSystemPrompt } from '../src/lib/agent';
+import {
+  dynamicVariablePlaceholders,
+  FIRST_MESSAGE,
+  PROMISE_MARKERS,
+  teacherSystemPrompt,
+} from '../src/lib/agent';
 import { PROMISES } from '../src/lib/site';
 import { FALLBACK_PLANS, formatMinutes, formatMoney } from '../src/lib/plans';
 import { buildPlan, LESSONS, LEVELS, lessonsForLevel, PATHS } from '../src/lib/curriculum';
@@ -183,6 +188,29 @@ async function main() {
           `The live agent's persona differs from this repo (${live.length} chars live, ${local.length} here).`,
         );
         note('Run `npm run sync:agent -- --push`. Until then every persona check below is about a file, not about what anybody hears.');
+        failures++;
+      }
+
+      /*
+       * The opening line, which lives outside the prompt and outside every check
+       * that reads it.
+       *
+       * `first_message` is its own field on the agent, and it is the one that
+       * makes a returning learner hear the commitment they made last time
+       * instead of a greeting. Blanked or edited on the live agent, every session
+       * opens on something other than the record, the memory work behind it is
+       * invisible, and the persona check above still passes character for
+       * character because none of this is in the persona.
+       */
+      const liveFirst = (agent.conversation_config?.agent?.first_message ?? '').trim();
+      if (liveFirst === FIRST_MESSAGE) {
+        ok('The opening line is the template, so the record is what gets spoken');
+      } else {
+        bad(
+          `The live agent opens with ${liveFirst ? `"${liveFirst}"` : 'nothing'}, not ${FIRST_MESSAGE}.`,
+        );
+        note('Every session would open on that instead of on the learner\'s own record.');
+        note('Run `npm run sync:agent -- --push`.');
         failures++;
       }
 

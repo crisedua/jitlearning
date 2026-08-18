@@ -21,7 +21,12 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
-import { dataCollection, dynamicVariablePlaceholders, teacherSystemPrompt } from './agent';
+import {
+  dataCollection,
+  dynamicVariablePlaceholders,
+  FIRST_MESSAGE,
+  teacherSystemPrompt,
+} from './agent';
 
 /** Field names `progress.ts` and `commitments.ts` actually look up. */
 function fieldsReadBack(): Set<string> {
@@ -35,6 +40,20 @@ function fieldsReadBack(): Set<string> {
 }
 
 describe('extraction fields', () => {
+  it('the source scan found something, so the check below means something', () => {
+    /*
+     * The scan is a regex over two files. If it stopped matching — a helper
+     * renamed, the call sites refactored — it would return nothing and the test
+     * beneath this one would iterate an empty set and pass. That exact failure
+     * has already happened once in this repo, in a guard that silently checked
+     * two of three messages and reported success.
+     */
+    assert.ok(
+      fieldsReadBack().size >= 10,
+      `only ${fieldsReadBack().size} extraction reads found; the scan has stopped matching`,
+    );
+  });
+
   it('every field read back is declared on the agent', () => {
     const declared = new Set(Object.keys(dataCollection()));
     for (const name of fieldsReadBack()) {
@@ -56,6 +75,28 @@ describe('extraction fields', () => {
 });
 
 describe('dynamic variables', () => {
+  it('the prompt and the first message actually use the variables', () => {
+    /*
+     * The check below only inspects the `{{...}}` the prompt happens to contain,
+     * so a prompt that had lost them all would satisfy it by having nothing to
+     * inspect. The failure that guards against is not hypothetical: this persona
+     * has a hard character budget and has been trimmed several times, and losing
+     * `{{registro}}` in a trim would mean every session starts cold — no plan, no
+     * commitment, no continuity — with nothing failing anywhere.
+     *
+     * `{{apertura}}` is not in the prompt at all. It is the agent's
+     * `first_message`, which is what makes the spoken opening the one composed
+     * from the record.
+     */
+    const persona = teacherSystemPrompt();
+    assert.ok(persona.includes('{{registro}}'), 'the prompt no longer injects the record');
+    assert.ok(
+      persona.includes('{{primera_sesion}}'),
+      'the prompt no longer knows whether this is a first session',
+    );
+    assert.equal(FIRST_MESSAGE, '{{apertura}}');
+  });
+
   it('the persona references only variables the agent declares defaults for', () => {
     const persona = teacherSystemPrompt();
     const declared = new Set(Object.keys(dynamicVariablePlaceholders()));
