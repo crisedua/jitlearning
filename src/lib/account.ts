@@ -311,7 +311,7 @@ async function allowanceFor(
          * Somebody who tried the free tier and used it up is told what they
          * used. Somebody whose courtesy plan ended a moment ago is not: they
          * spent three months and several hundred minutes, and being told they
-         * used twenty free ones reads as a product that has forgotten them, at
+         * used the free ones reads as a product that has forgotten them, at
          * the exact moment it is asking to be paid. The grant is what ended, so
          * that is what the sentence says.
          *

@@ -5,7 +5,7 @@
  * Two comments elsewhere named it and both said six while the page said three,
  * for weeks, because prose has no way to be wrong out loud.
  *
- * The site promises a few months of Fundador to the first ten people who leave
+ * The site promises a few months of Fundador to the first few people who leave
  * real feedback. Everything about that promise lived in a sentence on a page:
  * nothing read the feedback, nothing could put somebody on a plan without a
  * Stripe subscription, nothing counted the seats, and nothing knew when the
@@ -72,7 +72,7 @@ export async function grantPlan(
    * their plan is active, on the strength of a message that was never true, and
    * the person finds out by running out of free minutes.
    *
-   * This is the promise the site makes in public to its first ten people. It is
+   * This is the promise the site makes in public to its first learners. It is
    * the last place to accept a success that was not checked.
    */
   const { error, count } = await supabaseAdmin()

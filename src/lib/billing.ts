@@ -336,7 +336,7 @@ export interface Subscription {
    * different things: one is Stripe's, one is ours. The notebook was showing
    * only Stripe's, so somebody on a granted plan saw "de cortesía" with no date
    * and the line "no hay nada que pagar ni que cancelar" — true, and silent
-   * about the fact that it ends. The first ten people are exactly the ones on
+   * about the fact that it ends. The first learners are exactly the ones on
    * granted plans.
    */
   grantedUntil: string | null;
