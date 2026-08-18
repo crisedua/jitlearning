@@ -34,7 +34,7 @@ import {
 } from '../src/lib/agent';
 import { PROMISES } from '../src/lib/site';
 import { CLASS_CAP_MINUTES } from '../src/lib/class-length';
-import { ASSUMED_SESSION_MINUTES, FALLBACK_PLANS, formatMinutes, formatMoney } from '../src/lib/plans';
+import { ASSUMED_SESSION_MINUTES, dominatedBy, FALLBACK_PLANS, formatMinutes, formatMoney } from '../src/lib/plans';
 import { buildPlan, LESSONS, LEVELS, lessonsForLevel, PATHS } from '../src/lib/curriculum';
 import { serviceConfigured, supabaseAdmin } from '../src/lib/supabase/admin';
 import { classReport } from '../src/lib/classes';
@@ -887,10 +887,34 @@ async function main() {
       const cheaper = publicPaid.find(
         (c) => c.id !== plan.id && c.priceMinor < plan.priceMinor,
       )!;
+      /*
+       * A dominated tier is not automatically a fault. This one is deliberate:
+       * it is the standing price, shown so the founder discount reads as a
+       * discount, and /planes demotes it to a list price with no button and
+       * tells the reader to take the cheaper one instead.
+       *
+       * What makes that honest is the demotion, so that is what gets checked.
+       * A dominated tier the page would still sell is a real fault: it asks
+       * somebody to pay more for less. A dominated tier the page refuses to
+       * sell is an anchor.
+       *
+       * Reported as a failure for a long time while the page was already
+       * handling it correctly, which is how a check teaches people to skip it.
+       */
+      const demoted = dominatedBy(plan, [...publicPaid]) !== null;
+      if (demoted) {
+        ok(
+          `${plan.name} at ${formatMoney(plan.priceMinor, plan.currency)} is the list price, ` +
+            `shown without a button beside ${cheaper.name}`,
+        );
+        continue;
+      }
       bad(
         `${plan.name} costs ${formatMoney(plan.priceMinor, plan.currency)} and gives no more than ` +
-          `${cheaper.name} at ${formatMoney(cheaper.priceMinor, cheaper.currency)}.`,
+          `${cheaper.name} at ${formatMoney(cheaper.priceMinor, cheaper.currency)}, and is ` +
+          'offered for sale anyway.',
       );
+      failures++;
       note(
         `Both: ${formatMinutes(plan.monthlyMinutes)}, ${
           plan.monthlySessions === null ? 'sesiones sin límite' : `${plan.monthlySessions} sesiones`
@@ -921,9 +945,7 @@ async function main() {
      * derived from these same rows. Fix the numbers and the card comes back on
      * its own.
      */
-    note('Meanwhile /planes shows it as a list price with no button, so nobody is offered it.');
     note('Or retire a tier, or make the difference something other than minutes.');
-    failures++;
   }
 
   /*

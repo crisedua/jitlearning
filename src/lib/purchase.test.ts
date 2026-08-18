@@ -13,6 +13,7 @@
 import assert from 'node:assert/strict';
 import { LEVELS, WEEKLY_MAX, WEEKLY_MIN } from './curriculum';
 import { approximateSessions, FALLBACK_PLANS, formatMinutes } from './plans';
+import { dominatedBy } from './plans';
 import { describe, it } from 'node:test';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -221,5 +222,45 @@ describe('the allowance against what the offer promises it covers', () => {
       spare >= LEVELS.length - 1,
       `only ${spare} class(es) left for ${LEVELS.length - 1} further levels`,
     );
+  });
+});
+
+/*
+ * A dominated tier is only honest while the page refuses to sell it.
+ *
+ * Estándar costs twice Fundador and gives the same 300 minutes. That is
+ * deliberate: it is the standing price, shown so the founder discount reads as
+ * a discount. What makes it honest rather than a trap is that /planes demotes
+ * it to a list price with no button and tells the reader to take the cheaper
+ * one.
+ *
+ * So the arrangement is fine and the demotion is load-bearing. If a dominated
+ * tier ever gets a checkout button back, the page is asking somebody to pay
+ * more for less.
+ */
+describe('the tier that costs more and gives the same', () => {
+  const paid = FALLBACK_PLANS.filter((p) => p.isPublic && p.priceMinor > 0);
+
+  it('is recognised as dominated rather than quietly offered', () => {
+    const dominated = paid.filter((p) => dominatedBy(p, paid) !== null);
+    for (const plan of dominated) {
+      const by = dominatedBy(plan, paid)!;
+      assert.ok(
+        by.priceMinor < plan.priceMinor,
+        `${plan.name} is superseded by something dearer, which is not a discount`,
+      );
+    }
+  });
+
+  it('loses its button and its recommendation ring on the page', () => {
+    const planes = read('src', 'app', 'planes', 'page.tsx');
+    // The button only renders when there is no `supersededBy`.
+    assert.match(planes, /supersededBy \?[\s\S]{0,400}<PlanAction/);
+    assert.match(planes, /const recommended = !supersededBy/);
+  });
+
+  it('tells the reader to buy the cheaper one instead', () => {
+    const planes = read('src', 'app', 'planes', 'page.tsx');
+    assert.match(planes, /te da lo\s*\n?\s*mismo, así que toma ese/);
   });
 });
