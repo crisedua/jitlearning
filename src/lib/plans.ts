@@ -160,6 +160,21 @@ export const FALLBACK_PLANS: readonly Plan[] = [
 ] as const;
 
 /**
+ * The free tier, as compiled.
+ *
+ * Copy that quotes the free allowance appears on the landing page, the pricing
+ * page and its metadata, none of which can read Postgres at build time. Reading
+ * it from the same array the fallback prices come from is the closest thing to
+ * one source those places can have — and far better than three literals that
+ * were already wrong once, when the tier's window was described as monthly.
+ */
+export const FREE_PLAN = FALLBACK_PLANS.find((p) => p.period === 'total') ?? FALLBACK_PLANS[0]!;
+
+/** Public paid tiers, for copy that counts them. */
+export const PAID_PLANS = FALLBACK_PLANS.filter((p) => p.isPublic && p.priceMinor > 0);
+
+
+/**
  * The card bullets, by plan id. A plan with no entry renders without a list
  * rather than breaking, so adding a tier in SQL never takes the page down.
  */

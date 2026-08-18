@@ -2,11 +2,12 @@ import Link from 'next/link';
 import { SessionPreview } from '@/components/SessionPreview';
 import { DIFFERENCES, HERO, PROMISES, STEPS, TAGLINE } from '@/lib/site';
 import { LEVELS, lessonsForLevel } from '@/lib/curriculum';
+import { FREE_PLAN, formatMinutes } from '@/lib/plans';
 
 export const metadata = {
   title: `ModoJIT · ${TAGLINE}`,
   description:
-    'Un profesor por voz, en español, que te entrevista sobre tu trabajo, te arma un plan de 4 niveles y te enseña a usar IA con tus propias tareas.',
+    `Un profesor por voz, en español, que te entrevista sobre tu trabajo, te arma un plan de ${LEVELS.length} niveles y te enseña a usar IA con tus propias tareas.`,
 };
 
 export default function HomePage() {
@@ -72,7 +73,13 @@ export default function HomePage() {
           El currículum
         </p>
         <h2 className="reveal mt-4 max-w-[24ch] font-serif text-[clamp(2rem,4.5vw,3.25rem)] font-normal leading-[1.08] tracking-[-0.02em]">
-          4 niveles, y el primero es tu propio trabajo
+          {/*
+            Derived, beside a list this page renders from the same array. It
+            said "4" as a literal directly above `LEVELS.map(...)`, so retiring
+            or adding a level would have left the heading counting the old
+            shape while the rows below it showed the new one.
+          */}
+          {LEVELS.length} niveles, y el primero es tu propio trabajo
         </h2>
         <p className="reveal mt-5 max-w-[58ch] text-[17px] leading-relaxed text-muted">
           El nivel 1 son tus tareas, una por una, resueltas contigo. Los niveles 2 y 3 son clases
@@ -280,7 +287,7 @@ export default function HomePage() {
               Said here, at the moment somebody decides how to start.
             */}
             <span className="text-sm text-bg/75">
-              Se abre en el navegador · necesita micrófono · 20 minutos gratis · la primera vez,
+              Se abre en el navegador · necesita micrófono · {formatMinutes(FREE_PLAN.monthlyMinutes)} gratis · la primera vez,
               mejor frente al computador
             </span>
           </div>

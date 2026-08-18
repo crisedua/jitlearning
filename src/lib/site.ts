@@ -21,6 +21,7 @@
  * real to every visitor who tries it.
  */
 import type { PromiseKey } from './agent';
+import { LEVELS } from './curriculum';
 
 export interface Profile {
   email: string;
@@ -170,7 +171,7 @@ export const DIFFERENCES = [
     title: 'Tiene un currículum',
     generic: 'Cada chat empieza de cero y termina donde lo dejaste.',
     teacher:
-      '4 niveles en orden, y el primero son tus propias tareas. Sabes en qué paso vas de cuántos.',
+      `${LEVELS.length} niveles en orden, y el primero son tus propias tareas. Sabes en qué paso vas de cuántos.`,
   },
   {
     title: 'Sabe qué te falta',

@@ -13,8 +13,9 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { FEEDBACK_DEAL, FEEDBACK_REWARD } from './site';
-import { FALLBACK_PLANS } from './plans';
+import { DIFFERENCES, FEEDBACK_DEAL, FEEDBACK_REWARD } from './site';
+import { FALLBACK_PLANS, FREE_PLAN, PAID_PLANS } from './plans';
+import { LEVELS } from './curriculum';
 import { seatsLeft, FEEDBACK_REASON, type Grant } from './grants';
 
 describe('the feedback deal', () => {
@@ -71,5 +72,44 @@ describe('counting the seats the site advertises', () => {
   it('never goes below zero', () => {
     const many = Array.from({ length: FEEDBACK_REWARD.seats + 3 }, () => grant());
     assert.equal(seatsLeft(many), 0);
+  });
+});
+
+/**
+ * Copy that counts things counts the right things.
+ *
+ * The landing page renders the curriculum from `LEVELS` and, two lines above
+ * that list, used to say "4 niveles" as a literal. The comparison table said it
+ * again. The pricing page's metadata said "20 minutos gratis" and "2 planes
+ * mensuales", on the page whose stated premise is that figures come from the
+ * plans table so a price change is a row update rather than a deploy.
+ *
+ * Every one of those is a sentence that would have survived the change it
+ * describes: retire a tier, add a level, lower the free allowance, and the copy
+ * keeps quoting the old shape while the thing beside it shows the new one.
+ */
+describe('copy that counts', () => {
+  it('the comparison table names as many levels as there are', () => {
+    const row = DIFFERENCES.find((d) => d.teacher.includes('niveles'));
+    assert.ok(row, 'no row in DIFFERENCES mentions levels');
+    assert.ok(
+      row.teacher.startsWith(`${LEVELS.length} niveles`),
+      `says "${row.teacher.slice(0, 24)}…" with ${LEVELS.length} levels defined`,
+    );
+  });
+
+  it('the free tier is the one with a lifetime window', () => {
+    // Everything quoting "the free allowance" resolves through this, so it has
+    // to be the tier the gate actually treats as lifetime.
+    assert.equal(FREE_PLAN.period, 'total');
+    assert.equal(FREE_PLAN.priceMinor, 0);
+  });
+
+  it('the paid tiers counted in copy are the ones on sale', () => {
+    for (const plan of PAID_PLANS) {
+      assert.ok(plan.isPublic, `${plan.id} is counted in copy and is not public`);
+      assert.ok(plan.priceMinor > 0, `${plan.id} is counted as paid and costs nothing`);
+    }
+    assert.equal(PAID_PLANS.length, FALLBACK_PLANS.filter((p) => p.isPublic && p.priceMinor > 0).length);
   });
 });

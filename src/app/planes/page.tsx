@@ -22,6 +22,8 @@ import { billingConfigured } from '@/lib/billing';
 import { PROFILE, WHATSAPP } from '@/lib/site';
 import {
   FALLBACK_PLANS,
+  FREE_PLAN,
+  PAID_PLANS,
   PLAN_COLUMNS,
   planFeatures,
   RECOMMENDED_PLAN_ID,
@@ -35,8 +37,22 @@ import {
 
 export const metadata: Metadata = {
   title: 'Planes · ModoJIT',
-  description:
-    'Planes de ModoJIT por minutos de clase: 20 minutos gratis para resolver una tarea de tu semana y medir lo que ahorra, y 2 planes mensuales para el currículum completo.',
+  /*
+   * Both numbers derived. This said "20 minutos gratis" and "2 planes
+   * mensuales" as literals, on the page whose premise is that the figures come
+   * from the plans table — and the second one is the sentence that would have
+   * gone wrong the day somebody retired a tier, which `npm run doctor` is
+   * currently recommending.
+   *
+   * Metadata is static, so it reads the compiled fallback rather than Postgres.
+   * That is the same array the page falls back to when the database cannot be
+   * reached, which makes it the closest to one source this can get.
+   */
+  description: `Planes de ModoJIT por minutos de clase: ${formatMinutes(
+    FREE_PLAN.monthlyMinutes,
+  )} gratis para resolver una tarea de tu semana y medir lo que ahorra, y ${
+    PAID_PLANS.length
+  } planes mensuales para el currículum completo.`,
 };
 
 /** Prices change without a deploy, so the page must not be cached forever. */
@@ -337,7 +353,7 @@ export default async function PlanesPage() {
           it belongs: it answers a question people ask second.
         */}
         <p className="mt-6 max-w-[58ch] text-[17px] leading-relaxed text-muted">
-          Los 20 minutos gratis alcanzan para resolver una tarea real de tu semana y medir cuánto
+          Los {formatMinutes(FREE_PLAN.monthlyMinutes)} gratis alcanzan para resolver una tarea real de tu semana y medir cuánto
           tiempo te ahorra cada vez que la vuelves a hacer. Ese número lo pones tú. Compáralo con
           estos precios y la decisión se toma sola.
         </p>
