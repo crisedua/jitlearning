@@ -22,6 +22,17 @@ import { signInPath } from '@/lib/paths';
  * was on the path where being stuck is a legal problem as well as a commercial
  * one. Somebody who cannot reach the portal cancels through their bank instead.
  */
+/**
+ * How long a request may hang before it is treated as failed.
+ *
+ * `fetch` waits forever on a connection that stalls after the handshake, and the
+ * button stays disabled reading its busy label with nothing to press. An abort
+ * surfaces as `AbortError`, which `connectionMessage` already turns into "la
+ * conexión tardó demasiado". Optional-called, because `AbortSignal.timeout` is
+ * missing on older Safari and there the behaviour is what it was before.
+ */
+const REQUEST_TIMEOUT_MS = 15_000;
+
 export function BillingLink() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +42,10 @@ export function BillingLink() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch('/api/billing/portal', { method: 'POST' });
+      const res = await fetch('/api/billing/portal', {
+        method: 'POST',
+        signal: AbortSignal.timeout?.(REQUEST_TIMEOUT_MS),
+      });
 
       // The session aged out while the page was open. Nothing here can renew it,
       // so send them through sign-in and back rather than explaining it.

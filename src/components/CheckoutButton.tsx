@@ -26,6 +26,24 @@ import { signInPath } from '@/lib/paths';
  * is made next to the learner's own measured hours, and bouncing them to a
  * comparison table throws away the one thing that convinced them.
  */
+/**
+ * How long a request may hang before it is treated as failed.
+ *
+ * Without this, `fetch` waits forever on a connection that stalls after the
+ * handshake — a captive portal, a proxy that accepts and never answers — and the
+ * button stays disabled reading its busy label with nothing to press. The
+ * learner cannot retry, because retrying is the button.
+ *
+ * Fifteen seconds is far past a healthy round trip and short enough that nobody
+ * is left watching a word. An abort surfaces as `AbortError`, which
+ * `connectionMessage` already turns into "la conexión tardó demasiado" — the
+ * sentence existed before anything could produce it.
+ *
+ * Optional-called: `AbortSignal.timeout` is missing on older Safari, and there
+ * the behaviour is what it was before this line.
+ */
+const REQUEST_TIMEOUT_MS = 15_000;
+
 export function CheckoutButton({
   plan,
   label,
@@ -47,6 +65,7 @@ export function CheckoutButton({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan }),
+        signal: AbortSignal.timeout?.(REQUEST_TIMEOUT_MS),
       });
 
       if (res.status === 401) {

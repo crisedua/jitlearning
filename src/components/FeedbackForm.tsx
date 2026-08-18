@@ -29,6 +29,17 @@ import { FEEDBACK_REWARD } from '@/lib/site';
  * they are still looking at the screen, for the same reason the email is
  * repeated back.
  */
+/**
+ * How long a request may hang before it is treated as failed.
+ *
+ * `fetch` waits forever on a connection that stalls after the handshake, and the
+ * button stays disabled reading its busy label with nothing to press. An abort
+ * surfaces as `AbortError`, which `connectionMessage` already turns into "la
+ * conexión tardó demasiado". Optional-called, because `AbortSignal.timeout` is
+ * missing on older Safari and there the behaviour is what it was before.
+ */
+const REQUEST_TIMEOUT_MS = 15_000;
+
 export function FeedbackForm({
   defaultEmail = '',
   signedIn = false,
@@ -110,6 +121,7 @@ export function FeedbackForm({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email, message }),
+          signal: AbortSignal.timeout?.(REQUEST_TIMEOUT_MS),
         })
           .then(async (res) => {
             const data = (await res.json()) as { ok?: boolean; error?: string };

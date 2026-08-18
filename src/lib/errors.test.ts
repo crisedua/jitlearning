@@ -11,6 +11,8 @@
  * connection would send them looking somewhere nothing is wrong.
  */
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, it } from 'node:test';
 import { connectionMessage, liveCallMessage } from './errors';
 
@@ -100,4 +102,36 @@ describe('a class that broke while it was running', () => {
   it('handles an empty message rather than showing a blank alert', () => {
     assert.match(liveCallMessage('   '), /clase se cortó/i);
   });
+});
+
+/*
+ * Every button that waits on the network gives up eventually.
+ *
+ * `connectionMessage` has had a sentence for a request that times out since it
+ * was written, and nothing could produce one: `fetch` without a signal waits
+ * forever on a connection that stalls after the handshake, so the button stayed
+ * disabled reading "Abriendo el pago…" with nothing to press. The learner cannot
+ * retry, because retrying is the button.
+ *
+ * Found by asking the question that turned up the hung class connection: what
+ * happens when no event ever arrives. It is the same failure on the money path.
+ */
+describe('requests that never come back', () => {
+  const ROOT = path.join(import.meta.dirname, '..', '..');
+
+  for (const file of ['CheckoutButton.tsx', 'BillingLink.tsx', 'FeedbackForm.tsx']) {
+    it(`${file} abandons a hung request`, () => {
+      const source = readFileSync(path.join(ROOT, 'src', 'components', file), 'utf8');
+      assert.match(
+        source,
+        /signal: AbortSignal\.timeout\?\.\(REQUEST_TIMEOUT_MS\)/,
+        'this button can hang forever with no way to retry',
+      );
+      assert.match(
+        source,
+        /connectionMessage\(err\)/,
+        'the abort would surface as a raw AbortError instead of a sentence',
+      );
+    });
+  }
 });
