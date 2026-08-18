@@ -597,6 +597,8 @@ one and expires on its own.
 | [`/api/checkout`](src/app/api/checkout/route.ts) | Mints a Checkout Session for a plan and returns its URL. Resolves the price from `plans.stripe_price_id` server-side, so a tampered request can only name a plan we sell, at that plan's real price. |
 | [`/api/webhooks/stripe`](src/app/api/webhooks/stripe/route.ts) | Verifies the signature over the raw bytes, then applies the subscription. Non-2xx on any write failure so Stripe retries: silently 200-ing there leaves somebody charged and unupgraded. |
 | [`/api/billing/portal`](src/app/api/billing/portal/route.ts) | Stripe's portal for changing a card, getting invoices and cancelling. Linked from `/progreso`, because a product that makes cancelling hard gets cancelled by chargeback instead. |
+| [`/api/intent`](src/app/api/intent/route.ts) | Records that somebody pressed a buy button, on both `/planes` and the offer under the measured hours. It exists because while checkout is unconfigured the click leaves for WhatsApp and the product would otherwise never know an attempt happened. Public, and safe to be: the row holds a plan id checked against the plans that exist, a channel checked against two literals, and a user id read from the cookie. No free-text column, so a stranger can inflate a count on an admin page and nothing else. |
+| [`/api/feedback`](src/app/api/feedback/route.ts) | Receives a submission from `/feedback` and writes it through the service role, since that table has RLS on and no policies. Open to people who never signed in, deliberately: somebody who bounced has the feedback a signup flow never hears. |
 
 Setup, in order:
 
@@ -1086,6 +1088,28 @@ src/components/         VoiceTutor, KnowledgeManager, KnownTopics
 src/lib/site.ts         Landing-page copy, incl. the falsifiable DIFFERENCES list
 scripts/                setup-agent, sync-agent, bulk ingest, doctor
 ```
+
+## The radar, which is retired
+
+Three routes and a table exist for something this product no longer does.
+[`/api/pain-radar`](src/app/api/pain-radar/route.ts) and
+[`/api/pain-seed`](src/app/api/pain-seed/route.ts) collected first-person
+complaints from public forums, and [`/api/pain-search`](src/app/api/pain-search/route.ts)
+read them back. It was built for a coach that was retired when this became one
+voice teacher, and no agent tool points at it now.
+
+Kept rather than deleted, because the rows are real and the collection still
+works. Worth knowing three things about it:
+
+- **All three are gated.** The two that spend money are behind `checkAdmin`.
+  `pain-search` was open on the reasoning that public forum quotes need no
+  protection, which was true and left an endpoint running a Postgres query for
+  nobody; it takes `INGEST_SECRET` now.
+- **It is the only thing here that touches OpenAI or Apify**, which is why
+  [`/privacidad`](src/app/privacidad/page.tsx) does not name them: a learner's
+  class never reaches either.
+- **[`/admin/radar`](src/app/admin/radar/page.tsx) says so on the page**, so an
+  operator watching a table fill does not assume something is reading it.
 
 ## What the tests actually guarantee
 
