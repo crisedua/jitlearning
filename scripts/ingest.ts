@@ -113,6 +113,40 @@ async function main() {
   }
 
   /*
+   * Refuse before uploading, not after.
+   *
+   * A document whose name matches no prefix in `TEACHER.sources` is attached to
+   * nothing: it uploads, indexes, occupies workspace RAG storage, and the
+   * teacher never cites it. That was reported at the end of the run, after every
+   * file had been sent — so the operator learned about it having already paid
+   * the upload, the indexing wait and the storage, and with a set of orphans to
+   * go and delete.
+   *
+   * The names come from the file paths, so this is knowable before anything
+   * leaves the machine. Same message, several minutes earlier, and nothing
+   * created that has to be cleaned up.
+   *
+   * `--force` is the escape hatch for the real case this would otherwise block:
+   * ingesting into a prefix that is about to be added to `TEACHER.sources`.
+   */
+  const planned = files.map((file) => documentName(dir, file));
+  const orphaned = planned.filter((name) => !ownsDocument(name));
+  if (orphaned.length > 0 && !process.argv.includes('--force')) {
+    console.error(
+      `\n${orphaned.length} of ${files.length} file(s) would be stored outside the live corpus,\n` +
+        'so they would upload, index, and be attached to nothing:\n',
+    );
+    for (const name of orphaned.slice(0, 10)) console.error(`    ${name}`);
+    if (orphaned.length > 10) console.error(`    … and ${orphaned.length - 10} more`);
+    console.error(
+      `\n  Move them under knowledge/${TEACHER.sources[0]}, add the prefix to\n` +
+        '  TEACHER.sources in src/lib/teacher.ts, or re-run with --force if you\n' +
+        '  are about to do one of those.\n',
+    );
+    process.exit(1);
+  }
+
+  /*
    * Replace by name rather than blindly adding.
    *
    * ElevenLabs happily stores two documents with the same name, so re-running
@@ -183,6 +217,9 @@ async function main() {
    */
   const orphans = names.filter((name) => !ownsDocument(name));
   if (orphans.length > 0) {
+    // Only reachable under --force now, since the check before the upload
+    // refuses otherwise. Kept because somebody who forced deliberately still
+    // wants the list, and the reason they forced may not have happened yet.
     console.warn('\n! These documents are outside the live corpus and will not be attached:\n');
     for (const name of orphans) console.warn(`    ${name}`);
     console.warn(
