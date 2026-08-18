@@ -263,6 +263,47 @@ describe('what crawlers are told', () => {
    * A route may be advertised or forbidden. What it may not be is neither,
    * because neither is the state nobody notices.
    */
+  /*
+   * And the manual names every one of them.
+   *
+   * Five did not, found by comparing the README to the routes on disk: two that
+   * are current and load-bearing — the one recording a buy-button press while
+   * checkout is unconfigured, and the one receiving the feedback that pays for
+   * the first ten plans — and three belonging to a retired subsystem the README
+   * had never mentioned at all.
+   *
+   * That last case is the one worth a test. An undocumented current route costs
+   * a maintainer a search. An undocumented retired one costs them a
+   * reconstruction: three endpoints and a table filling with forum quotes, and
+   * no way to learn why except reading all of it.
+   */
+  it('is named in the README, every route', () => {
+    const readme = readFileSync(path.join(ROOT, 'README.md'), 'utf8');
+    const appDir = path.join(ROOT, 'src', 'app');
+
+    const handlers: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name.startsWith('.')) continue;
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (entry.name === 'route.ts') {
+          handlers.push(`/${path.relative(appDir, dir).split(path.sep).join('/')}`);
+        }
+      }
+    };
+    walk(appDir);
+
+    assert.ok(handlers.length > 15, `only ${handlers.length} route handlers found`);
+
+    const undocumented = handlers.filter((route) => !readme.includes(route));
+    assert.deepEqual(
+      undocumented,
+      [],
+      `route handlers the manual never names: ${undocumented.join(', ')}`,
+    );
+  });
+
   it('accounts for every route in the app', () => {
     const appDir = path.join(ROOT, 'src', 'app');
 
