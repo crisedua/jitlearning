@@ -36,8 +36,19 @@ create table if not exists public.session_summaries (
   commitment_done     boolean not null default false
 );
 
+-- Deliberately not indexing `coach`, even though the column exists at this
+-- point in history. The next migration drops it, and Postgres drops any index
+-- that depends on a dropped column — so an index naming it is both useless
+-- after 20260810 and, on a re-run of this file against a database that already
+-- has 20260810, an outright error: `42703: column "coach" does not exist`.
+--
+-- That is not hypothetical. `npm run sql` bundles these files and calls them
+-- all idempotent, which they are individually and were not in combination: a
+-- deployment missing only the later migrations could not apply them without
+-- first failing on this line. The bundle stops at the first error, so nothing
+-- after it runs either.
 create index if not exists session_summaries_user_idx
-  on public.session_summaries (user_id, coach, created_at desc);
+  on public.session_summaries (user_id, created_at desc);
 
 alter table public.session_summaries enable row level security;
 
