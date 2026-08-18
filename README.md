@@ -133,6 +133,29 @@ curl $SITE/api/health -H "x-ingest-secret: $INGEST_SECRET"
 #    rather than for your laptop, and needs no secret.
 ```
 
+### When a push does not become a deploy
+
+`npm run doctor` ends with the commit the site is serving, compared to this
+checkout. If it says the deployment is behind, nothing you have pushed is live
+and every other check in that run described a build nobody is being served.
+
+This has happened here: nineteen commits sat undeployed while the site kept
+answering from an hour-old build, and the only visible symptom was a page
+returning 404 that exists in the repo. Before looking at the code, rule it out —
+it is almost never the code:
+
+```bash
+git rev-parse --short HEAD                 # what you have
+git rev-parse --short origin/main          # what GitHub has
+curl -s $SITE/api/health -H "x-ingest-secret: $INGEST_SECRET" | grep commit
+```
+
+If GitHub has it and the site does not, the repository is not the problem. A
+clean clone of this project installs from the lockfile and builds with no
+environment variables at all, which is worth knowing because it rules out the
+two explanations people reach for first. Look at the Vercel dashboard for a
+failed build, a paused project, or a disconnected Git integration.
+
 ### Then be the first learner
 
 Everything above checks configuration. None of it checks the product. One person
