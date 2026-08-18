@@ -345,7 +345,18 @@ function PlanCard({
       </p>
       {sessions !== null && sessions > 0 && (
         <p className="mt-1 text-[14px] text-soft">
-          {sessions === 1 ? 'alcanza para la primera clase' : `unas ${sessions} clases`}
+          {/*
+            "unas" is an approximation, and an approximation of two is a strange
+            thing to offer somebody. It reads correctly at thirty, which is what
+            a paid month now holds, and badly at the two the free tier became
+            when a class stopped being fifteen minutes and started being ten.
+            Hedged only where the hedge means something.
+          */}
+          {sessions === 1
+            ? 'alcanza para la primera clase'
+            : sessions <= 3
+              ? `alcanza para ${sessions} clases`
+              : `unas ${sessions} clases`}
         </p>
       )}
       {plan.seatMinimum && (
