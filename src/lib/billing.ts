@@ -1,12 +1,16 @@
 /**
  * Taking money, and the one rule that governs it.
  *
- * **`plan_id` is set by the Stripe webhook and by nothing else.** Not by the
- * browser, not by the checkout route, not optimistically after a redirect. The
- * checkout route only mints a URL; the plan changes when Stripe says a payment
- * happened. That is the difference between a paywall and a suggestion, and
- * `plan_id` is what `checkPlanAllowance` reads to decide how many minutes
- * somebody gets.
+ * **`plan_id` is never set by the browser.** Not by the checkout route, not
+ * optimistically after a redirect. The checkout route only mints a URL; the plan
+ * changes when Stripe says a payment happened. That is the difference between a
+ * paywall and a suggestion, and `plan_id` is what `checkPlanAllowance` reads to
+ * decide how many minutes somebody gets.
+ *
+ * Two things on the server write it and both are deliberate: this module, from
+ * Stripe's own copy of a subscription, and `grantPlan`, which honours the
+ * feedback deal. This used to say the webhook and nothing else, which was true
+ * until the grant was built and then said in three places for weeks.
  *
  * ## Why Stripe
  *
@@ -314,7 +318,7 @@ export async function applySubscription(subscription: Stripe.Subscription): Prom
  * "de cortesía" and told there was nothing to pay or cancel, minutes after
  * paying.
  *
- * `grantedUntil` is written by `grantPlan` and by nothing else, so it says
+ * `grantedUntil` is written by `grantPlan` and cleared by `expireGrant`, so it says
  * exactly what the label means. A plan with an end date we set is a courtesy. A
  * plan with no customer and no end date is somebody who paid a person, and they
  * get told how to change it rather than that there is nothing to change.
