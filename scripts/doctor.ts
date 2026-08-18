@@ -17,6 +17,7 @@
  * Prints only whether things work. Never prints key material.
  */
 import './env';
+import { readdirSync, readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { getAgent, listDocuments } from '../src/lib/elevenlabs';
 import { agentId, embeddingModel } from '../src/lib/config';
@@ -806,6 +807,67 @@ async function main() {
    * webhook also has to be registered on the ElevenLabs side, which no variable
    * implies. The probe below distinguishes all three states from outside.
    */
+  /*
+   * The sources the corpus cites, still resolving.
+   *
+   * The teacher's fourth promise is that a figure without a source does not get
+   * said, and the chain behind that is: the teacher cites the corpus, the corpus
+   * cites a URL, the URL is real. The last link is the only one nothing was
+   * checking, and it is the one that rots on somebody else's schedule — a
+   * support article gets renamed and the teacher starts pointing a learner at a
+   * page that no longer exists.
+   *
+   * A note rather than a failure. Link rot does not stop anybody having a class,
+   * and a deployment check that fails because a third party reorganised their
+   * docs would train the reader to skim this whole script.
+   */
+  console.log('\nCorpus sources\n');
+  const corpusDir = 'knowledge';
+  const urls = new Set<string>();
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = `${dir}/${entry.name}`;
+      // Retired corpora are not attached to anything, so their links are not
+      // promises this product is still making.
+      if (entry.isDirectory()) {
+        if (entry.name !== '_retired') walk(full);
+      } else if (entry.name.endsWith('.md')) {
+        for (const m of readFileSync(full, 'utf8').matchAll(/https?:\/\/[^\s)\]]+/g)) {
+          urls.add(m[0].replace(/[.,;]$/, ''));
+        }
+      }
+    }
+  };
+  try {
+    walk(corpusDir);
+  } catch {
+    note('No knowledge/ directory to read.');
+  }
+
+  if (urls.size === 0) {
+    note('The live corpus cites no links.');
+  } else {
+    const dead: string[] = [];
+    await Promise.all(
+      [...urls].map(async (url) => {
+        try {
+          const res = await fetch(url, { method: 'GET', redirect: 'follow' });
+          if (!res.ok) dead.push(`${res.status} ${url}`);
+        } catch {
+          dead.push(`unreachable ${url}`);
+        }
+      }),
+    );
+
+    if (dead.length === 0) {
+      ok(`${urls.size} source link(s) in the corpus still resolve`);
+    } else {
+      note(`${dead.length} of ${urls.size} source link(s) no longer resolve:`);
+      for (const d of dead) note(`  ${d}`);
+      note('The teacher cites these by name. A dead one sends somebody to a 404.');
+    }
+  }
+
   console.log('\nPost-call webhook\n');
   if (process.env.ELEVENLABS_WEBHOOK_SECRET?.trim()) {
     ok('ELEVENLABS_WEBHOOK_SECRET is set locally');
