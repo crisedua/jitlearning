@@ -1161,6 +1161,14 @@ teacher speak. That is the first learner's job, and it is still the next thing.
   retrieved. The documents themselves are still workspace-wide, so any agent you
   create by hand *could* be pointed at them, which is fine for material we wrote
   and not sufficient for a client's private corpus, which needs its own workspace.
+- **A searched source is named but not checkable.** When the lookup tool answers,
+  `/api/ask` passes the source *titles* to the agent so it can say "según la
+  página de precios de X", and drops the URLs. The learner hears an attribution
+  and has no way to follow it, which is a weaker version of the fourth promise on
+  the landing page. Storing them against the session and showing them in the
+  notebook is the obvious next move and is not built —
+  [`consulta.ts`](src/lib/consulta.ts) says so at the point where it would go.
+  Nothing fires today anyway, because the tool needs `INGEST_SECRET`.
 - **Voice needs HTTPS.** Fine on Vercel and on `localhost`; a plain-HTTP host
   will silently fail to get mic access.
 - **Procedural steps come from general knowledge, and go stale.** The teacher's
