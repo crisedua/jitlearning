@@ -40,7 +40,7 @@ import { BillingLink } from '@/components/BillingLink';
 import { CheckoutButton } from '@/components/CheckoutButton';
 import { IntentLink } from '@/components/IntentLink';
 import { PROFILE, WHATSAPP } from '@/lib/site';
-import { saveEvidence, saveMinutes, setCommitmentDone } from './actions';
+import { saveEvidence, saveMinutes, saveRecipe, setCommitmentDone } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -1003,6 +1003,46 @@ function Step({
           <br />
           {step.commitment}
         </p>
+      )}
+
+      {/*
+        What the teacher dictated, which is the part of a spoken class that
+        cannot survive being spoken. The lesson says what to open, what to write
+        and what to look at; the "what to write" is four lines of prompt, and
+        nobody transcribes those while walking. It lands here instead, editable,
+        because the same request is what makes the task fast again next week.
+
+        Shown on steps that have one, and on the current step even when empty, so
+        there is somewhere to put a request the learner wrote themselves. Not on
+        all twelve: an empty box repeated down the plan reads as work owed.
+      */}
+      {(step.recipePrompt || isCurrent) && (
+        <form action={saveRecipe} className="mt-4 rounded-md border border-line bg-surface-alt/40 p-3.5">
+          <input type="hidden" name="stepId" value={step.id} />
+          <label
+            className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-soft"
+            htmlFor={`recipe-${step.id}`}
+          >
+            Tu petición, lista para pegar
+          </label>
+          <textarea
+            id={`recipe-${step.id}`}
+            name="recipe"
+            rows={step.recipePrompt ? 6 : 3}
+            defaultValue={step.recipePrompt ?? ''}
+            placeholder="Lo que le escribes al asistente: qué le pides, con qué contexto y en qué formato."
+            className="mt-1.5 w-full rounded-md border border-field bg-surface px-3.5 py-2.5 font-mono text-[13px] leading-relaxed text-ink transition-colors duration-150 ease-out placeholder:font-sans placeholder:text-muted hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft"
+          />
+          {step.recipeCheck && (
+            <p className="mt-2.5 text-[13px] leading-relaxed text-soft">
+              <span className="font-semibold text-muted">Antes de usarlo, revisa:</span>{' '}
+              {step.recipeCheck}
+            </p>
+          )}
+          <button className="mt-2 rounded-md border border-line bg-surface px-4 py-2 text-[13px] font-semibold text-ink shadow-sm transition duration-150 ease-out hover:border-line-strong hover:shadow-md">
+            Guardar
+          </button>
+        </form>
       )}
 
       {/*

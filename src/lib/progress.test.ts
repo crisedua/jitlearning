@@ -43,6 +43,8 @@ function step(over: Partial<PlanStep> = {}): PlanStep {
     position: seq,
     minutesBefore: 90,
     minutesAfter: 25,
+    recipePrompt: null,
+    recipeCheck: null,
     ...over,
   };
 }

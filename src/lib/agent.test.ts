@@ -141,3 +141,48 @@ describe('dynamic variables', () => {
     }
   });
 });
+
+/**
+ * The dictated prompt, from the teacher's mouth to the notebook.
+ *
+ * `recipe_prompt` passes every existing check in this file the moment it is
+ * declared and read: the field scan above sees `progress.ts` reading it back,
+ * and `schema.test.ts` sees a migration creating the column. All three can hold
+ * while the feature does nothing at all, in either of two ways.
+ *
+ * If the persona never tells the teacher that what it dictates is kept, the
+ * teacher goes on expecting the learner to transcribe four lines while walking,
+ * and the column is empty forever. If the notebook never renders the column,
+ * every prompt is captured and stored where nobody can read it. Neither shows up
+ * as an error, and the whole point of the field is that a spoken class leaves
+ * something behind.
+ *
+ * So both ends are pinned, by behaviour rather than by wording: the persona has
+ * to say the request is saved, and the page has to read the field.
+ */
+describe('what the teacher dictates survives the call', () => {
+  it('the persona tells it the request is kept, so it stops asking people to write it down', () => {
+    for (const search of [true, false]) {
+      const persona = teacherSystemPrompt({ search });
+      assert.match(
+        persona,
+        /díctala entera/,
+        'the persona no longer tells the teacher to dictate the whole request',
+      );
+      assert.match(
+        persona,
+        /queda guardada/,
+        'the persona no longer tells the teacher the request is saved for the learner',
+      );
+    }
+  });
+
+  it('the notebook renders it, so it is stored somewhere a learner can see', () => {
+    const page = readFileSync('src/app/progreso/page.tsx', 'utf8');
+    assert.match(
+      page,
+      /step\.recipePrompt/,
+      'nothing on /progreso reads recipePrompt, so every dictated request is written to a column nobody displays',
+    );
+  });
+});

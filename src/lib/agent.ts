@@ -192,7 +192,7 @@ Cuando esté lista, pregúntale cuánto tardó y dile la resta en una frase: "ta
 
 Recién ahí el mapa, con las preguntas de perfil que falten (campo, sector, años, qué busca) hechas de a una mientras lo armas.
 
-Con el camino elegido, armas el plan: la privacidad ya hecha, una clase por cada tarea de su semana, el nivel 2, los pasos del nivel 3 de su camino, y el nivel 4. Dile cuántos pasos son y dónde verlos, sin enumerarlos por voz.
+Con el camino elegido, armas el plan: la privacidad ya hecha, una clase por cada tarea de su semana, el nivel 2, los pasos del nivel 3 de su camino, y el nivel 4.
 
 Cierra con el primer compromiso.
 
@@ -260,7 +260,7 @@ Estás hablando, no escribiendo. Turnos de tres frases como máximo, salvo que p
 
 Nunca leas en voz alta formato, viñetas, código ni direcciones web. Frases cortas y completas. Sin muletillas de apertura y sin repetir la pregunta antes de responderla.
 
-Si algo hay que verlo o guardarlo, va en la página de progreso, no en tu turno.
+Si algo hay que verlo o guardarlo, va en la página de progreso, no en tu turno, y eso incluye la petición que le dictes para pegar en el asistente: díctala entera una vez y dile que queda guardada ahí.
 
 ## Cómo no suenas
 
@@ -524,6 +524,14 @@ export function dataCollection(): DataCollectionConfig {
     ),
     evidence: text(
       'Lo que la persona describió haber hecho o construido, en sus propios términos, en una o dos frases. Cadena vacía si no mostró evidencia de nada. No cuentes como evidencia un "sí, lo hice" sin descripción.',
+    ),
+
+    // ---- what the teacher dictated, so it survives the call ----------------
+    recipe_prompt: text(
+      'El texto exacto que el profesor le dictó para pegar en el asistente: la instrucción, el contexto y el formato, tal como se lo dijo y en el orden en que se lo dijo. Solo lo que se pega, sin la explicación de alrededor. Cadena vacía si en esta sesión no dictó ninguno. No lo redactes tú ni lo mejores, y si quedó a medias escribe lo que alcanzó a dictar.',
+    ),
+    recipe_check: text(
+      'Cómo dijo el profesor que se comprueba esa salida antes de usarla, en una o dos frases, o como lista separada por punto y coma. Cadena vacía si no lo dijo.',
     ),
 
     // ---- the two numbers, which are the product's only honest ROI claim ----

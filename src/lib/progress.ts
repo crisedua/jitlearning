@@ -161,6 +161,16 @@ export interface PlanStep {
   minutesBefore: number | null;
   /** Minutes the same task took with what they built. */
   minutesAfter: number | null;
+  /**
+   * The text the teacher dictated to paste into an assistant, verbatim.
+   *
+   * The class is spoken, so this is the one part of a lesson that has to survive
+   * it: nobody transcribes four lines while walking, and this is what gets used
+   * again next week. Null until a session actually dictated one.
+   */
+  recipePrompt: string | null;
+  /** How to check that output before trusting it. Null when none was given. */
+  recipeCheck: string | null;
 }
 
 /**
@@ -382,10 +392,41 @@ export async function planSteps(userId: string): Promise<PlanStep[]> {
    *
    * So a missing column costs the two numbers, and nothing else.
    */
-  const FULL =
-    'id, lesson_id, level, title, linked_task, status, evidence, commitment, commitment_date, position, minutes_before, minutes_after';
-  const WITHOUT_MINUTES =
+  const BASE =
     'id, lesson_id, level, title, linked_task, status, evidence, commitment, commitment_date, position';
+  const WITH_MINUTES = `${BASE}, minutes_before, minutes_after`;
+  const FULL = `${WITH_MINUTES}, recipe_prompt, recipe_check`;
+
+  /*
+   * A ladder rather than a pair, because a second late column arrived.
+   *
+   * This was `FULL` falling back to a select with no minutes, which was right
+   * while minutes were the only columns that could be missing. Adding the recipe
+   * columns to `FULL` without touching the fallback would have made a database
+   * holding minutes but not recipes — every deployment that has run every
+   * migration but this one — fail `FULL`, land on the minutes-less select, and
+   * quietly stop reading the two numbers. That is the failure the comment above
+   * describes, reintroduced by the fix for a different one.
+   *
+   * So each rung drops exactly one migration's columns, newest first, and says
+   * which file to run. A database missing both falls twice.
+   */
+  const RUNGS: readonly { columns: string; missing: string }[] = [
+    { columns: FULL, missing: '' },
+    {
+      columns: WITH_MINUTES,
+      missing:
+        '[progress] plan_steps has no recipe columns; run 20260819000000_recipes.sql. ' +
+        'The plan renders and the numbers count, but what the teacher dictated is not kept.',
+    },
+    {
+      columns: BASE,
+      missing:
+        '[progress] plan_steps has no minutes columns; run 20260812000000_hours_saved.sql ' +
+        'and 20260819000000_recipes.sql. The plan renders, nothing can be measured, ' +
+        'and no offer will appear.',
+    },
+  ];
 
   type Rows = {
     data: Record<string, unknown>[] | null;
@@ -399,18 +440,14 @@ export async function planSteps(userId: string): Promise<PlanStep[]> {
       .eq('user_id', userId)
       .order('position', { ascending: true });
 
-  let { data, error } = (await read(FULL)) as unknown as Rows;
+  let data: Rows['data'] = null;
+  let error: Rows['error'] = null;
 
-  if (error?.code === MISSING_COLUMN) {
-    const retry = (await read(WITHOUT_MINUTES)) as unknown as Rows;
-    data = retry.data;
-    error = retry.error;
-    if (!error) {
-      console.error(
-        '[progress] plan_steps has no minutes columns; run 20260812000000_hours_saved.sql. ' +
-          'The plan renders, nothing can be measured, and no offer will appear.',
-      );
-    }
+  for (const rung of RUNGS) {
+    ({ data, error } = (await read(rung.columns)) as unknown as Rows);
+    if (error?.code === MISSING_COLUMN) continue;
+    if (!error && rung.missing) console.error(rung.missing);
+    break;
   }
 
   if (error) {
@@ -433,6 +470,8 @@ export async function planSteps(userId: string): Promise<PlanStep[]> {
       position: (row.position as number) ?? 0,
       minutesBefore: (row.minutes_before as number) ?? null,
       minutesAfter: (row.minutes_after as number) ?? null,
+      recipePrompt: (row.recipe_prompt as string) ?? null,
+      recipeCheck: (row.recipe_check as string) ?? null,
     };
   });
 }
@@ -1210,18 +1249,34 @@ async function advanceStep(userId: string, analysis: CallAnalysis): Promise<stri
   const minutesBefore = minutes(analysis, 'task_minutes_before');
   const minutesAfter = minutes(analysis, 'task_minutes_after');
 
+  const recipe = field(analysis, 'recipe_prompt');
+  const recipeCheck = field(analysis, 'recipe_check');
+
   const target = taught ? matchStep(steps, taught) : null;
   const step = target ?? currentStep(steps)?.step ?? null;
   if (!step) return null;
   // Nothing happened to a step this session: no lesson named, nothing shown,
-  // no status. Advancing on a commitment alone would mark lessons done for
-  // somebody who only ever promised.
-  if (!taught && !evidence && !statusRaw && minutesAfter === null) return null;
+  // no status, nothing dictated. Advancing on a commitment alone would mark
+  // lessons done for somebody who only ever promised.
+  //
+  // A dictated prompt counts as something happening, and it is safe to let it
+  // through: `status` below falls back to the step's own, so this write can
+  // save the text without moving anybody forward. A session that dictated a
+  // prompt and captured nothing else is exactly the one where losing it hurts.
+  if (!taught && !evidence && !statusRaw && minutesAfter === null && !recipe) return null;
 
   const status = readStatus(statusRaw) ?? step.status;
 
   const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
   if (evidence) patch.evidence = evidence;
+
+  /*
+   * Only written when this session produced one. A lesson that revisits a task
+   * without dictating anything must not blank the prompt the learner has been
+   * reusing every week since.
+   */
+  if (recipe) patch.recipe_prompt = recipe;
+  if (recipeCheck) patch.recipe_check = recipeCheck;
 
   /*
    * The numbers only attach to a weekly task. Writing them onto a fundamentals
@@ -1243,10 +1298,37 @@ async function advanceStep(userId: string, analysis: CallAnalysis): Promise<stri
   // `count` too: a filter that matches nothing is not an error, and this is the
   // write that records what was taught and the two minute figures. Losing it
   // silently loses the measurement the whole offer is built on.
-  const { error, count } = await supabaseAdmin()
-    .from('plan_steps')
-    .update(patch, { count: 'exact' })
-    .eq('id', step.id);
+  const write = (body: Record<string, unknown>) =>
+    supabaseAdmin().from('plan_steps').update(body, { count: 'exact' }).eq('id', step.id);
+
+  let { error, count } = await write(patch);
+
+  /*
+   * The same half-migrated database `planSteps` reads around, on the way in.
+   *
+   * The read ladder degrades a missing column into a narrower select. This write
+   * had no such thing, and it did not need one until the recipe columns arrived:
+   * an UPDATE naming a column Postgres does not have fails whole, with 42703,
+   * which `pending` swallows by design — so a deployment running this code
+   * against a database that has not had 20260819000000_recipes.sql pasted into it
+   * yet would lose the status, the evidence and both minute figures of every
+   * class, and log nothing at all. There is a window of exactly that shape after
+   * every deploy, because the code ships and the SQL is pasted by hand.
+   *
+   * So the prompt is the part that gives way. Written when the column is there,
+   * dropped when it is not, and never at the cost of the measurement.
+   */
+  if (error?.code === MISSING_COLUMN && ('recipe_prompt' in patch || 'recipe_check' in patch)) {
+    const fallback = { ...patch };
+    delete fallback.recipe_prompt;
+    delete fallback.recipe_check;
+    console.error(
+      '[progress] plan_steps has no recipe columns; run 20260819000000_recipes.sql. ' +
+        'The lesson is recorded without the prompt the teacher dictated.',
+    );
+    ({ error, count } = await write(fallback));
+  }
+
   if (error && !pending(error.code)) {
     console.error('[progress] step write failed:', error.message);
   } else if (!error && count === 0) {

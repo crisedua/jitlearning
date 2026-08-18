@@ -26,6 +26,11 @@ export const MIGRATION_SENSITIVE: ReadonlyArray<{
 }> = [
   { table: 'career_profiles', column: 'chosen_path', why: 'the teacher remembers nobody' },
   { table: 'plan_steps', column: 'minutes_before', why: 'no plan, and nothing to measure' },
+  {
+    table: 'plan_steps',
+    column: 'recipe_prompt',
+    why: 'every prompt the teacher dictates is lost when the call ends',
+  },
   { table: 'session_summaries', column: 'conversation_id', why: 'no commitments carry over' },
   { table: 'feedback', column: 'message', why: 'the /feedback deal cannot collect anybody' },
   { table: 'billing_events', column: 'handled_at', why: 'a failed payment is never retried' },

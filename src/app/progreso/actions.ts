@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * The three things a learner may change by hand.
+ * The four things a learner may change by hand.
  *
  * Everything else on the progress page comes out of a transcript. That is the
  * point: a plan somebody can edit into "done" measures nothing, so the status of
@@ -16,6 +16,13 @@
  * nothing about the rule above, because the status of the step still comes from
  * the class.
  *
+ * The fourth is the dictated prompt. It arrives from the transcript like
+ * everything else, and it is the one arriving thing the learner is supposed to
+ * take over: level 2's proof is "una petición tuya escrita con las 3 partes,
+ * guardada para reusar", and a prompt nobody may correct after the assistant
+ * answers badly is not theirs and does not get reused. Editing it changes no
+ * status and moves no number.
+ *
  * ## Why the request-scoped client, not the service role
  *
  * These writes run as the signed-in learner, so row-level security is what
@@ -28,6 +35,16 @@ import { createClient, currentUser } from '@/lib/supabase/server';
 
 /** Long enough to describe what was built, short enough to stay a description. */
 const EVIDENCE_CHARS = 2_000;
+
+/**
+ * Prompts run long, and the long ones are the good ones.
+ *
+ * Context is what changes the answer — that is the whole of `cri-01-contexto` —
+ * so a cap tight enough to feel tidy would truncate exactly the requests this
+ * teaches people to write. Wide enough to hold a page of pasted context, narrow
+ * enough that the field is not a document store.
+ */
+const RECIPE_CHARS = 8_000;
 
 export async function saveEvidence(formData: FormData): Promise<void> {
   const user = await currentUser();
@@ -151,6 +168,39 @@ export async function saveMinutes(formData: FormData): Promise<void> {
   if (error) console.error('[progreso] minutes write failed:', error.message);
   else if (count === 0) {
     console.error(`[progreso] minutes not saved for step ${stepId}: no row, or RLS refused it`);
+  }
+  revalidatePath('/progreso');
+}
+
+/**
+ * The prompt, as the learner has edited it.
+ *
+ * Writes only `recipe_prompt`. The check beside it on the page is the teacher's
+ * ("how do you know this output is right"), it is displayed rather than edited,
+ * and leaving it out of this form is what keeps the two apart: the request is
+ * the learner's to tune, the verification habit is the lesson.
+ */
+export async function saveRecipe(formData: FormData): Promise<void> {
+  const user = await currentUser();
+  if (!user) return;
+
+  const stepId = String(formData.get('stepId') ?? '');
+  if (!stepId) return;
+
+  const raw = String(formData.get('recipe') ?? '').trim();
+  const recipe = raw ? raw.slice(0, RECIPE_CHARS) : null;
+
+  const supabase = await createClient();
+  const { error, count } = await supabase
+    .from('plan_steps')
+    .update({ recipe_prompt: recipe, updated_at: new Date().toISOString() }, { count: 'exact' })
+    .eq('id', stepId);
+
+  if (error) console.error('[progreso] recipe write failed:', error.message);
+  // As above: through the learner's client, so zero rows is a missing row or a
+  // policy refusing it, and neither arrives as an error.
+  else if (count === 0) {
+    console.error(`[progreso] recipe not saved for step ${stepId}: no row, or RLS refused it`);
   }
   revalidatePath('/progreso');
 }
