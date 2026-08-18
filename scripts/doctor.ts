@@ -497,7 +497,22 @@ async function main() {
         .select('*', { count: 'exact', head: true });
       if (probe.error) {
         bad(`${older.table} is not queryable: ${probe.error.message}`);
-        note(`Backs ${older.why}. Run ${older.migration} (not in \`npm run sql\`).`);
+        /*
+         * Whether the file is in the default paste or not, which is the whole
+         * difference between "you already have this" and "you have to go find
+         * it". `npm run sql` starts at 20260808 and assumes everything earlier
+         * is applied, so the older tables need naming individually and the
+         * newer ones are already in the bundle the operator was going to paste
+         * anyway. Saying "not in npm run sql" about a file that is in it sends
+         * somebody looking for a step they have already been given.
+         */
+        const inBundle = /(\d{8})\d*_/.exec(older.migration)?.[1] ?? '';
+        note(
+          `Backs ${older.why}. ` +
+            (inBundle >= '20260808'
+              ? 'It is in `npm run sql`, so pasting that bundle creates it.'
+              : `Run ${older.migration} (not in \`npm run sql\`).`),
+        );
         supabaseFailures++;
       } else if (older.table === 'purchase_intents') {
         /*
