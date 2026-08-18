@@ -42,12 +42,35 @@ interface Check {
   detail: string;
 }
 
+/**
+ * The commit this build came from, which is not a secret.
+ *
+ * Vercel sets it in the runtime environment. Absent means either not deployed
+ * there or a build older than this line, and both answers are useful.
+ */
+const commit = () => process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null;
+
 export async function GET(req: Request) {
   try {
     requireSecret(req);
   } catch (err) {
     if (err instanceof UnauthorizedError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
+      /*
+       * The commit rides along with the refusal.
+       *
+       * Everything else here is a description of how this deployment is
+       * configured and stays behind the secret. A seven character hash of a
+       * public repository is not, and withholding it makes the one question
+       * somebody asks during an outage unanswerable: is the thing I pushed the
+       * thing that is running.
+       *
+       * Yesterday's check could not tell "the deployment is old" from "the
+       * secret is not set there", because both produced a body with no commit
+       * in it. Those are opposite conclusions — one says look at Vercel, the
+       * other says look at your environment variables — and it reported the
+       * first for the second.
+       */
+      return NextResponse.json({ error: err.message, commit: commit() }, { status: err.status });
     }
     throw err;
   }
@@ -300,7 +323,7 @@ export async function GET(req: Request) {
        * Vercel sets this in the runtime environment. Locally it is absent, and
        * absent is honest: nothing has been deployed.
        */
-      commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+      commit: commit(),
       checks,
     },
     { status: ready ? 200 : 503 },

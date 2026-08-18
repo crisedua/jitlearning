@@ -1254,8 +1254,17 @@ async function main() {
     const local = execSync('git rev-parse --short HEAD').toString().trim();
 
     if (!live) {
-      note(`${origin} does not report a commit. Either it is not on Vercel, or the`);
-      note('deployment predates this check, which is itself the answer.');
+      /*
+       * No commit in the answer is itself dated. This endpoint returns one
+       * beside its refusal, so a deployment new enough to carry that line
+       * always says which build it is, secret or no secret. Silence means the
+       * build predates it, which is the same conclusion as being behind and
+       * is worth stating as one rather than as a shrug.
+       */
+      bad(`${origin} reports no commit, so it is running a build older than this check.`);
+      note('Nothing pushed since then is live, including everything checked above.');
+      note('Look for a failed or paused deployment rather than for a bug here.');
+      failures++;
     } else if (live === local) {
       ok(`${origin} is serving ${live}, which is this checkout`);
     } else {
