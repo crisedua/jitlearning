@@ -534,3 +534,74 @@ describe('a commitment past its date', () => {
     assert.equal(isOverdue(session({ commitmentDate: null })), false);
   });
 });
+
+/**
+ * Every extracted field the teacher is meant to remember reaches the record.
+ *
+ * `agent.test.ts` proves each declared extraction is read back somewhere, and
+ * that is a weaker claim than it sounds: `profile_ai_usage` satisfied it by
+ * being mapped into an object, while no code path used the value. It was
+ * extracted on every finished call, stored, and consumed by nobody — so the
+ * persona asked "qué tiene a mano" in the first session and opened the second
+ * without the answer, asking again.
+ *
+ * This checks the stronger thing: what the learner told the teacher about
+ * themselves comes back the next time.
+ */
+describe('what the teacher carries between sessions', () => {
+  const full: CareerProfile = {
+    role: 'analista de operaciones',
+    field: 'logística',
+    sector: 'salud',
+    experienceYears: 8,
+    weeklyTasks: ['Responder correos de proveedores'],
+    tools: ['Excel', 'Outlook'],
+    aiUsage: 'usa ChatGPT para redactar, sin verificar',
+    goal: 'dejar de perder la mañana en correos',
+    chosenPath: 'mejorar',
+    map: {},
+    updatedAt: null,
+  };
+
+  const recordFor = (profile: CareerProfile) =>
+    buildRecord({
+      profile,
+      steps: [],
+      history: [
+        {
+          id: 'h1',
+          createdAt: new Date().toISOString(),
+          lessonId: null,
+          taught: 'algo',
+          commitment: null,
+          commitmentDate: null,
+          commitmentDone: null,
+        },
+      ],
+    }).registro;
+
+  for (const [label, value] of [
+    ['the role', full.role!],
+    ['what they are after', full.goal!],
+    ['the tools they already have', full.tools[0]!],
+    ['whether they already use AI', full.aiUsage!],
+    ['their own weekly task', full.weeklyTasks[0]!],
+  ] as const) {
+    it(`carries ${label}`, () => {
+      const said = recordFor(full);
+      assert.ok(
+        said.includes(value),
+        `"${value}" never reaches the record, so the teacher asks for it again: ${said}`,
+      );
+    });
+  }
+
+  it('says nothing about fields the learner never gave', () => {
+    // Empty is not "unknown said out loud": a record padded with blanks spends
+    // the budget that the plan and the commitment need.
+    const said = recordFor({ ...full, aiUsage: null, goal: null, tools: [] });
+    assert.ok(!said.includes('Con IA:'), said);
+    assert.ok(!said.includes('Busca:'), said);
+    assert.ok(!said.includes('Ya usa:'), said);
+  });
+});

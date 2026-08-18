@@ -588,6 +588,24 @@ export function buildRecord({
   }
   if (known.tools.length > 0) blocks.push(`Ya usa: ${known.tools.slice(0, 5).join(', ')}.`);
   /*
+   * Whether they already work with AI, which the teacher asks for and then
+   * forgot.
+   *
+   * `profile_ai_usage` is extracted on every finished call, written to the
+   * database, and mapped into this object — and nothing read the value. Not the
+   * record, not the notebook, not the plan. So ElevenLabs ran an extraction per
+   * call for a field consumed by nobody, which is the exact waste
+   * `agent.test.ts` says it guards against; that check passes because the field
+   * name is referenced, not because the answer is used.
+   *
+   * The cost is not the extraction. The persona's first session asks "qué tiene
+   * a mano, un asistente de chat o el correo y las planillas de siempre" — so
+   * the learner answers, the answer is captured, and the next session opens
+   * without it and asks again. Being asked the same question twice by something
+   * that claims to remember you is worse than never being asked.
+   */
+  if (known.aiUsage) blocks.push(`Con IA: ${known.aiUsage}.`);
+  /*
    * The saving goes near the front of the record, because it is the best thing
    * the teacher can open on: a person who hears "ya recuperas tres horas a la
    * semana" is being told what they got, in their own numbers, before being
