@@ -32,9 +32,20 @@ import { FEEDBACK_REWARD } from '@/lib/site';
 export function FeedbackForm({
   defaultEmail = '',
   signedIn = false,
+  seatsOpen = true,
 }: {
   defaultEmail?: string;
   signedIn?: boolean;
+  /**
+   * Whether any of the ten are left.
+   *
+   * `grantFeedbackPlan` refuses the eleventh, so with the seats gone this form
+   * was promising something the system would decline. The offer disappears
+   * rather than the page: feedback is still worth having from somebody who
+   * arrives after the tenth person, and telling them their words are wanted
+   * without dangling a plan is the honest version of asking.
+   */
+  seatsOpen?: boolean;
 }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState(defaultEmail);
@@ -51,17 +62,38 @@ export function FeedbackForm({
         </p>
         {signedIn ? (
           <p className="mt-2 text-[15px] leading-relaxed text-ink/80">
-            Si estás entre las primeras {FEEDBACK_REWARD.seats} personas, activamos tus{' '}
-            {FEEDBACK_REWARD.months} meses del plan {FEEDBACK_REWARD.plan} en la cuenta de{' '}
-            <span className="font-medium">{sentTo}</span> y lo vas a ver en tu página de progreso.
+            {seatsOpen ? (
+              <>
+                Si estás entre las primeras {FEEDBACK_REWARD.seats} personas, activamos tus{' '}
+                {FEEDBACK_REWARD.months} meses del plan {FEEDBACK_REWARD.plan} en la cuenta de{' '}
+                <span className="font-medium">{sentTo}</span> y lo vas a ver en tu página de
+                progreso.
+              </>
+            ) : (
+              <>
+                Los {FEEDBACK_REWARD.seats} cupos de {FEEDBACK_REWARD.months} meses ya se usaron, así
+                que esto no viene con plan. Lo leemos igual, y si algo de lo que dijiste cambia el
+                producto, te escribimos.
+              </>
+            )}
           </p>
         ) : (
           <p className="mt-2 text-[15px] leading-relaxed text-ink/80">
-            Si estás entre las primeras {FEEDBACK_REWARD.seats} personas, los{' '}
-            {FEEDBACK_REWARD.months} meses del plan {FEEDBACK_REWARD.plan} se activan sobre una
-            cuenta. Entra con Google usando{' '}
-            <span className="font-medium">{sentTo}</span> y quedas listo: sin eso no hay dónde
-            ponerlos.
+            {seatsOpen ? (
+              <>
+                Si estás entre las primeras {FEEDBACK_REWARD.seats} personas, los{' '}
+                {FEEDBACK_REWARD.months} meses del plan {FEEDBACK_REWARD.plan} se activan sobre una
+                cuenta. Entra con Google usando{' '}
+                <span className="font-medium">{sentTo}</span> y quedas listo: sin eso no hay dónde
+                ponerlos.
+              </>
+            ) : (
+              <>
+                Los {FEEDBACK_REWARD.seats} cupos de {FEEDBACK_REWARD.months} meses ya se usaron, así
+                que esto no viene con plan. Lo leemos igual, y si algo de lo que dijiste cambia el
+                producto, te escribimos.
+              </>
+            )}
           </p>
         )}
       </div>

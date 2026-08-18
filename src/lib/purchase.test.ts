@@ -75,3 +75,39 @@ describe('the gates between wanting to pay and having a plan', () => {
     assert.match(progreso, /isComped\(subscription\)/);
   });
 });
+
+/*
+ * The feedback deal withdraws itself when the seats are gone.
+ *
+ * `grantFeedbackPlan` refuses the eleventh grant, because ten is a number
+ * printed on a public page and a number on a public page should be true. The
+ * page did not know that: with the seats used it went on promising three months
+ * to anybody who wrote, and `seatsLeft` — which exists and is correct — was read
+ * only by the admin screen.
+ *
+ * The headline is the part that matters. Making only the confirmation
+ * conditional would be worse than leaving it alone: somebody reads "tu feedback
+ * vale 3 meses", writes for ten minutes about what did not work, and is told
+ * afterwards that the seats went. A promise has to be withdrawn before the
+ * effort, not after it.
+ */
+describe('the feedback deal when the seats run out', () => {
+  const page = read('src', 'app', 'feedback', 'page.tsx');
+  const form = read('src', 'components', 'FeedbackForm.tsx');
+
+  it('asks how many are left', () => {
+    assert.match(page, /seatsLeft\(await listGrants\(\)\) > 0/);
+  });
+
+  it('withdraws the headline, not just the thank-you', () => {
+    assert.match(page, /seatsOpen \? \(/, 'the promise above the form is unconditional again');
+    assert.match(page, /cupos ya se usaron/);
+  });
+
+  it('still asks for the feedback', () => {
+    // Somebody arriving after the tenth person is worth hearing from, and the
+    // honest version of asking is asking without dangling a plan.
+    assert.match(page, /Tu feedback sigue sirviendo/);
+    assert.match(form, /esto no viene con plan/);
+  });
+});
