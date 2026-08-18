@@ -791,6 +791,34 @@ async function main() {
    * anybody who forked it, which is exactly the distinction worth printing
    * rather than leaving somebody to discover.
    */
+  /*
+   * The secret that turns talking into a product.
+   *
+   * Without ELEVENLABS_WEBHOOK_SECRET the post-call route refuses every
+   * delivery, so a conversation happens and nothing survives it: no profile, no
+   * plan, no minutes measured, so no hours on /progreso and no offer beside
+   * them. Sessions look perfect and nothing accumulates.
+   *
+   * The doctor had no mention of it at all — the same gap the canonical origin
+   * had, on the variable with the largest silent consequence in the product.
+   *
+   * Being set locally is not the same as being set in the deployment, and the
+   * webhook also has to be registered on the ElevenLabs side, which no variable
+   * implies. The probe below distinguishes all three states from outside.
+   */
+  console.log('\nPost-call webhook\n');
+  if (process.env.ELEVENLABS_WEBHOOK_SECRET?.trim()) {
+    ok('ELEVENLABS_WEBHOOK_SECRET is set locally');
+  } else {
+    bad('ELEVENLABS_WEBHOOK_SECRET is not set locally.');
+    note('Without it nothing a learner says is ever recorded: no plan, no hours, no offer.');
+    failures++;
+  }
+  note('For the deployment, and whether ElevenLabs is actually calling it:');
+  note('  curl -s -o /dev/null -w "%{http_code}" -X POST <app>/api/webhooks/elevenlabs -d "{}"');
+  note('  503 = the secret is missing there · 401 = set (this call just lacks a signature)');
+  note('Registering the webhook in the ElevenLabs dashboard is a separate step.');
+
   console.log('\nCanonical origin\n');
   const configured = configuredOrigin();
   const rawOrigin =

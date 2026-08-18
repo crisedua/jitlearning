@@ -132,6 +132,21 @@ having one complete session is the only thing that exercises the whole chain, an
 it should be you before it is anybody else — a stranger who hits a broken step
 does not report it, they leave.
 
+Before you start, confirm the two things that decide whether any of it is
+recorded. Both answer from outside, without holding a secret:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" $SITE/api/health
+curl -s -o /dev/null -w "%{http_code}\n" -X POST $SITE/api/webhooks/elevenlabs -d '{}'
+#  503 = that secret is not set in the deployment · 401 = it is
+```
+
+The second one is the whole loop. Without `ELEVENLABS_WEBHOOK_SECRET` a class
+happens and nothing survives it — no profile, no plan, no minutes measured, so no
+hours on `/progreso` and no offer beside them. The session feels perfect and the
+notebook stays empty, which reads as the product being broken rather than as one
+variable being unset.
+
 Take a real task from your own week, at a computer, and walk it:
 
 | Where | What should be true |
