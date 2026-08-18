@@ -108,6 +108,17 @@ const OLDER_TABLES: ReadonlyArray<{ table: string; migration: string; why: strin
 
 async function main() {
   let failures = 0;
+  /*
+   * A failure this run actually watched happen in the deployment, as opposed to
+   * a variable missing from this machine.
+   *
+   * The ladder below is about `.env.local`, and it ranked "nobody can sign in"
+   * first while people were signing in perfectly well against a deployment that
+   * has those variables. Meanwhile the thing genuinely broken where learners
+   * are sat fourth. A gap this check has seen in production outranks anything
+   * inferred from the absence of a local file.
+   */
+  let deploymentBlocked: string | null = null;
   let supabaseFailures = 0;
 
   // ------------------------------------------------------------- ElevenLabs
@@ -1401,6 +1412,8 @@ async function main() {
     if (probe.status === 401) {
       ok(`${configuredOrigin() ?? DEFAULT_ORIGIN} accepts deliveries (401 on an unsigned body, which is correct)`);
     } else if (probe.status === 503) {
+      deploymentBlocked =
+        'the deployment is refusing every post-call delivery: ELEVENLABS_WEBHOOK_SECRET is not set there';
       bad(`${configuredOrigin() ?? DEFAULT_ORIGIN} answers 503: ELEVENLABS_WEBHOOK_SECRET is not in the deployment.`);
       note('Anything ElevenLabs sends after a class is refused, and a failed delivery is');
       note('never retried, so the measurement from that class is gone for good.');
@@ -1920,7 +1933,13 @@ async function main() {
     );
     const copy = rung ? STEP_COPY[rung.id] : undefined;
 
-    if (deploymentStale) {
+    if (deploymentBlocked && !deploymentStale) {
+      console.error(`\nStart here: ${deploymentBlocked}.`);
+      console.error('  This one was observed in the deployment, not inferred from this machine.');
+      console.error('  The variables below are for local development; the deployment has its own,');
+      console.error('  and missing them here says nothing about whether a learner can sign in.');
+      if (copy) console.error(`  On this machine, separately: ${copy[0]}`);
+    } else if (deploymentStale) {
       /*
        * Said the way the note under the check says it.
        *
