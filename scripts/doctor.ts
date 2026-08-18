@@ -84,6 +84,26 @@ const OLDER_TABLES: ReadonlyArray<{ table: string; migration: string; why: strin
     migration: 'supabase/migrations/20260806000000_feedback.sql',
     why: 'the /feedback deal, which is how the first people get recruited',
   },
+  /*
+   * The only table that records somebody deciding to pay.
+   *
+   * Checkout is not configured, so every buy button on /planes opens a
+   * prefilled email or WhatsApp message, and /api/intent writes one row per
+   * click. That route swallows its own errors on purpose: a person mid-click is
+   * already navigating to their mail client and a failed measurement must never
+   * become a failed sale.
+   *
+   * Which means that if this table is missing, every click is dropped in
+   * silence. Nothing errors, nobody is inconvenienced, and the single event
+   * worth knowing the rate of leaves no trace at all. Unchecked, the difference
+   * between "nobody wants this" and "the table was never created" is invisible,
+   * and those two readings lead to opposite decisions about the product.
+   */
+  {
+    table: 'purchase_intents',
+    migration: 'supabase/migrations/20260817000000_purchase_intent.sql',
+    why: 'every click on a buy button, which is the only purchase signal that exists today',
+  },
 ];
 
 async function main() {
@@ -479,6 +499,18 @@ async function main() {
         bad(`${older.table} is not queryable: ${probe.error.message}`);
         note(`Backs ${older.why}. Run ${older.migration} (not in \`npm run sql\`).`);
         supabaseFailures++;
+      } else if (older.table === 'purchase_intents') {
+        /*
+         * Reported with its count, unlike the others, because this number is
+         * the answer to the only question that matters about the product and
+         * it is otherwise visible on one admin page nobody opens daily.
+         */
+        const n = probe.count ?? 0;
+        ok(
+          n === 0
+            ? 'purchase_intents exists, and nobody has clicked a buy button yet'
+            : `purchase_intents exists, and ${n} person-click(s) have said they want to pay`,
+        );
       } else {
         ok(`${older.table} exists`);
       }
