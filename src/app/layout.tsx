@@ -97,6 +97,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es" className={`${sans.variable} ${serif.variable} ${mono.variable}`}>
       <body className="flex min-h-screen flex-col bg-bg font-sans text-ink">
         {/*
+          Eight links and buttons stand between the top of every page and the
+          content, and a keyboard reaches them one at a time, on every page, on
+          every visit. This is one Tab and one Enter instead.
+
+          Hidden until focused rather than hidden outright: `sr-only` takes it
+          out of the layout, and the focus classes put it back as a real, visible
+          control the moment somebody Tabs into it, which is the only moment it
+          is useful and the only moment anybody should see it.
+
+          It matters more here than the count suggests. This is a product for
+          people learning to work with a computer under time pressure, some of
+          them older, some using magnification — and the first thing after the
+          skip is the button the whole page is about.
+        */}
+        <a
+          href="#contenido"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-accent focus:px-5 focus:py-2.5 focus:text-[15px] focus:font-medium focus:text-bg"
+        >
+          Saltar al contenido
+        </a>
+        {/*
           Reading progress. Purely decorative, and driven entirely by the scroll
           timeline — where that is unsupported the bar simply sits full-width
           and inert rather than misreporting position.
@@ -189,7 +210,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </nav>
         </header>
 
-        <main className="flex-1">{children}</main>
+        <main id="contenido" className="flex-1">
+          {children}
+        </main>
 
         <footer className="border-t border-line py-9">
           <div className="mx-auto flex max-w-[75rem] flex-wrap items-center gap-x-6 gap-y-3 px-6 text-sm text-soft">
