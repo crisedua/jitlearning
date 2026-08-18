@@ -30,4 +30,9 @@ export const MIGRATION_SENSITIVE: ReadonlyArray<{
   { table: 'feedback', column: 'message', why: 'the /feedback deal cannot collect anybody' },
   { table: 'billing_events', column: 'handled_at', why: 'a failed payment is never retried' },
   { table: 'profiles', column: 'plan_granted_until', why: 'a comped plan never expires' },
+  {
+    table: 'profiles',
+    column: 'subscription_status',
+    why: 'nobody who measured their hours is ever shown the offer',
+  },
 ];

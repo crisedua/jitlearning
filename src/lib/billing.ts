@@ -39,6 +39,9 @@ import { serviceConfigured, supabaseAdmin } from './supabase/admin';
  */
 const PAYING = new Set(['active', 'trialing', 'past_due']);
 
+/** Postgres: undefined column. Means a migration has not been applied here. */
+const UNDEFINED_COLUMN = '42703';
+
 export function billingConfigured(): boolean {
   return Boolean(process.env.STRIPE_SECRET_KEY?.trim());
 }
@@ -277,7 +280,42 @@ export async function subscriptionFor(userId: string): Promise<Subscription | nu
     .eq('id', userId)
     .maybeSingle();
 
-  if (error || !data) return null;
+  /*
+   * The plan survives a missing billing migration.
+   *
+   * Three of the four columns above are added by 20260813000000_billing.sql.
+   * `plan_id` is not: it predates all of it, and it is the only one the offer
+   * needs. This used to return null on any error, silently, so a deployment that
+   * had not run that migration made every learner read as "no subscription" —
+   * and `/progreso` renders its offer only when the subscription says `free`.
+   *
+   * The result was the worst possible shape of failure: somebody finishes a
+   * task, measures the hours, sees the number, and is never asked to pay,
+   * because a migration about Stripe was missing. Nothing logged, nothing broke,
+   * and the one screen where the product asks for money quietly did not.
+   */
+  if (error?.code === UNDEFINED_COLUMN) {
+    const basic = await supabaseAdmin()
+      .from('profiles')
+      .select('plan_id')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (basic.error || !basic.data) return null;
+    return {
+      planId: (basic.data as { plan_id: string }).plan_id,
+      status: null,
+      endsAt: null,
+      hasCustomer: false,
+    };
+  }
+
+  if (error) {
+    console.error('[billing] could not read the subscription:', error.message);
+    return null;
+  }
+  if (!data) return null;
+
   const row = data as {
     plan_id: string;
     subscription_status: string | null;
