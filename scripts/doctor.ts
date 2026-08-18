@@ -1284,10 +1284,53 @@ async function main() {
     note('Without it nothing a learner says is ever recorded: no plan, no hours, no offer.');
     failures++;
   }
+  /*
+   * Whether the webhook exists at all, asked of ElevenLabs rather than assumed.
+   *
+   * The secret and the registration are separate things, and only the secret
+   * was ever checked. A workspace with no post-call webhook is silent in
+   * exactly the way that looks like nothing is wrong: classes connect, the
+   * teacher works, the learner hears their subtraction said out loud, and then
+   * the call ends and none of it is written down. No summary, no step marked
+   * done, no minutes, no commitment.
+   *
+   * `timeSaved` counts only steps that are done and carry both numbers, so with
+   * no webhook the notebook stays empty, the weekly saving stays zero, and the
+   * offer that the whole product builds toward never appears. The learner can
+   * still type the numbers in by hand on /progreso, which is the only reason
+   * this is a severe fault rather than a fatal one.
+   */
+  if (key) {
+    try {
+      const res = await fetch('https://api.elevenlabs.io/v1/convai/settings', {
+        headers: { 'xi-api-key': key },
+      });
+      if (res.ok) {
+        const body = (await res.json()) as {
+          webhooks?: { post_call_webhook_id?: string | null; events?: string[] };
+        };
+        const id = body.webhooks?.post_call_webhook_id ?? null;
+        if (id) {
+          ok(`A post-call webhook is registered (${id}), so classes are recorded`);
+        } else {
+          bad('No post-call webhook is registered at ElevenLabs.');
+          note('Classes will run and be recorded nowhere: no summary, no step marked done,');
+          note('no minutes, no commitment. timeSaved counts only done steps with both');
+          note('numbers, so the weekly saving stays zero and the offer never appears.');
+          note('Dashboard -> Conversational AI -> Settings -> Post-call webhook.');
+          note(`  URL: <app>/api/webhooks/elevenlabs · Events: post_call_transcription`);
+          note('Then put the signing secret in ELEVENLABS_WEBHOOK_SECRET, here and in Vercel.');
+          failures++;
+        }
+      }
+    } catch {
+      // Connectivity is already reported above; a second failure adds nothing.
+    }
+  }
+
   note('For the deployment, and whether ElevenLabs is actually calling it:');
   note('  curl -s -o /dev/null -w "%{http_code}" -X POST <app>/api/webhooks/elevenlabs -d "{}"');
   note('  503 = the secret is missing there · 401 = set (this call just lacks a signature)');
-  note('Registering the webhook in the ElevenLabs dashboard is a separate step.');
 
   /*
    * The only check here that can tell the truth.
