@@ -38,6 +38,7 @@ import {
   dynamicVariablePlaceholders,
   evaluationCriteria,
   FIRST_MESSAGE,
+  ragConfig,
   teacherSystemPrompt,
 } from '@/lib/agent';
 import { ownsDocument } from '@/lib/teacher';
@@ -267,6 +268,7 @@ async function readAgent(id: string): Promise<AgentRow[]> {
     const live = (prompt?.prompt ?? '').trim();
     // Which persona this agent should be running, from what it actually carries.
     const hasTool = (prompt?.tool_ids ?? []).length > 0;
+    const wantRag = ragConfig();
 
     const settings = (agent as unknown as {
       platform_settings?: {
@@ -363,6 +365,19 @@ async function readAgent(id: string): Promise<AgentRow[]> {
           missingCriteria.length === 0
             ? `Los ${repoCriteria.length} criterios están puestos, así que cada conversación vuelve marcada.`
             : `Faltan ${missingCriteria.length}: ${missingCriteria.join(', ')}. Sin ellos toda clase vuelve como "success" sin que nadie haya preguntado qué logró. Corre \`npm run sync:agent -- --push\`.`,
+      },
+      {
+        label: 'La búsqueda en el material',
+        ok:
+          Boolean(prompt?.rag?.enabled) &&
+          prompt?.rag?.embedding_model === wantRag.embedding_model &&
+          prompt?.rag?.max_vector_distance === wantRag.max_vector_distance,
+        detail: !prompt?.rag?.enabled
+          ? 'Apagada, así que el material adjunto no se consulta nunca. Corre `npm run sync:agent -- --push`.'
+          : prompt?.rag?.embedding_model !== wantRag.embedding_model ||
+              prompt?.rag?.max_vector_distance !== wantRag.max_vector_distance
+            ? `Configurada distinto a este repo: modelo ${prompt?.rag?.embedding_model ?? 'sin definir'} y umbral ${prompt?.rag?.max_vector_distance ?? 'sin definir'}, contra ${wantRag.embedding_model} y ${wantRag.max_vector_distance}. Muy estrecho, o un modelo con el que los documentos no se indexaron, no recupera nada: el profesor responde de conocimiento general, lo dice, y suena bien igual. Corre \`npm run sync:agent -- --push\`.`
+            : `Encendida, con ${wantRag.embedding_model} y umbral ${wantRag.max_vector_distance}.`,
       },
       {
         label: 'La herramienta de búsqueda',

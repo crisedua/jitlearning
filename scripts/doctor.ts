@@ -28,6 +28,7 @@ import {
   PROMISE_MARKERS,
   dataCollection,
   evaluationCriteria,
+  ragConfig,
   teacherSystemPrompt,
 } from '../src/lib/agent';
 import { PROMISES } from '../src/lib/site';
@@ -151,6 +152,49 @@ async function main() {
           `Agent ${id}: ${attached.length} document(s) attached, RAG ${
             prompt?.rag?.enabled ? 'enabled' : 'disabled'
           }`,
+        );
+      }
+
+      /*
+       * Enabled is not the same as working.
+       *
+       * This reported RAG enabled and stopped there, and the two numbers under
+       * it are what decide whether anything is ever retrieved. `agent.ts` says
+       * of the relevance gate that setting it too tight makes the agent retrieve
+       * nothing and answer from general knowledge — which the persona then
+       * labels honestly as general knowledge, so the class sounds correct and
+       * the corpus is simply never used. A different embedding model is the same
+       * shape: the documents were indexed with one, and a query embedded with
+       * another matches nothing.
+       *
+       * Both are one dashboard edit away and neither raises anything.
+       */
+      const liveRag = prompt?.rag ?? {};
+      const wantRag = ragConfig();
+      const ragDrift: string[] = [];
+      if (liveRag.embedding_model !== wantRag.embedding_model) {
+        ragDrift.push(
+          `embedding model is ${liveRag.embedding_model ?? 'unset'}, repo says ${wantRag.embedding_model}`,
+        );
+      }
+      if (liveRag.max_vector_distance !== wantRag.max_vector_distance) {
+        ragDrift.push(
+          `relevance gate is ${liveRag.max_vector_distance ?? 'unset'}, repo says ${wantRag.max_vector_distance}`,
+        );
+      }
+
+      if (!prompt?.rag?.enabled) {
+        bad('RAG is disabled on the live agent, so the corpus is never consulted.');
+        failures++;
+      } else if (ragDrift.length > 0) {
+        bad(`Retrieval is configured differently from this repo: ${ragDrift.join('; ')}.`);
+        note('Too tight a gate, or a model the documents were not indexed with, retrieves nothing.');
+        note('The teacher then answers from general knowledge and says so, and sounds fine doing it.');
+        note('Run `npm run sync:agent -- --push`.');
+        failures++;
+      } else {
+        ok(
+          `Retrieval matches: ${wantRag.embedding_model} at ${wantRag.max_vector_distance}`,
         );
       }
 
