@@ -30,6 +30,7 @@ import { checkAdmin } from '@/lib/admin';
 import { signInPath } from '@/lib/paths';
 import { NotAdmin } from '@/components/NotAdmin';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
+import { classReport } from '@/lib/classes';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -185,7 +186,9 @@ export default async function EmbudoPage() {
     return <NotAdmin email={gate.email} path="/admin/embudo" />;
   }
 
-  const funnel = await loadFunnel();
+  // Read together: one needs our database, the other needs none of it, and the
+  // page is most useful in the window where only the second can answer.
+  const [funnel, classes] = await Promise.all([loadFunnel(), classReport()]);
 
   return (
     <section className="mx-auto max-w-[70rem] px-6 py-16">
@@ -198,6 +201,45 @@ export default async function EmbudoPage() {
         entre uno y el siguiente: ahí está lo que hay que arreglar, y no en una opinión sobre el
         producto.
       </p>
+
+      {/*
+        What the classes say, before this app has recorded anything.
+        
+        Everything below counts rows we wrote, and we write nothing until the
+        post-call webhook is registered. Until then the funnel answers zero to
+        every question while real conversations are happening, and zero reads as
+        broken rather than as unwired. This panel comes from ElevenLabs, so it
+        can answer on day one, and it says the narrower thing it actually knows:
+        whether the classes that happened did what a class is meant to do.
+      */}
+      {classes && classes.held > 0 && (
+        <section className="mt-10 rounded-lg border border-line bg-surface-alt/40 px-5 py-4">
+          <h2 className="text-[15px] font-semibold">Lo que dicen las clases</h2>
+          <p className="mt-1.5 text-[15px] leading-relaxed text-ink/85">
+            {classes.held} conversación(es) de más de un minuto.{' '}
+            {classes.analysed === 0
+              ? 'Ninguna de las recientes trae análisis todavía.'
+              : `De las ${classes.analysed} más recientes con análisis, ${classes.finished} terminó una tarea real y ${classes.measured} dejó los dos números.`}
+          </p>
+          {classes.analysed > 0 && classes.measured === 0 && (
+            <p className="mt-2 text-[14px] leading-relaxed text-warning">
+              Sin los dos números nadie ve la oferta en su progreso, así que a nadie se le pide
+              pagar.
+            </p>
+          )}
+          {classes.whyNot && (
+            <p className="mt-2 text-[13px] leading-relaxed text-muted">
+              El extractor dijo: {classes.whyNot}
+            </p>
+          )}
+          {classes.personaChangedSince && (
+            <p className="mt-2 text-[13px] leading-relaxed text-muted">
+              La persona del profesor cambió después de la última clase, así que esto describe a un
+              profesor que ya no existe.
+            </p>
+          )}
+        </section>
+      )}
 
       {!funnel ? (
         <p className="mt-10 rounded-lg border border-warning/35 bg-warning-soft/50 px-4 py-3 text-[15px] leading-relaxed text-ink/80">
