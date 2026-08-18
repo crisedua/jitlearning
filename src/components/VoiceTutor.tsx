@@ -481,8 +481,25 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
         */}
         <section className="rounded-lg border border-line bg-surface p-5 shadow-sm sm:p-6">
           <label className="block">
+            {/*
+              "Si quieres" rather than nothing.
+              
+              The field is optional and read as required, which is the wrong way
+              round for the one screen whose whole job is to get a button
+              pressed. A first-time learner does not know what to write here —
+              the teacher asks the same question in its first minute, which is
+              where they will answer it better — and an empty box above a button
+              reads as a form to complete before the thing starts.
+              
+              Two words, and the button stops waiting on a decision nobody has
+              to make. Somebody returning with a task in mind still types it and
+              saves themselves a turn, which is who the field was for.
+            */}
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-muted">
-              Tu objetivo de hoy
+              Tu objetivo de hoy{' '}
+              <span className="font-normal normal-case tracking-normal text-soft">
+                · si quieres
+              </span>
             </span>
             <input
               value={objective}
