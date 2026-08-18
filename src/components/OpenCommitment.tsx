@@ -5,9 +5,9 @@ import type { Commitment } from '@/lib/commitments';
  *
  * This is the whole anti-shelf-help argument made concrete. A book does not
  * come back and ask; neither does a course, a podcast, or a chat window you
- * closed. Putting the commitment on the screen you land on — before the coach
- * choice, before the microphone — is what makes the follow-up unavoidable
- * rather than something the coach might get round to.
+ * closed. Putting the commitment on the screen you land on — before the
+ * microphone, before anything else — is what makes the follow-up unavoidable
+ * rather than something the teacher might get round to.
  *
  * Deliberately not a checkbox. Nothing here can honestly know whether it was
  * done: the learner reports back out loud, in conversation, and a tick box
@@ -53,7 +53,7 @@ export function OpenCommitment({ commitment }: { commitment: Commitment }) {
       </dl>
 
       <p className="mt-4 text-[14px] leading-relaxed text-ink/75">
-        Lo acordaste el {commitment.sessionDate}. Retómalo con tu coach: si lo hiciste,
+        Lo acordaste el {commitment.sessionDate}. Retómalo con tu profesor: si lo hiciste,
         construyen sobre lo que salió; si no, lo primero es averiguar qué te lo impidió.
       </p>
     </section>

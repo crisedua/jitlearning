@@ -30,7 +30,7 @@ export function SeedRadarButton({ count }: { count: number }) {
               if (!res.ok || !data.ok) throw new Error(data.error ?? 'No se pudo cargar.');
               setResult({
                 ok: true,
-                message: `${data.stored} señal(es) cargadas y publicadas. El coach ya puede buscarlas.`,
+                message: `${data.stored} señal(es) cargadas y publicadas.`,
               });
               // Refresh the server component so the count above reflects the write.
               router.refresh();

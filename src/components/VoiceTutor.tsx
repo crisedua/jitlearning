@@ -534,7 +534,7 @@ function StatusPill({
 }) {
   const label = connected
     ? isSpeaking
-      ? 'El coach está hablando'
+      ? 'El profesor está hablando'
       : 'Te escucha'
     : STATUS_ES[status] ?? status;
 

@@ -133,7 +133,7 @@ export function KnowledgeManager() {
 
       setNotice(
         pinned
-          ? 'Subido y adjuntado al coach.'
+          ? 'Subido y adjuntado al profesor.'
           : 'Subido. Indexando: el profesor lo tomará automáticamente al terminar.',
       );
       if (data.syncError) setError(`Adjuntado con una advertencia: ${data.syncError}`);
@@ -167,7 +167,7 @@ export function KnowledgeManager() {
       const res = await fetch('/api/agent', { method: 'POST', headers: authHeaders() });
       const data = (await res.json()) as { attached?: number; error?: string };
       if (!res.ok) throw new Error(data.error ?? 'Falló la sincronización.');
-      setNotice(`El coach tiene ahora ${data.attached} documento(s) adjunto(s).`);
+      setNotice(`El profesor tiene ahora ${data.attached} documento(s) adjunto(s).`);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falló la sincronización.');
@@ -287,7 +287,7 @@ export function KnowledgeManager() {
             disabled={busy}
             className="rounded-md border border-line bg-surface px-5 py-2.5 text-sm font-semibold text-ink shadow-sm transition duration-150 ease-out hover:border-line-strong hover:shadow-md disabled:opacity-55"
           >
-            Resincronizar coach
+            Resincronizar profesor
           </button>
         </div>
 
@@ -312,7 +312,7 @@ export function KnowledgeManager() {
         </h2>
         {docs.length === 0 ? (
           <p className="rounded-lg border border-dashed border-line bg-surface px-4 py-6 text-center text-sm text-muted">
-            Todavía no hay nada. El coach responderá desde conocimiento general hasta que
+            Todavía no hay nada. El profesor responderá desde conocimiento general hasta que
             añadas material.
           </p>
         ) : (
