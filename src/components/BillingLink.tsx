@@ -1,5 +1,6 @@
 'use client';
 
+import { connectionMessage } from '@/lib/errors';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { signInPath } from '@/lib/paths';
@@ -43,7 +44,9 @@ export function BillingLink() {
       if (!res.ok || !data.url) throw new Error(data.error ?? 'No pudimos abrirlo.');
       window.location.href = data.url;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No pudimos abrirlo.');
+      setError(
+        connectionMessage(err) ?? (err instanceof Error ? err.message : 'No pudimos abrirlo.'),
+      );
       setBusy(false);
     }
   }

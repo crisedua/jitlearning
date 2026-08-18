@@ -1,5 +1,6 @@
 'use client';
 
+import { connectionMessage } from '@/lib/errors';
 import { useState } from 'react';
 import { FEEDBACK_REWARD } from '@/lib/site';
 
@@ -84,7 +85,10 @@ export function FeedbackForm({
             setSentTo(email.trim());
           })
           .catch((err: unknown) => {
-            setError(err instanceof Error ? err.message : 'No se pudo enviar.');
+            setError(
+              connectionMessage(err) ??
+                (err instanceof Error ? err.message : 'No se pudo enviar.'),
+            );
           })
           .finally(() => setSending(false));
       }}

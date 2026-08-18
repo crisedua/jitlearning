@@ -1,5 +1,6 @@
 'use client';
 
+import { connectionMessage } from '@/lib/errors';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { signInPath } from '@/lib/paths';
@@ -60,7 +61,10 @@ export function CheckoutButton({
       // a blocked payment window is indistinguishable from a broken button.
       window.location.href = data.url;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No pudimos abrir el pago.');
+      setError(
+        connectionMessage(err) ??
+          (err instanceof Error ? err.message : 'No pudimos abrir el pago.'),
+      );
       setBusy(false);
     }
   }
