@@ -1187,6 +1187,27 @@ async function main() {
     }
   }
 
+  /*
+   * A grant nobody can verify from here.
+   *
+   * 20260818000000_learner_columns.sql narrows what the learner's own client may
+   * update, so the rule `actions.ts` states — that a step's status comes from the
+   * class and not from a checkbox — is enforced by Postgres rather than by the
+   * page. Getting it wrong breaks the two forms on /progreso, and it breaks them
+   * the loud way: a column privilege violation is an error, not an empty update,
+   * so it lands in the logs and in the console.error beside each write.
+   *
+   * This cannot check it without being signed in as a learner, which the doctor
+   * never is. So it says what to try instead of implying it has been tried.
+   */
+  if (serviceConfigured()) {
+    const probe = await supabaseAdmin().from('plan_steps').select('id', { head: true, count: 'exact' });
+    if (!probe.error) {
+      note('After pasting 20260818000000_learner_columns.sql, save the evidence box');
+      note('and the minutes box on /progreso once as a learner. Both must still write.');
+    }
+  }
+
   console.log('\nPost-call webhook\n');
   if (process.env.ELEVENLABS_WEBHOOK_SECRET?.trim()) {
     ok('ELEVENLABS_WEBHOOK_SECRET is set locally');

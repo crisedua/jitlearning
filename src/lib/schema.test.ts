@@ -355,6 +355,10 @@ describe('migrations in order', () => {
         /alter table (?:only )?public\.([a-z_]+)/g,
         /references public\.([a-z_]+)/g,
         /create index if not exists [a-z_]+\s+on public\.([a-z_]+)/g,
+        // Added when a migration started granting column privileges: a grant on
+        // a table an earlier file has not created fails the paste the same way
+        // an alter does, and takes everything after it down with it.
+        /(?:grant|revoke)[\s\S]{0,120}?\son public\.([a-z_]+)/g,
       ]) {
         for (const m of code.matchAll(pattern)) {
           const table = m[1]!;
