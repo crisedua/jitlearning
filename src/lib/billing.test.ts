@@ -167,3 +167,44 @@ describe('the documented rule for a comped plan', () => {
     );
   });
 });
+
+/*
+ * A learner with no profile row still gets the offer.
+ *
+ * `syncProfile` writes that row at sign-in and is best-effort by design, so a
+ * failure there leaves somebody signed in with nothing in `profiles` until their
+ * next sign-in. `/progreso` renders the offer only when the subscription reads
+ * `free`, and `subscriptionFor` used to answer null, so that learner could
+ * finish a task, measure the hours, see the number, and never be asked to pay.
+ *
+ * The same failure the missing-billing-migration branch above was written to
+ * prevent, arriving through a different door. Pinned as a shape rather than a
+ * call, because reaching the real function needs a database.
+ */
+describe('a subscription with no profile row', () => {
+  it('is treated as free, which is the only state that shows the offer', () => {
+    const source = readFileSync(
+      path.join(ROOT, 'src', 'lib', 'billing.ts'),
+      'utf8',
+    );
+    const fn = source.slice(source.indexOf('export async function subscriptionFor'));
+
+    assert.doesNotMatch(
+      fn.slice(0, fn.indexOf('\nexport ')),
+      /if \(!data\) return null;/,
+      'no profile row answers null again, so a learner who measured their hours is never asked to pay',
+    );
+    assert.match(fn, /if \(!data\) \{[\s\S]{0,200}planId: 'free'/);
+  });
+
+  it('grants nothing by doing so', () => {
+    // The allowance is metered from `plan_usage`, not from this. Free here can
+    // only ever show an offer; it can never open a paid plan to somebody.
+    const account = readFileSync(path.join(ROOT, 'src', 'lib', 'account.ts'), 'utf8');
+    assert.doesNotMatch(
+      account,
+      /subscriptionFor/,
+      'the allowance now depends on subscriptionFor, so answering free there would grant access',
+    );
+  });
+});

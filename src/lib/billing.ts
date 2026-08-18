@@ -387,7 +387,28 @@ export async function subscriptionFor(userId: string): Promise<Subscription | nu
     console.error('[billing] could not read the subscription:', error.message);
     return null;
   }
-  if (!data) return null;
+
+  /*
+   * No profile row is a free learner, not an unknown one.
+   *
+   * `syncProfile` writes that row at sign-in and is best-effort on purpose: a
+   * failure there must not block a sign-in Supabase already accepted. So a
+   * learner can exist, have a class and measure their hours with no row here,
+   * until their next sign-in writes one.
+   *
+   * Returning null for them costs exactly what the comment above describes for a
+   * missing migration: `/progreso` shows the offer only when the subscription
+   * reads `free`, so somebody who did the work and saw the number is never asked
+   * to pay. The same silent failure through a different door.
+   *
+   * Free is also the safe direction. Nothing grants access from this — the
+   * allowance is metered from `plan_usage` — so the worst this can do is offer a
+   * plan to somebody who already has one, and a paid plan always has a row,
+   * because paying is what writes it.
+   */
+  if (!data) {
+    return { planId: 'free', status: null, endsAt: null, hasCustomer: false, grantedUntil: null };
+  }
 
   const row = data as {
     plan_id: string;
