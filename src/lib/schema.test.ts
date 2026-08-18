@@ -463,3 +463,82 @@ describe('what a learner may update', () => {
     }
   });
 });
+
+/*
+ * Nobody may read somebody else's row.
+ *
+ * `/privacidad` now says this in public: "la base de datos está cerrada por
+ * usuario, así que otra persona con cuenta no puede leer lo tuyo". That moved it
+ * from an implementation detail to a promise, and a promise on a page is worth
+ * exactly what enforces it.
+ *
+ * Two ways it can break, and neither shows up anywhere else. A policy written
+ * without `auth.uid()` reads every row to every signed-in visitor. And a policy
+ * on a table with RLS never enabled does nothing at all — Postgres accepts it,
+ * the migration succeeds, the policy sits there looking correct, and the table
+ * is wide open.
+ *
+ * The check itself has to be careful: these migrations align their statements
+ * with runs of spaces, and a regex expecting one space reported RLS missing on
+ * `profiles`, which holds every email and Stripe customer id in the product.
+ * That was wrong, and it is the shape of mistake that would otherwise get
+ * "fixed" by loosening something.
+ */
+describe('learner data is closed by user', () => {
+  const dir = path.join(ROOT, 'supabase', 'migrations');
+  const sql = readdirSync(dir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .map((f) => readFileSync(path.join(dir, f), 'utf8').replace(/--[^\n]*/g, ''))
+    .join('\n');
+
+  /** Every table in these migrations that holds something belonging to a person. */
+  const PERSONAL = [
+    'profiles',
+    'coach_sessions',
+    'career_profiles',
+    'plan_steps',
+    'session_summaries',
+    'feedback',
+    'purchase_intents',
+    'billing_events',
+  ];
+
+  it('names tables that exist, so a rename cannot empty this check', () => {
+    for (const table of PERSONAL) {
+      assert.match(sql, new RegExp(`create table if not exists public\\.${table}\\b`), table);
+    }
+  });
+
+  it('enables row level security on each of them', () => {
+    for (const table of PERSONAL) {
+      assert.match(
+        sql,
+        new RegExp(`alter table public\\.${table}\\s+enable row level security`),
+        `${table} has no RLS, so any policy on it is decoration and the table is open`,
+      );
+    }
+  });
+
+  it('scopes every client-readable policy to the signed-in user', () => {
+    for (const table of PERSONAL) {
+      const policies = [
+        ...sql.matchAll(
+          new RegExp(
+            `create policy "([^"]+)"\\s+on public\\.${table}\\s+for select\\s+to (\\w+)([\\s\\S]{0,240}?);`,
+            'g',
+          ),
+        ),
+      ];
+
+      for (const [, name, role, body] of policies) {
+        assert.notEqual(role, 'anon', `"${name}" lets anybody read ${table}`);
+        assert.match(
+          body,
+          /auth\.uid\(\)/,
+          `"${name}" on ${table} reads every row to every signed-in visitor`,
+        );
+      }
+    }
+  });
+});
