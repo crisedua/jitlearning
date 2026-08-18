@@ -17,6 +17,7 @@ import { learnerContext } from '@/lib/memory';
 import { learnerRecord } from '@/lib/progress';
 import { spellMinutes } from '@/lib/plans';
 import { minutesLeft } from '@/lib/balance';
+import { CLASS_CAP_MINUTES } from '@/lib/class-length';
 
 /**
  * What a learner is told when the class cannot start.
@@ -103,11 +104,28 @@ export async function GET() {
      */
     const left = minutesLeft(balance);
 
-    if (left !== null) {
-      record.registro = `${record.registro} Le queda${left === 1 ? '' : 'n'} ${spellMinutes(left)} de clase${
-        balance?.period === 'total' ? ' gratis en total' : ' este mes'
-      }.`.slice(0, 900);
-    }
+    /*
+     * How long THIS class can run, which is not the same as what they have left.
+     *
+     * This sent the monthly balance, so the teacher was told "le quedan 300
+     * minutos" and paced a class that the platform ends after
+     * CLASS_CAP_MINUTES. The persona reads this line to decide whether to
+     * attempt the map or go straight to finishing and measuring the task, so
+     * the wrong number here buys a leisurely opening in a class that has no
+     * room for one — which is the failure this block was written to prevent,
+     * arriving by the other door.
+     *
+     * The balance still gets said when it is the tighter of the two, because a
+     * learner with four minutes left this month has a shorter class than the
+     * ceiling allows.
+     */
+    const thisClass = Math.min(left ?? CLASS_CAP_MINUTES, CLASS_CAP_MINUTES);
+
+    record.registro = `${record.registro} Esta clase dura ${spellMinutes(thisClass)} como máximo${
+      left !== null && left < CLASS_CAP_MINUTES
+        ? `, porque es todo lo que le queda${balance?.period === 'total' ? ' del tiempo gratis' : ' este mes'}`
+        : ''
+    }.`.slice(0, 900);
 
     /*
      * Two kinds of memory, kept apart on purpose.

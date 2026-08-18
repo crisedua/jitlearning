@@ -1487,7 +1487,14 @@ async function main() {
     ['the lesson structure', '### Sesiones siguientes'],
     ['the computer-or-walking switch', '## Dónde está la persona'],
     ['the commitment', '## Termina con un compromiso'],
-    ['finishing inside the free minutes', 'menos de diez'],
+    /*
+     * The instruction, not the threshold. This matched 'menos de diez', so
+     * tuning the number the rule fires at — which is a normal thing to do, and
+     * was done the moment the real class length was discovered — reported the
+     * session shape as incomplete. A marker anchored to a figure fails every
+     * time the figure is right.
+     */
+    ['finishing inside the class instead of planning', 'salta el mapa'],
     ['continuity', PROMISE_MARKERS.memory],
   ];
   const missingShape = shape.filter(([, marker]) => !inEvery(marker));

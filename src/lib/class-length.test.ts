@@ -84,3 +84,52 @@ describe('the ceiling', () => {
     assert.doesNotMatch(tutor, /Math\.max\(left - 5/);
   });
 });
+
+/*
+ * The third place the same number is said.
+ *
+ * The teacher paces the class off one sentence in `registro`, and the persona
+ * branches on it: under a threshold it skips the map and spends everything on
+ * finishing and measuring the task. That sentence used to carry the monthly
+ * balance, so a paid learner's teacher read "300 minutos" and opened at leisure
+ * inside a call the platform ends after CLASS_CAP_MINUTES.
+ */
+describe('what the teacher is told it has', () => {
+  const route = read('src', 'app', 'api', 'signed-url', 'route.ts');
+  const persona = read('src', 'lib', 'agent.ts');
+
+  it('is bounded by the length of a class, not the balance', () => {
+    assert.match(
+      route,
+      /Math\.min\(left \?\? CLASS_CAP_MINUTES, CLASS_CAP_MINUTES\)/,
+      'the record is quoting the balance to the teacher again',
+    );
+  });
+
+  it('describes the class rather than the month', () => {
+    assert.match(route, /Esta clase dura/);
+    assert.doesNotMatch(route, /Le queda\$\{left === 1/);
+  });
+
+  it('still says when the balance is the shorter of the two', () => {
+    assert.match(route, /porque es todo lo que le queda/);
+  });
+
+  it('leaves the persona reading the class length, not the remaining minutes', () => {
+    assert.match(persona, /El registro te dice cuánto dura esta clase/);
+    assert.doesNotMatch(persona, /El registro te dice cuántos minutos le quedan/);
+  });
+
+  it('keeps the persona threshold above the real class length', () => {
+    // Otherwise the branch that protects a short class can never be taken.
+    const m = persona.match(/Si son menos de (\w+) minutos, salta el mapa/);
+    assert.ok(m, 'the map-skipping rule is gone');
+    const words: Record<string, number> = { diez: 10, quince: 15, veinte: 20, treinta: 30 };
+    const threshold = words[m[1]];
+    assert.ok(threshold, `unrecognised threshold "${m[1]}"`);
+    assert.ok(
+      threshold >= CLASS_CAP_MINUTES,
+      `a ${CLASS_CAP_MINUTES}-minute class never trips a ${threshold}-minute rule`,
+    );
+  });
+});
