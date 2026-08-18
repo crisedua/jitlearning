@@ -1,5 +1,6 @@
 'use client';
 
+import { micMessage } from '@/lib/mic';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConversationProvider, useConversation } from '@elevenlabs/react';
 import { KnownTopics } from './KnownTopics';
@@ -348,7 +349,7 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
         dynamicVariables: data.dynamicVariables,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo iniciar la sesión.');
+      setError(micMessage(err) ?? (err instanceof Error ? err.message : 'No se pudo iniciar la sesión.'));
       setStarting(false);
     }
     },
