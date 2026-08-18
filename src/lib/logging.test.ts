@@ -176,3 +176,40 @@ describe('what the privacy page claims about the code', () => {
     assert.match(page, /No guardamos el audio/, 'the page no longer makes the claim this checks');
   });
 });
+
+/*
+ * No comment states the length of the feedback grant.
+ *
+ * Two did, and both said six months while the page has offered three for as long
+ * as anybody can remember: the migration that created the table, and the route
+ * that receives the submission. Neither is wrong in a way that breaks anything —
+ * they are prose — and both are read by somebody deciding what the product
+ * promises, which is when a number matters most.
+ *
+ * The rule is narrow on purpose. `FEEDBACK_REWARD.months` is the number, and any
+ * comment that repeats it is a second copy that cannot be kept in step. Say what
+ * it is for, not how long it is.
+ */
+describe('the length of the feedback grant', () => {
+  it('is stated in one place and repeated in none', () => {
+    const files = [
+      path.join(ROOT, 'src', 'app', 'api', 'feedback', 'route.ts'),
+      path.join(ROOT, 'supabase', 'migrations', '20260806000000_feedback.sql'),
+      path.join(ROOT, 'src', 'lib', 'grants.ts'),
+    ];
+
+    const offenders: string[] = [];
+    for (const file of files) {
+      const source = readFileSync(file, 'utf8');
+      for (const m of source.matchAll(/\b(three|six|twelve|seis|tres|doce)[- ]months?\b/gi)) {
+        offenders.push(`${path.relative(ROOT, file)}: "${m[0]}"`);
+      }
+    }
+
+    assert.deepEqual(
+      offenders,
+      [],
+      `a comment names the grant length instead of leaving it to FEEDBACK_REWARD: ${offenders.join(', ')}`,
+    );
+  });
+});

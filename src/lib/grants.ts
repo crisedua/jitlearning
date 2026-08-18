@@ -1,14 +1,18 @@
 /**
  * Comped plans: the /feedback deal, honoured.
  *
- * The site promises three months of Fundador to the first ten people who leave
+ * How long is `FEEDBACK_REWARD.months` and is deliberately not repeated here.
+ * Two comments elsewhere named it and both said six while the page said three,
+ * for weeks, because prose has no way to be wrong out loud.
+ *
+ * The site promises a few months of Fundador to the first ten people who leave
  * real feedback. Everything about that promise lived in a sentence on a page:
  * nothing read the feedback, nothing could put somebody on a plan without a
  * Stripe subscription, nothing counted the seats, and nothing knew when the
- * three months were up.
+ * the grant was up.
  *
  * The last one is the trap. A grant made by hand is indistinguishable from a
- * paid plan the moment it is made, so "three months free" silently becomes
+ * paid plan the moment it is made, so a bounded gift silently becomes
  * "free forever" and the only way to notice is to remember. This module is what
  * makes the promise finite.
  *
@@ -179,7 +183,7 @@ export async function listGrants(): Promise<Grant[]> {
  *
  * "Solo para las primeras diez personas" is a number printed on a public page,
  * so it has to be answerable. Counts grants made for the feedback reason,
- * expired ones included: the seat was taken whether or not the three months are
+ * expired ones included: the seat was taken whether or not the grant is
  * still running.
  */
 export function seatsLeft(grants: readonly Grant[]): number {

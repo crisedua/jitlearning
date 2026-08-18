@@ -4,8 +4,8 @@
  * Open on purpose — feedback is welcome from people who never signed in, and
  * asking someone to authenticate before criticizing you is a good way to hear
  * nothing. When the submitter *is* signed in, their user id rides along, which
- * is what later lets the six-month grant be applied to the right account
- * without an email hunt.
+ * is what later lets the grant be applied to the right account without an
+ * email hunt.
  *
  * The write goes through the service role: the table has RLS on and no
  * policies, so the browser could not insert (or read anyone else's feedback)

@@ -4,8 +4,10 @@
 --   Dashboard -> SQL Editor -> paste -> Run
 --   or, with the CLI:  supabase db push
 --
--- One row per submission from /feedback. The offer on that page is six months
--- of full access in exchange for real feedback, so the email matters: it is
+-- One row per submission from /feedback. The offer on that page is months of
+-- full access in exchange for real feedback — the length is FEEDBACK_REWARD in
+-- site.ts, and naming it here is how this comment came to say six when the page
+-- said three. The email matters: it is
 -- how the person gets contacted and how their account gets found to apply the
 -- grant. `user_id` is filled when the submitter was signed in, which makes
 -- applying the grant a one-line plan_id update instead of an email search.
@@ -18,7 +20,7 @@ create table if not exists public.feedback (
   email       text not null,
   message     text not null,
   created_at  timestamptz not null default now(),
-  -- Stamped by hand when the six months are activated, so the promise has a
+  -- Stamped when the grant is activated, so the promise has a
   -- ledger: a row with an email and no stamp is an unpaid debt.
   granted_at  timestamptz
 );
