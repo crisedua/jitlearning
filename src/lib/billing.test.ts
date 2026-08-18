@@ -17,7 +17,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import Stripe from 'stripe';
-import { planFor } from './billing';
+import { isComped, planFor } from './billing';
 
 /** Not a real key. `constructEvent` is local crypto and never calls Stripe. */
 const SECRET = 'whsec_test_secret_for_local_verification_only';
@@ -100,5 +100,36 @@ describe('which plan a subscription entitles you to', () => {
     // A price created in Stripe by hand, or a plan retired here but still billing.
     // Granting "whatever that was" would be worse than granting nothing.
     assert.equal(planFor('active', null), 'free');
+  });
+});
+
+/*
+ * Who is on a courtesy plan, and who paid for one.
+ *
+ * The page decided this from "has no Stripe customer", which is true of every
+ * early customer this product will have: checkout is not configured, so a sale
+ * happens over WhatsApp and the plan is set by hand. Those people were shown
+ * "Fundador · de cortesía" and told there was nothing to pay or cancel, minutes
+ * after paying.
+ *
+ * The distinction is worth a function because the two look identical in the
+ * database except for one column, and getting it backwards is only visible to
+ * the person it insults.
+ */
+describe('a courtesy plan against a bought one', () => {
+  const sub = (grantedUntil: string | null) => ({ grantedUntil });
+
+  it('is a courtesy when we set an end date, which only grantPlan does', () => {
+    assert.equal(isComped(sub('2026-11-18T00:00:00.000Z')), true);
+  });
+
+  it('is not a courtesy for somebody who paid a person', () => {
+    // No Stripe customer, no end date: sold over WhatsApp, plan set by hand.
+    // The old rule called this comped and told them not to bother cancelling.
+    assert.equal(isComped(sub(null)), false);
+  });
+
+  it('is not a courtesy for a normal Stripe subscriber either', () => {
+    assert.equal(isComped(sub(null)), false);
   });
 });

@@ -25,7 +25,7 @@ import {
   type LevelId,
   type PathId,
 } from '@/lib/curriculum';
-import { billingConfigured, subscriptionFor, type Subscription } from '@/lib/billing';
+import { billingConfigured, isComped, subscriptionFor, type Subscription } from '@/lib/billing';
 import { getUsageBalance, lastSessionAt } from '@/lib/account';
 import { minutesLeft } from '@/lib/balance';
 import {
@@ -320,7 +320,9 @@ function Suscripcion({ subscription }: { subscription: Subscription }) {
   const lapsed =
     subscription.status !== null &&
     !['active', 'trialing'].includes(subscription.status);
-  const comped = !subscription.hasCustomer;
+  // A courtesy plan is one somebody was given, not one without a Stripe row.
+  // See `isComped`: every early customer here pays a person and has no customer.
+  const comped = isComped(subscription);
 
   return (
     <section className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 rounded-lg border border-line bg-surface-alt/50 px-5 py-4">

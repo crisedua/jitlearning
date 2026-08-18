@@ -305,6 +305,24 @@ export async function applySubscription(subscription: Stripe.Subscription): Prom
   }
 }
 
+/**
+ * Whether this plan was given rather than bought.
+ *
+ * `/progreso` decided this from `!hasCustomer`, and every early customer of this
+ * product will lack a Stripe customer: checkout is not configured, so a sale
+ * happens over WhatsApp and the plan is set by hand. That person was labelled
+ * "de cortesía" and told there was nothing to pay or cancel, minutes after
+ * paying.
+ *
+ * `grantedUntil` is written by `grantPlan` and by nothing else, so it says
+ * exactly what the label means. A plan with an end date we set is a courtesy. A
+ * plan with no customer and no end date is somebody who paid a person, and they
+ * get told how to change it rather than that there is nothing to change.
+ */
+export function isComped(subscription: Pick<Subscription, 'grantedUntil'>): boolean {
+  return subscription.grantedUntil !== null;
+}
+
 export interface Subscription {
   planId: string;
   status: string | null;
