@@ -150,6 +150,8 @@ export default async function ProgresoPage({
 
       {profile && steps.length === 0 && <PlanPending profile={profile} />}
 
+      {steps.length > 0 && !current && <PlanDone saved={saved} />}
+
       {history.length > 0 && <Historial history={history} />}
     </div>
   );
@@ -675,6 +677,59 @@ function PlanPending({ profile }: { profile: CareerProfile }) {
         Falta {missing}. Retoma la clase y termina el diagnóstico: son un par de preguntas y
         el plan queda armado acá mismo.
       </p>
+    </section>
+  );
+}
+
+/**
+ * The plan is finished, and the notebook says what happens next.
+ *
+ * Levels 2 to 4 are fixed lessons and finite, so everybody who keeps coming
+ * arrives here. The page used to render "13 de 13 pasos hechos" and stop, which
+ * reads as a course completed — right for a course and wrong for this, where the
+ * thing that produced every measured minute on this page is a level 1 step and
+ * the learner's week has not run out of tasks.
+ *
+ * It states the arithmetic rather than asking for anything: the figure above is
+ * what the finished tasks recover, and another task is another subtraction added
+ * to it. Nothing here promises the step exists yet — the class is what creates
+ * it, and a notebook that showed a step nobody had taught would be the one kind
+ * of row this page never writes.
+ */
+function PlanDone({ saved }: { saved: TimeSaved }) {
+  return (
+    <section className="rounded-lg border border-accent/25 bg-accent-soft/40 p-5 sm:p-6">
+      <h2 className="font-serif text-[22px] font-normal leading-snug tracking-[-0.01em]">
+        Terminaste el plan. El nivel 1 sigue abierto.
+      </h2>
+      <p className="mt-2.5 max-w-2xl text-[15px] leading-relaxed text-ink/85">
+        Los niveles 2, 3 y 4 se terminan; tu semana no.{' '}
+        {saved.perWeek > 0 ? (
+          <>
+            Las {saved.tasksMeasured} tarea{saved.tasksMeasured === 1 ? '' : 's'} que ya mediste
+            te devuelven {spellMinutes(saved.perWeek)} cada semana. Otra tarea es otra resta que
+            se suma a esa.
+          </>
+        ) : (
+          <>
+            Vuelve al nivel 1 con otra tarea: la resuelves en la clase y mides lo que te ahorra,
+            igual que las anteriores.
+          </>
+        )}
+      </p>
+      <p className="mt-2.5 max-w-2xl text-[15px] leading-relaxed text-muted">
+        Piensa cuál te pesa más ahora y llévala a la próxima clase. El paso aparece acá cuando la
+        clase termina.
+      </p>
+      <Link
+        href="/coach"
+        className="mt-4 inline-flex items-center gap-2.5 rounded-full bg-accent px-5 py-2.5 text-[15px] font-medium text-white shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover"
+      >
+        Empezar la siguiente
+        <span aria-hidden className="font-mono">
+          →
+        </span>
+      </Link>
     </section>
   );
 }

@@ -288,6 +288,14 @@ the observation that the steps are done, and the spoken opening asks which task
 weighs most now instead of offering to resume a plan with nowhere to resume. An
 unanswered commitment still outranks both.
 
+`/progreso` says it too. It used to render "13 de 13 pasos hechos" and stop,
+which reads as a course completed — right for a course, wrong for a page whose
+headline figure is the sum of finished level 1 steps. It now states the
+arithmetic instead: what the measured tasks already return each week, and that
+another task is another subtraction added to it. It promises no step, because the
+class is what creates one and a step nobody was taught is the row this page never
+writes.
+
 The counterpart in the write path is `planOrder`. `position` decides which step
 is current, and it used to be the index into `buildPlan`'s output — which only
 holds the weekly tasks the *last* extraction produced, since `upsertProfile`
