@@ -230,6 +230,28 @@ export function formatMoney(minor: number, currency: string): string {
   );
 }
 
+/**
+ * Minutes as somebody says them out loud: "1 hora y 5 minutos".
+ *
+ * Used for the recovered-hours figure, which the progress page calls the only
+ * claim this product makes about its own value and prints directly above the
+ * price. It pluralised `hora` and never `minuto`, so a saving of sixty-one
+ * minutes read "1 hora y 1 minutos" and a saving of one read "1 minutos".
+ *
+ * Both are reachable: any total ending in one, on the sentence carrying the
+ * whole argument. A number that is arithmetically right and grammatically wrong
+ * costs more here than anywhere else on the site, because the argument is that
+ * these figures are careful.
+ */
+export function spellMinutes(total: number): string {
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  const m = `${minutes} minuto${minutes === 1 ? '' : 's'}`;
+  if (hours === 0) return m;
+  const h = `${hours} hora${hours === 1 ? '' : 's'}`;
+  return minutes === 0 ? h : `${h} y ${m}`;
+}
+
 /** `60 min` / `Sin límite`. */
 export function formatMinutes(minutes: number | null): string {
   return minutes === null ? 'Sin límite' : `${minutes.toLocaleString('es-CL')} min`;

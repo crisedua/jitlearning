@@ -17,7 +17,7 @@ import {
 import { LEVELS, PATHS, stepDetail, type LevelId, type PathId } from '@/lib/curriculum';
 import { subscriptionFor, type Subscription } from '@/lib/billing';
 import { getUsageBalance } from '@/lib/account';
-import { formatMinutes, formatMoney, type Plan } from '@/lib/plans';
+import { formatMinutes, formatMoney, spellMinutes, type Plan } from '@/lib/plans';
 import { recommendedPlan } from '@/lib/offer';
 import { BillingLink } from '@/components/BillingLink';
 import { CheckoutButton } from '@/components/CheckoutButton';
@@ -315,14 +315,6 @@ function Suscripcion({ subscription }: { subscription: Subscription }) {
 }
 
 /** Minutes into something a person says out loud: "3 horas y 20 minutos". */
-function spellMinutes(total: number): string {
-  const hours = Math.floor(total / 60);
-  const minutes = total % 60;
-  if (hours === 0) return `${minutes} minutos`;
-  const h = `${hours} hora${hours > 1 ? 's' : ''}`;
-  return minutes === 0 ? h : `${h} y ${minutes} minutos`;
-}
-
 /**
  * The headline number, and the only claim this product makes about its own value.
  *
