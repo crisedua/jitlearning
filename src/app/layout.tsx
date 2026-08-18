@@ -48,6 +48,20 @@ export const metadata: Metadata = {
    * endpoint come from, so one setting keeps them together.
    */
   metadataBase: new URL(configuredOrigin() ?? DEFAULT_ORIGIN),
+  /*
+   * Which address this page is, for anything that has arrived at another one.
+   *
+   * `./` resolves per route against `metadataBase`, so every page declares
+   * itself rather than the home page declaring itself for all of them. It lands
+   * as a canonical link and as `og:url`, which were both missing.
+   *
+   * It matters here because of how this link travels. It is pasted into
+   * WhatsApp, forwarded, retyped from a screenshot, and appended with whatever
+   * the last share added, and the deployment answers on the Vercel alias as well
+   * as on the domain. Without this, each of those is a separate page to anything
+   * that reads the markup, and a preview of one is not a preview of another.
+   */
+  alternates: { canonical: './' },
   title: 'ModoJIT',
   icons: { icon: '/icono.svg' },
   description: TAGLINE,
@@ -56,6 +70,7 @@ export const metadata: Metadata = {
     description: TAGLINE,
     type: 'website',
     locale: 'es_CL',
+    url: './',
   },
   // Falls back to the OpenGraph image; `summary_large_image` is what makes it
   // render as a picture rather than a thumbnail beside two lines of text.
