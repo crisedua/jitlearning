@@ -138,7 +138,12 @@ async function main() {
     console.log(`  ELEVENLABS_WEBHOOK_SECRET=${secret}\n`);
     console.log('Put it in .env.local and in the Vercel project settings.');
     console.log('Until it is in the deployment, every delivery fails with 503 and');
-    console.log('classes are still recorded nowhere.');
+    console.log('classes are still recorded nowhere. Failed deliveries are not retried,');
+    console.log('so each of those classes is gone for good.');
+    console.log('');
+    console.log('There is also a deadline: ElevenLabs disables a webhook after 10');
+    console.log('consecutive failures when it has never delivered successfully, which');
+    console.log('is the state this one is in right now. About ten classes.');
   } else {
     console.log('\nNo secret returned, which happens when the webhook already existed.');
     console.log('Find it in the ElevenLabs dashboard under Developers -> Webhooks.');

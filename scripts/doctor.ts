@@ -1373,7 +1373,21 @@ async function main() {
       ok(`${configuredOrigin() ?? DEFAULT_ORIGIN} accepts deliveries (401 on an unsigned body, which is correct)`);
     } else if (probe.status === 503) {
       bad(`${configuredOrigin() ?? DEFAULT_ORIGIN} answers 503: ELEVENLABS_WEBHOOK_SECRET is not in the deployment.`);
-      note('Anything ElevenLabs sends after a class is refused, so classes are still lost.');
+      note('Anything ElevenLabs sends after a class is refused, and a failed delivery is');
+      note('never retried, so the measurement from that class is gone for good.');
+      /*
+       * There is a deadline on this, which is easy not to know.
+       *
+       * ElevenLabs auto-disables a webhook after 10 consecutive failures when
+       * the last success was over 7 days ago or, as here, when it has never
+       * succeeded at all. A webhook created and left unreceivable therefore
+       * switches itself off after ten classes, and the state it leaves behind
+       * looks exactly like the state before it was created: nothing sent,
+       * nothing recorded, no error anywhere.
+       */
+      note('ElevenLabs disables a webhook after 10 consecutive failures when it has never');
+      note('delivered successfully, so this one has about ten classes before it switches');
+      note('itself off and has to be created again.');
       note('Put the signing secret in the Vercel project settings and redeploy.');
       failures++;
     } else {
