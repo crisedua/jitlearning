@@ -1118,7 +1118,32 @@ async function main() {
       if (report && report.graded === 0) {
         note('None is graded yet: the success criteria are newer than every class on the agent.');
       } else if (report) {
-        note(`${report.finished} of ${report.graded} graded class(es) finished a real task.`);
+        /*
+         * All four, the same as /admin/embudo shows, because they fail for
+         * different reasons and ask for different fixes: no task finished is
+         * the session shape, no numbers is usually a unit or a clock, a missing
+         * commitment is the closing being skipped, and a failed honesty check
+         * is the persona. One number here and four on the page would also be
+         * two accounts of the same class.
+         */
+        const LABELS: Record<string, string> = {
+          tarea_terminada: 'finished a real task',
+          dos_numeros: 'left both numbers',
+          compromiso_completo: 'closed with a full commitment',
+          sin_inventar: 'invented nothing',
+        };
+        note(`Of ${report.graded} graded class(es):`);
+        // Ids from `evaluationCriteria()`, so adding a fifth criterion cannot
+        // leave one surface reporting three of four. Only the wording is local.
+        for (const criterion of evaluationCriteria()) {
+          const passed = report.passed[criterion.id];
+          const label = LABELS[criterion.id] ?? criterion.id;
+          note(
+            passed === undefined
+              ? `  ${label}: not graded`
+              : `  ${label}: ${passed} of ${report.graded}`,
+          );
+        }
       }
 
     } catch (err) {

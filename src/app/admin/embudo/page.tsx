@@ -31,6 +31,7 @@ import { signInPath } from '@/lib/paths';
 import { NotAdmin } from '@/components/NotAdmin';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
 import { classReport } from '@/lib/classes';
+import { evaluationCriteria } from '@/lib/agent';
 
 /**
  * The four criteria the agent grades every class against, in the order a class
@@ -38,12 +39,12 @@ import { classReport } from '@/lib/classes';
  * ids are terse by design — they are prompts for an evaluator, not labels for a
  * person reading a dashboard.
  */
-const CRITERIA_LABELS: ReadonlyArray<[string, string]> = [
-  ['tarea_terminada', 'Terminó una tarea real'],
-  ['dos_numeros', 'Dejó los dos números'],
-  ['compromiso_completo', 'Cerró con un compromiso completo'],
-  ['sin_inventar', 'No inventó nada'],
-];
+const CRITERIA_LABELS: Record<string, string> = {
+  tarea_terminada: 'Terminó una tarea real',
+  dos_numeros: 'Dejó los dos números',
+  compromiso_completo: 'Cerró con un compromiso completo',
+  sin_inventar: 'No inventó nada',
+};
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -261,7 +262,9 @@ export default async function EmbudoPage() {
             </p>
           ) : (
             <ul className="mt-3 grid gap-1.5 text-[14px] leading-relaxed text-ink/85 sm:grid-cols-2">
-              {CRITERIA_LABELS.map(([id, label]) => {
+              {/* Ids from `evaluationCriteria()`, wording from here. */}
+              {evaluationCriteria().map(({ id }) => {
+                const label = CRITERIA_LABELS[id] ?? id;
                 const passed = classes.passed[id] ?? 0;
                 return (
                   <li key={id} className="flex items-baseline gap-2">

@@ -65,3 +65,32 @@ describe('the setup ladder', () => {
     }
   });
 });
+
+/*
+ * Both surfaces have to be able to name every success criterion.
+ *
+ * The doctor and /admin/embudo each report the four verdicts a class comes back
+ * with, in English and in Spanish. They derive the ids from
+ * `evaluationCriteria()` so a fifth criterion cannot leave one of them
+ * reporting three of four, but the wording is local to each — and a criterion
+ * with no wording falls back to its id, which is a prompt written for an
+ * evaluator and reads as noise on a dashboard.
+ */
+describe('the success criteria have wording on both surfaces', () => {
+  it('names every criterion in English and in Spanish', async () => {
+    const { evaluationCriteria } = await import('./agent');
+    const sources = [
+      readFileSync(path.join(ROOT, 'scripts', 'doctor.ts'), 'utf8'),
+      readFileSync(path.join(ROOT, 'src', 'app', 'admin', 'embudo', 'page.tsx'), 'utf8'),
+    ];
+    for (const source of sources) {
+      for (const criterion of evaluationCriteria()) {
+        assert.match(
+          source,
+          new RegExp(`${criterion.id}:`),
+          `no label for "${criterion.id}", so it would print its own prompt id`,
+        );
+      }
+    }
+  });
+});
