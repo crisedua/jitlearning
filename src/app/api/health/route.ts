@@ -288,6 +288,19 @@ export async function GET(req: Request) {
         ? 'Stripe is configured; a completed payment can grant a plan.'
         : 'No Stripe keys: paid plans fall back to writing to a person. Not counted against `ready`.',
       embeddingModel: embeddingModel(),
+      /*
+       * Which commit is answering.
+       *
+       * There was no way to tell from outside, and that turned out to matter:
+       * a run of pushes sat undeployed for a dozen commits while every check
+       * here reported on the old build, correctly and uselessly. The doctor
+       * compares this to the local HEAD, so "is my change live" stops being
+       * answered by opening the site and looking for a sentence.
+       *
+       * Vercel sets this in the runtime environment. Locally it is absent, and
+       * absent is honest: nothing has been deployed.
+       */
+      commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
       checks,
     },
     { status: ready ? 200 : 503 },

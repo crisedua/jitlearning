@@ -18,6 +18,7 @@
  */
 import './env';
 import { readdirSync, readFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 import { getAgent, listDocuments } from '../src/lib/elevenlabs';
 import { agentId, embeddingModel } from '../src/lib/config';
@@ -1228,6 +1229,45 @@ async function main() {
   } else {
     note('No service key here, so delivery cannot be checked locally.');
     note('/admin/estado runs the same check inside the deployment, where the key is.');
+  }
+
+  /*
+   * Whether what is deployed is what is written here.
+   *
+   * Every other check in this file reads the repo on this machine or the agent
+   * at ElevenLabs. None of them notices that the deployment is answering from an
+   * older commit, which is a state this project has actually been in: a dozen
+   * pushes sat undeployed while the site kept serving a build from an hour
+   * earlier, and the only symptom was a page returning 404 that exists in the
+   * repo and in the local build.
+   *
+   * Needs no secret: the origin is public and so is the commit it reports.
+   */
+  console.log('\nDeployed commit\n');
+  const origin = configuredOrigin() ?? DEFAULT_ORIGIN;
+  try {
+    const res = await fetch(`${origin}/api/health`, {
+      headers: { 'x-ingest-secret': process.env.INGEST_SECRET?.trim() ?? '' },
+    });
+    const body = (await res.json().catch(() => ({}))) as { commit?: string | null };
+    const live = body.commit ?? null;
+    const local = execSync('git rev-parse --short HEAD').toString().trim();
+
+    if (!live) {
+      note(`${origin} does not report a commit. Either it is not on Vercel, or the`);
+      note('deployment predates this check, which is itself the answer.');
+    } else if (live === local) {
+      ok(`${origin} is serving ${live}, which is this checkout`);
+    } else {
+      const behind = execSync(`git rev-list --count ${live}..HEAD 2>/dev/null || echo ?`)
+        .toString()
+        .trim();
+      bad(`${origin} is serving ${live}; this checkout is ${local}, ${behind} commit(s) ahead.`);
+      note('Nothing you have pushed since then is live, including anything checked above.');
+      failures++;
+    }
+  } catch (err) {
+    note(`Could not ask ${origin} which commit it is serving: ${err instanceof Error ? err.message : err}`);
   }
 
   console.log('\nCanonical origin\n');
