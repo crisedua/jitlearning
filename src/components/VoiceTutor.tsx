@@ -692,8 +692,9 @@ function AfterSession() {
     <section className="animate-rise rounded-lg border border-gold/35 bg-gold-soft/30 px-5 py-4">
       <h2 className="text-[15px] font-semibold">La clase terminó. Lo hablado quedó escrito.</h2>
       <p className="mt-1.5 text-[14px] leading-relaxed text-ink/85">
-        Tu plan, el paso en el que vas y lo que te comprometiste a hacer están en tu página de
-        progreso. Ahí puedes marcar lo que cumpliste y describir qué construiste.
+        Tu plan, el paso en el que vas y lo que te comprometiste a hacer quedan en tu página de
+        progreso, un minuto después de colgar. Ahí puedes marcar lo que cumpliste, describir qué
+        construiste y anotar los minutos si no quedaron.
       </p>
       <a
         href="/progreso"

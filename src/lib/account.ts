@@ -454,3 +454,41 @@ export async function finishCoachSession(
     console.error(`[account] session ${sessionId} not closed: no row for that user`);
   }
 }
+
+/**
+ * When this learner last spoke to the teacher, or null if they never have.
+ *
+ * `/progreso` renders its empty state from the absence of a career profile, and
+ * that profile is written by the post-call webhook, which fires after the call
+ * ends. So somebody who finishes their first class and follows the link the
+ * classroom offers arrives in the gap: the class happened, nothing is written
+ * yet, and the page told them "todavía no hay nada acá, esta página se llena en
+ * tu primera clase".
+ *
+ * That is the worst sentence available at that moment. They did the work, they
+ * clicked the thing that said their plan was here, and the product answered that
+ * it had not met them.
+ *
+ * A session row exists from the moment the microphone opens, so it can tell the
+ * two apart: never been here, or been here minutes ago and waiting on a webhook.
+ */
+export async function lastSessionAt(userId: string): Promise<Date | null> {
+  if (!serviceConfigured()) return null;
+
+  try {
+    const { data, error } = await supabaseAdmin()
+      .from('coach_sessions')
+      .select('started_at')
+      .eq('user_id', userId)
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    const when = new Date((data as { started_at: string }).started_at);
+    return Number.isNaN(when.getTime()) ? null : when;
+  } catch {
+    // An empty state that is merely generic beats a page that will not render.
+    return null;
+  }
+}

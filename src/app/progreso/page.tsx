@@ -25,7 +25,7 @@ import {
   type PathId,
 } from '@/lib/curriculum';
 import { billingConfigured, subscriptionFor, type Subscription } from '@/lib/billing';
-import { getUsageBalance } from '@/lib/account';
+import { getUsageBalance, lastSessionAt } from '@/lib/account';
 import { minutesLeft } from '@/lib/balance';
 import {
   ASSUMED_SESSION_MINUTES,
@@ -69,13 +69,14 @@ export default async function ProgresoPage({
   const user = await currentUser();
   if (!user) redirect(signInPath('/progreso'));
 
-  const [profile, steps, history, subscription, balance, offer, params] = await Promise.all([
+  const [profile, steps, history, subscription, balance, offer, lastSession, params] = await Promise.all([
     careerProfile(user.id),
     planSteps(user.id),
     sessionHistory(user.id),
     subscriptionFor(user.id),
     getUsageBalance(user.id, user.email),
     recommendedPlan(),
+    lastSessionAt(user.id),
     searchParams,
   ]);
 
@@ -134,7 +135,7 @@ export default async function ProgresoPage({
         <Suscripcion subscription={subscription} />
       )}
 
-      {!profile && <FirstVisit />}
+      {!profile && <FirstVisit lastSession={lastSession} />}
 
       {profile && <Mapa profile={profile} />}
 
@@ -448,7 +449,61 @@ function Recuperado({ saved }: { saved: TimeSaved }) {
  * reason the landing page now gives: it ends with a task actually done, and that
  * needs a screen.
  */
-function FirstVisit() {
+/**
+ * The empty page, which is three different situations wearing one message.
+ *
+ * This said "todavía no hay nada acá, y eso es normal" to everybody without a
+ * career profile, and that profile is written by the post-call webhook, after
+ * the call. So the learner who finishes their first class and follows the link
+ * the classroom offers lands here in the gap and is told the product has not met
+ * them, at the exact moment they did the work.
+ *
+ * A session row exists from the moment the microphone opens, so the three cases
+ * separate cleanly: nobody has been here, somebody was here minutes ago and the
+ * summary is on its way, or somebody was here long enough ago that it should
+ * have arrived and has not. The third is the one nothing could previously say,
+ * and it is the one where a person deserves to be told to write to somebody
+ * rather than to keep refreshing.
+ */
+function FirstVisit({ lastSession }: { lastSession: Date | null }) {
+  const minutesAgo = lastSession
+    ? Math.floor((Date.now() - lastSession.getTime()) / 60_000)
+    : null;
+
+  if (minutesAgo !== null && minutesAgo <= 15) {
+    return (
+      <section className="rounded-lg border border-gold/35 bg-gold-soft/30 p-6">
+        <h2 className="font-serif text-[22px] font-normal leading-snug">
+          Tu clase acaba de terminar. Esto se está escribiendo.
+        </h2>
+        <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink/85">
+          Lo que hablaron se guarda cuando la llamada se cierra del todo, y eso toma un momento.
+          Vuelve a cargar esta página en un minuto y vas a ver tu mapa, tu plan y los dos números.
+        </p>
+      </section>
+    );
+  }
+
+  if (minutesAgo !== null) {
+    return (
+      <section className="rounded-lg border border-warning/35 bg-warning-soft/40 p-6">
+        <h2 className="font-serif text-[22px] font-normal leading-snug">
+          Tuviste una clase y no quedó guardada.
+        </h2>
+        <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink/85">
+          Eso es un problema nuestro, no tuyo, y no perdiste los minutos: escríbenos a{' '}
+          <a
+            href={`mailto:${PROFILE.email}`}
+            className="underline underline-offset-2 hover:text-accent"
+          >
+            {PROFILE.email}
+          </a>{' '}
+          y lo arreglamos el mismo día.
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section className="rounded-lg border border-line bg-surface-alt/50 p-6">
       <h2 className="font-serif text-[22px] font-normal leading-snug">
