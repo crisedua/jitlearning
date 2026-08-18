@@ -129,6 +129,35 @@ async function main() {
         );
       }
 
+      /*
+       * Is the live teacher the teacher in this repo?
+       *
+       * Every check below this one reads the persona out of `agent.ts` and
+       * concludes something about behaviour. All of it is theoretical if the
+       * agent people actually talk to is running an older copy: the persona is
+       * pushed by `npm run sync:agent -- --push`, which is a command somebody has
+       * to remember after every edit, and nothing anywhere noticed when they did
+       * not. The honesty rule, the session order, the instruction to measure
+       * before building the plan — a repo can have all of them and a learner can
+       * meet none of them.
+       *
+       * Compared on exact text, because a persona is not approximately correct.
+       */
+      const live = (prompt?.prompt ?? '').trim();
+      const local = teacherSystemPrompt().trim();
+      if (live === local) {
+        ok('The live agent is running this repo\'s persona, character for character');
+      } else if (!live) {
+        bad('The live agent has no system prompt at all. Run `npm run sync:agent -- --push`.');
+        failures++;
+      } else {
+        bad(
+          `The live agent's persona differs from this repo (${live.length} chars live, ${local.length} here).`,
+        );
+        note('Run `npm run sync:agent -- --push`. Until then every persona check below is about a file, not about what anybody hears.');
+        failures++;
+      }
+
       // The prompt references {{registro}} and friends. A conversation started
       // without them fails outright, and the placeholders are what keep a test
       // from the ElevenLabs dashboard working.
