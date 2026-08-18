@@ -1087,6 +1087,38 @@ src/lib/site.ts         Landing-page copy, incl. the falsifiable DIFFERENCES lis
 scripts/                setup-agent, sync-agent, bulk ingest, doctor
 ```
 
+## What the tests actually guarantee
+
+`npm test` runs in about five seconds and is written against one idea: the
+failures worth catching here are the ones that report success. A zero-row update,
+a webhook nobody registered, a persona substitution that replaced nothing, a test
+file that never ran, a module nothing imports — every one of those looks correct
+from every angle except the one nobody was checking from.
+
+So the suite is mostly comparisons between two things that must agree, and the
+comparison is the point rather than any individual assertion:
+
+| It compares | Against | What it catches |
+|---|---|---|
+| The persona, both variants | The promises on the landing page | A behaviour the page sells and the teacher cannot perform |
+| Every gate message | `account.ts` | A limit that stops somebody with no way out of it |
+| The migrations | Each other, in order | A paste that fails halfway and leaves a half-applied schema |
+| Learner-writable tables | The forms that write them | A learner able to edit a plan into "done" |
+| Every route on disk | `robots.txt` and the sitemap | A page crawled that nobody meant to publish |
+| Every `lib` module and component | Every import in the tree | Code written, documented, and never wired |
+| The palette | Every `text-` class in the JSX | A colour nudged past AA on the pages older learners read |
+| The corpus folders | `TEACHER.sources` | Documents ingested and attached to nobody |
+| Log lines | A list of personal fields | An email in a log aggregator because a query failed once |
+| Four documented paths | The code that implements them | 27 gates between "wants to pay" and "has a plan" |
+
+`npm run doctor` does the other half: it asks the live agent and the deployment
+what they are, rather than asking this repository what they should be. The two
+answer different questions and both are needed — the suite cannot see a dashboard
+edit, and the doctor cannot run in a pull request.
+
+**What neither checks is whether a class works.** No test here has heard the
+teacher speak. That is the first learner's job, and it is still the next thing.
+
 ## Known limits
 
 - **The catalog fans out one status request per document**, capped at 8
