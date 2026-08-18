@@ -94,19 +94,30 @@ export async function storeCommitment(
 /**
  * The commitment still worth asking about, or null.
  *
- * "Still open" is defined as *the most recent session that produced one*, and
- * deliberately nothing cleverer. There is no completion column because nothing
- * could set it honestly — the learner reports back in conversation, out loud,
- * and turning that into a boolean would need us to grade an answer we never
- * see. So this asks rather than asserts, and stops mattering once a newer
- * session replaces it.
+ * "Still open" was defined as *the most recent session that produced one*, on
+ * the reasoning that there was no completion column because nothing could set
+ * one honestly: the learner reports back out loud, and turning that into a
+ * boolean would mean grading an answer we never hear.
+ *
+ * That reasoning was right and is now out of date. `/progreso` grew a button
+ * the learner presses themselves, which is the most honest completion signal
+ * there is: not inferred, not graded, their own hand. It writes
+ * `session_summaries.commitment_done`, and this function never looked.
+ *
+ * So a learner could do the thing, come to the notebook, mark it done, and be
+ * asked about it again in the next session as though none of that had happened.
+ * The spoken opening got this right — `progress.ts` reads the same column and
+ * stays quiet — so the teacher would greet them without mentioning it and then
+ * circle back to ask, prompted by this. Being ignored after taking the action
+ * the product asked for is worse than never being asked, and it lands on
+ * exactly the people doing what the product wants.
  */
 export async function openCommitment(userId: string): Promise<Commitment | null> {
   if (!serviceConfigured()) return null;
 
   const { data, error } = await supabaseAdmin()
     .from('coach_sessions')
-    .select('commitment, commitment_due, commitment_signal, started_at')
+    .select('commitment, commitment_due, commitment_signal, started_at, conversation_id')
     .eq('user_id', userId)
     .not('commitment', 'is', null)
     .order('started_at', { ascending: false })
@@ -122,6 +133,27 @@ export async function openCommitment(userId: string): Promise<Commitment | null>
     return null;
   }
   if (!data?.commitment) return null;
+
+  /*
+   * Did they already say they did it?
+   *
+   * Joined on `conversation_id`, which is the key the two tables share. A
+   * missing summary row means the webhook has not landed yet, and that reads as
+   * "not reported", which is the old behaviour and the right default: asking
+   * about something already done is a smaller failure than dropping a
+   * commitment nobody ever followed up.
+   */
+  if (data.conversation_id) {
+    const { data: summary } = await supabaseAdmin()
+      .from('session_summaries')
+      .select('commitment_done')
+      .eq('conversation_id', data.conversation_id)
+      .maybeSingle();
+
+    if ((summary as { commitment_done: boolean | null } | null)?.commitment_done === true) {
+      return null;
+    }
+  }
 
   return {
     action: data.commitment,
