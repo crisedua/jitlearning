@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { handoffs, handoffNote, type Handoff } from '@/lib/handoff';
+import { handoffs, handoffNote, labHandoff, type Handoff } from '@/lib/handoff';
 
 /**
  * "Now go and do it in your own account."
@@ -19,7 +19,23 @@ import { handoffs, handoffNote, type Handoff } from '@/lib/handoff';
  * lands in the real product and presses ⌘V, which is what they would have done
  * anyway. Nothing here breaks when a third party changes their mind.
  */
-export function OpenInProduct({ prompt, label }: { prompt: string; label?: string }) {
+export function OpenInProduct({
+  prompt,
+  label,
+  variant = 'products',
+}: {
+  prompt: string;
+  label?: string;
+  /**
+   * `products` sends them to their own Gemini/Claude/ChatGPT, which is the
+   * level 1 move: the saving has to keep working after they stop paying us.
+   * `lab` sends them to iajit, which is the level 2 move: the same request
+   * across several models, to see what changes. Kept apart so a row that says
+   * "go and do it in your own account" never quietly becomes an ad for another
+   * of ours.
+   */
+  variant?: 'products' | 'lab';
+}) {
   const [done, setDone] = useState<Handoff | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -67,7 +83,7 @@ export function OpenInProduct({ prompt, label }: { prompt: string; label?: strin
      */
     <p className="mt-3 text-xs text-muted">
       {label ?? 'Ahora hazlo en tu cuenta'}:{' '}
-      {handoffs(prompt).map((h, i) => (
+      {(variant === 'lab' ? [labHandoff(prompt)] : handoffs(prompt)).map((h, i) => (
         <span key={h.id}>
           {i > 0 && <span aria-hidden> · </span>}
           <button

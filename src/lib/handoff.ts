@@ -50,8 +50,9 @@ import { PRACTICE_MODELS, type PracticeModelId } from './practica';
 export const MAX_URL_PROMPT = 1_200;
 
 export interface Handoff {
-  id: PracticeModelId;
-  /** The product's name, as the learner knows it. */
+  /** One of the three products, or the lab. */
+  id: PracticeModelId | 'lab';
+  /** The destination's name, as the learner knows it. */
   label: string;
   /** Where to send them. Carries the prompt when it fits and the product takes one. */
   url: string;
@@ -88,6 +89,43 @@ const PRODUCTS: Record<PracticeModelId, { home: string; prefill: ((p: string) =>
     prefill: (p) => `https://claude.ai/new?q=${encodeURIComponent(p)}`,
   },
 };
+
+/**
+ * The lab: iajit.vercel.app, the same learner's second surface.
+ *
+ * Not one of the three products, and deliberately kept out of `handoffs()` so a
+ * "go and do it in your own account" row never quietly becomes an ad for
+ * another of ours. This is a different move at a different point in the
+ * curriculum.
+ *
+ * ## Why level 2 and not level 1
+ *
+ * Level 1 is one task, one model, finished and measured, with the teacher
+ * watching — a chooser there is a decision the learner cannot yet make. Level 2
+ * is `por qué funcionó`, and its proof is "la misma tarea hecha 2 veces". The
+ * lab holds hundreds of models in one conversation, which is useless in a first
+ * class and is exactly the apparatus that lesson needs: same request, three
+ * models, see what changes and say why.
+ *
+ * It also closes a gap the corpus already had. `comparativa-chatgpt-claude-
+ * gemini.md` teaches a comparison the learner has had no way to perform.
+ *
+ * The prompt rides in `?q=` on the same terms as everywhere else in this file:
+ * the caller copies it to the clipboard first, so a parameter that is dropped
+ * or renamed costs a paste and nothing more.
+ */
+export const LAB_URL = 'https://iajit.vercel.app/';
+
+export function labHandoff(prompt: string): Handoff {
+  const text = prompt.trim();
+  const canPrefill = text.length > 0 && text.length <= MAX_URL_PROMPT;
+  return {
+    id: 'lab',
+    label: 'el laboratorio',
+    url: canPrefill ? `${LAB_URL}?q=${encodeURIComponent(text)}` : LAB_URL,
+    prefilled: canPrefill,
+  };
+}
 
 /** Where to send this learner, for one product. */
 export function handoffFor(id: PracticeModelId, prompt: string): Handoff {

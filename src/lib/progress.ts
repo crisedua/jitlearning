@@ -75,9 +75,19 @@ interface RecordLine {
 const KEEP = {
   context: 0,
   days: 1,
-  saving: 2,
-  plan: 3,
-  commitment: 4,
+  /*
+   * What they practised between classes, from the lab.
+   *
+   * Above the profile echo and below the saving, because it is evidence rather
+   * than background: somebody who ran six comparisons since Tuesday has done
+   * the homework, and a teacher that opens on the plan instead of on that has
+   * missed the one thing that changed. Below `saving` and `plan` because those
+   * are what the class is for; this is how it should start.
+   */
+  practice: 2,
+  saving: 3,
+  plan: 4,
+  commitment: 5,
 } as const;
 
 /** Per-field cap, so a runaway extraction stays a sentence. */
@@ -97,6 +107,8 @@ const OPENING_CHARS = 320;
 const ECHO_WHO = 60;
 const ECHO_TITLE = 90;
 const ECHO_COMMITMENT = 140;
+/** How much of a practised prompt the teacher is shown. Enough to name it. */
+const ECHO_PRACTICE = 120;
 
 /**
  * Words that cannot end a spoken phrase. Trimming at a word boundary is not
@@ -564,7 +576,15 @@ export async function learnerRecord(userId: string): Promise<LearnerRecord> {
     careerProfile(userId),
     planSteps(userId),
     sessionHistory(userId, 3),
-  ]).then(([profile, steps, history]) => buildRecord({ profile, steps, history }));
+  ]).then(async ([profile, steps, history]) => {
+    /*
+     * Sequenced after the history rather than beside it, because the window it
+     * asks for is "since the last class" and only the history knows when that
+     * was. One extra round trip on a path that already has a deadline over it.
+     */
+    const practice = await practiceRecap(userId, history[0]?.createdAt ?? null);
+    return buildRecord({ profile, steps, history, practice });
+  });
 
   /*
    * Slow is handled by the deadline, broken by the catch. Its sibling in the
@@ -618,14 +638,85 @@ const RECORD_DEADLINE_MS = 3_000;
  * three database calls; everything below is the judgement about what the teacher
  * is told, and that judgement decides whether a returning learner is recognised.
  */
+/**
+ * What the learner practised on their own since the last class.
+ *
+ * The bench is level 1, in class, with the teacher watching. The lab at
+ * iajit.vercel.app is level 2 and nobody is watching — which is the point, it
+ * is where somebody runs the same request past several models to see what
+ * changes. Both write here, and the difference between them is `session_id`:
+ * a bench exchange happens inside a class and carries one, lab practice does
+ * not.
+ *
+ * So this reads the rows with no session attached. That is the work done
+ * *between* classes, and it is exactly what a teacher has no other way to know
+ * about. Opening on it — "vi que probaste la misma petición en tres modelos,
+ * ¿qué cambió?" — is the difference between a class that continues and one that
+ * starts over.
+ *
+ * Fails soft to null like every read in this module: a teacher that cannot see
+ * the practice still teaches the class.
+ */
+export interface PracticeRecap {
+  /** Prompts the learner sent outside a class since the given moment. */
+  exchanges: number;
+  /** The most recent one, for the teacher to open on. */
+  lastPrompt: string | null;
+}
+
+export async function practiceRecap(
+  userId: string,
+  /** ISO timestamp of the last class, as `session_summaries.created_at` stores it. */
+  since: string | null,
+): Promise<PracticeRecap | null> {
+  if (!serviceConfigured()) return null;
+  try {
+    let query = supabaseAdmin()
+      .from('practice_messages')
+      .select('content, created_at')
+      .eq('user_id', userId)
+      .eq('role', 'user')
+      .is('session_id', null)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    /*
+     * Since the last class, not since forever. A learner three months in has
+     * hundreds of these, and "practicó 240 veces" tells the teacher nothing it
+     * can open a class with. What matters is what happened since they last
+     * spoke.
+     */
+    if (since) query = query.gte('created_at', since);
+
+    const { data, error } = await query;
+    if (error || !data) {
+      if (error) console.error('[progress] could not read practice:', error.message);
+      return null;
+    }
+    if (data.length === 0) return { exchanges: 0, lastPrompt: null };
+
+    const last = (data[0] as { content: string | null }).content ?? null;
+    return {
+      exchanges: data.length,
+      lastPrompt: last ? toWord(last, ECHO_PRACTICE) : null,
+    };
+  } catch (err) {
+    console.error('[progress] practice lookup threw:', err);
+    return null;
+  }
+}
+
 export function buildRecord({
   profile,
   steps,
   history,
+  practice = null,
 }: {
   profile: CareerProfile | null;
   steps: readonly PlanStep[];
   history: readonly SessionRecord[];
+  /** What they did in the lab between classes. Null when it could not be read. */
+  practice?: PracticeRecap | null;
 }): LearnerRecord {
   /*
    * First session means nothing has happened, not "no profile row".
@@ -840,6 +931,24 @@ export function buildRecord({
       keep: KEEP.commitment,
     });
   }
+  /*
+   * Said as evidence, with the prompt, because a count on its own is not
+   * something a class can open on. "Practicó 6 veces" invites "¿cómo te fue?",
+   * which is the same blind question the bench was built to stop; naming what
+   * they actually wrote lets the teacher start on the work.
+   *
+   * Silent at zero. A learner who practised nothing does not need it pointed
+   * out at the top of their class, and the teacher has better openings.
+   */
+  if (practice && practice.exchanges > 0) {
+    blocks.push({
+      text: `Entre clases practicó ${practice.exchanges} ${
+        practice.exchanges === 1 ? 'vez' : 'veces'
+      } por su cuenta${practice.lastPrompt ? `; lo último que pidió fue "${practice.lastPrompt}"` : ''}.`,
+      keep: KEEP.practice,
+    });
+  }
+
   const days = history[0] ? daysSince(history[0].createdAt) : null;
   if (days !== null) {
     blocks.push({

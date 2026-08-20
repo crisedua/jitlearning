@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { handoffFor, handoffs, handoffNote, MAX_URL_PROMPT } from './handoff';
+import { handoffFor, handoffs, handoffNote, labHandoff, LAB_URL, MAX_URL_PROMPT } from './handoff';
 import { PRACTICE_MODELS } from './practica';
 
 const PROMPT = 'Consolida estos tres archivos en una tabla y súmame los totales por cliente.';
@@ -80,5 +80,34 @@ describe('sending the learner to the real product', () => {
     for (const h of handoffs(PROMPT)) {
       assert.ok(handoffNote(h).includes(h.label), `${h.id}: note does not name the product`);
     }
+  });
+});
+
+/*
+ * The lab is ours and the three products are not, which is the distinction the
+ * whole handoff rests on: one row says "go and do this where it will still work
+ * next year", the other says "come and compare". Collapsing them would turn the
+ * first into an ad for the second.
+ */
+describe('sending the learner to the lab', () => {
+  it('is not one of the three products', () => {
+    assert.ok(!handoffs('x').some((h) => h.url.startsWith(LAB_URL)));
+  });
+
+  it('is named as ours rather than as a model', () => {
+    assert.equal(labHandoff('x').id, 'lab');
+  });
+
+  it('carries the prompt', () => {
+    const h = labHandoff('compara esta petición');
+    assert.equal(h.prefilled, true);
+    assert.ok(h.url.startsWith(LAB_URL));
+    assert.ok(h.url.includes(encodeURIComponent('compara esta petición')));
+  });
+
+  it('keeps a long prompt out of the URL, like everywhere else here', () => {
+    const h = labHandoff('a'.repeat(MAX_URL_PROMPT + 1));
+    assert.equal(h.prefilled, false);
+    assert.equal(h.url, LAB_URL);
   });
 });

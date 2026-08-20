@@ -1059,6 +1059,28 @@ function Step({
             nobody could explain afterwards.
           */}
           {step.recipePrompt && <OpenInProduct prompt={step.recipePrompt} />}
+
+          {/*
+            The lab, on level 2 only.
+
+            Level 2 is `por qué funcionó`, and `cri-01-contexto`'s proof is the
+            same task done twice. The lab at iajit holds hundreds of models in
+            one conversation — useless in a first class, and exactly the
+            apparatus this lesson needs: same request, several models, say what
+            changed and why. It also gives the corpus's own comparison document
+            something the learner can actually do.
+
+            Not on level 1. That class is one task, one model, finished and
+            measured, and a room full of models to choose between is the
+            distraction it was built to avoid.
+          */}
+          {step.level === 'criterio' && step.recipePrompt && (
+            <OpenInProduct
+              prompt={step.recipePrompt}
+              variant="lab"
+              label="Pruébala en varios modelos"
+            />
+          )}
         </form>
       )}
 
