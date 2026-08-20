@@ -1,6 +1,7 @@
 import Link from 'next/link';
+import { AnimatedSteps } from '@/components/AnimatedSteps';
 import { SessionPreview } from '@/components/SessionPreview';
-import { DIFFERENCES, HERO, PROMISES, STEPS, TAGLINE } from '@/lib/site';
+import { DIFFERENCES, HERO, PROMISES, TAGLINE } from '@/lib/site';
 import { LEVELS, WEEKLY_MAX, WEEKLY_MIN, lessonsForLevel } from '@/lib/curriculum';
 import { ASSUMED_SESSION_MINUTES, FREE_PLAN, spellMinutes } from '@/lib/plans';
 
@@ -120,20 +121,26 @@ export default function HomePage() {
                 </h3>
                 <p className="mt-3 text-[15px] leading-relaxed text-muted">{level.purpose}</p>
 
-                {lessons.length > 0 && (
-                  <ol className="mt-5 space-y-2">
-                    {lessons.map((lesson) => (
-                      <li key={lesson.id} className="flex items-start gap-2.5">
-                        <span
-                          aria-hidden
-                          className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gold"
-                        />
-                        <span className="text-[15px] leading-snug text-ink/90">
-                          {lesson.title}
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
+                {/*
+                  On a phone these lists are most of the section's height, with
+                  4 levels of them in a row. The titles stay one tap away behind
+                  a native summary; on desktop, where they cost no scroll, the
+                  list stays open. Rendered twice rather than toggled with
+                  JavaScript, so both variants are plain HTML.
+                */}
+                {lessons.length > 0 && lessons.length <= 2 && (
+                  <LessonList lessons={lessons} className="mt-5" />
+                )}
+                {lessons.length > 2 && (
+                  <>
+                    <details className="mt-5 lg:hidden">
+                      <summary className="cursor-pointer text-[15px] font-medium text-accent">
+                        Ver las {lessons.length} clases
+                      </summary>
+                      <LessonList lessons={lessons} className="mt-3" />
+                    </details>
+                    <LessonList lessons={lessons} className="mt-5 hidden lg:block" />
+                  </>
                 )}
 
                 {/*
@@ -248,27 +255,7 @@ export default function HomePage() {
             </h2>
           </div>
 
-          <ol className="flex flex-col">
-            {STEPS.map((step, i) => (
-              <li
-                key={step.title}
-                style={{ animationRange: `entry 0% entry ${60 + i * 10}%` }}
-                className={`reveal grid grid-cols-[3rem_1fr] gap-5 border-t border-line-strong py-6 ${
-                  i === STEPS.length - 1 ? 'border-b' : ''
-                }`}
-              >
-                <span aria-hidden className="pt-1 font-mono text-[13px] text-soft">
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <div>
-                  <h3 className="text-xl font-semibold">{step.title}</h3>
-                  <p className="mt-1.5 max-w-[52ch] text-base leading-relaxed text-muted">
-                    {step.body}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ol>
+          <AnimatedSteps />
         </div>
       </section>
 
@@ -312,5 +299,25 @@ export default function HomePage() {
         </div>
       </section>
     </>
+  );
+}
+
+/** One level's lesson titles, shared by the mobile summary and the open list. */
+function LessonList({
+  lessons,
+  className,
+}: {
+  lessons: ReturnType<typeof lessonsForLevel>;
+  className?: string;
+}) {
+  return (
+    <ol className={`space-y-2 ${className ?? ''}`}>
+      {lessons.map((lesson) => (
+        <li key={lesson.id} className="flex items-start gap-2.5">
+          <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" />
+          <span className="text-[15px] leading-snug text-ink/90">{lesson.title}</span>
+        </li>
+      ))}
+    </ol>
   );
 }

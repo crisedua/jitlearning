@@ -209,6 +209,43 @@ body {
   }
 }
 
+/*
+ * One vignette of the "cómo funciona" band taking its turn. Five boxes run the
+ * same 12.5s cycle offset by a fifth each, so exactly one is lit at any moment
+ * and the highlight walks down the list without a line of JavaScript.
+ */
+@keyframes stage {
+  0%,
+  3% {
+    border-color: var(--color-line);
+    box-shadow: 0 0 0 0 rgba(217, 168, 59, 0);
+    transform: translateY(0);
+  }
+  7%,
+  19% {
+    border-color: rgba(217, 168, 59, 0.55);
+    box-shadow: 0 16px 30px -18px rgba(217, 168, 59, 0.65);
+    transform: translateY(-3px);
+  }
+  26%,
+  100% {
+    border-color: var(--color-line);
+    box-shadow: 0 0 0 0 rgba(217, 168, 59, 0);
+    transform: translateY(0);
+  }
+}
+
+/* A soft breathing opacity for small decorative marks. */
+@keyframes pulsefade {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 @keyframes caret {
   0%,
   49% {
