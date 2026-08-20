@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { offersUpgrade, withoutUpgradeMarker } from '@/lib/gate';
 import { OpenInProduct } from './OpenInProduct';
 import {
@@ -26,28 +26,24 @@ interface Exchange {
  * into a contextual update on the open call, which costs no spoken turn. See
  * `src/lib/practica.ts` for why this exists at all.
  *
- * ## The model picker is gone
+ * ## Interaction rather than instruction
  *
- * Three pill buttons sat at the top and made the first decision in the panel a
- * question the learner cannot answer: they are here precisely because they do
- * not yet know how Gemini differs from Claude. It also framed the panel as a
- * comparison tool, which it is not — the lesson is what to write and how to
- * check the answer, and that transfers across all three.
+ * The panel got two rounds of trimming for being crowded, and the way to make
+ * it easier to use after that is not to put the words back. It is to let people
+ * do the obvious thing and have it work: drop a file anywhere on the panel,
+ * paste a screenshot, watch the box grow as the prompt gets longer, copy the
+ * answer with one click. Every affordance here replaces a sentence that would
+ * otherwise have to explain it.
  *
- * Which model runs is still a real choice, made by the teacher: it arrives as
- * `initialModel` from `open_model_sandbox`, so a class about long documents can
- * open on the one that handles them best without the learner being asked. What
- * is running is stated under the composer rather than offered as a control.
+ * ## Motion is feedback, not decoration
  *
- * ## It looks like a chat, and deliberately like nobody's chat
- *
- * The conventions here — the learner's turn in a bubble, the answer as plain
- * full-width text, a rounded composer with the attach control inside it — are
- * the shared grammar of every assistant, and following them means nobody has to
- * be taught this screen before they can use it. The palette, type and spacing
- * are this product's own. Cloning Gemini's or ChatGPT's identity would be
- * trademark exposure with no upside, and worse teaching: a learner who believes
- * they used Gemini here is in for a surprise when they open the real one.
+ * Each animation answers a question the learner would otherwise have to guess
+ * at: the panel rises when the teacher opens it (something appeared, and it was
+ * meant to), turns pop in as they land, the dots say the model is working
+ * rather than stuck, and the caret says text is still arriving. All of it runs
+ * on the keyframes `globals.css` already defines, and that file disables every
+ * animation under `prefers-reduced-motion` — so none of this is load-bearing
+ * for somebody who has asked for stillness.
  */
 export function PracticeBench({
   sessionId,
@@ -79,34 +75,69 @@ export function PracticeBench({
   const [warnings, setWarnings] = useState<readonly string[]>([]);
   /** Minutes of allowance left, as of the last exchange. Null = not metered. */
   const [left, setLeft] = useState<number | null>(null);
+  /** A file is being dragged over the panel. */
+  const [dragging, setDragging] = useState(false);
+  /** The thread is scrolled away from the newest turn. */
+  const [away, setAway] = useState(false);
+  /** Index of the answer whose text was just copied, for the confirmation. */
+  const [copied, setCopied] = useState<number | null>(null);
+
   const fileInput = useRef<HTMLInputElement>(null);
   const feed = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLTextAreaElement>(null);
+  /*
+   * `dragenter`/`dragleave` fire for every child element the pointer crosses,
+   * so a boolean set from `dragleave` flickers the whole time somebody is
+   * moving a file across the panel. Counting entries and exits is the standard
+   * fix and the only one that survives nested children.
+   */
+  const dragDepth = useRef(0);
 
   const modelId = initialModel;
   const model = practiceModel(modelId)!;
 
-  /*
-   * The last thing the learner actually sent, for the handoff buttons. Their
-   * own words rather than the teacher's dictation: by the time an exchange has
-   * worked, the prompt has usually been corrected once or twice, and the
-   * corrected one is what they want in their own account.
-   */
   const lastPrompt = [...turns].reverse().find((t) => t.role === 'user')?.content ?? '';
+
+  /*
+   * Focus without scrolling. The panel opens mid-class, often below the fold,
+   * and the learner's next move is to type — but yanking the page down while
+   * the teacher is mid-sentence is disorienting. `preventScroll` gives the
+   * cursor without moving anything.
+   */
+  useEffect(() => {
+    box.current?.focus({ preventScroll: true });
+  }, []);
+
+  const scroll = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    requestAnimationFrame(() =>
+      feed.current?.scrollTo({ top: feed.current.scrollHeight, behavior }),
+    );
+  }, []);
 
   /*
    * The size check happens at selection, not at send. Vercel rejects an
    * oversized body before the route runs, so the server cannot produce a
    * message that names the files — by then they are gone.
    */
-  const addFiles = useCallback((incoming: FileList | null) => {
+  const addFiles = useCallback((incoming: FileList | File[] | null) => {
     if (!incoming) return;
+    const list = Array.from(incoming);
+    if (list.length === 0) return;
     setFiles((current) => {
-      const next = [...current, ...Array.from(incoming)].slice(0, MAX_FILES);
+      const next = [...current, ...list].slice(0, MAX_FILES);
       const complaint = tooLarge(next.map((f) => f.size));
       setError(complaint);
       setDetail(null);
       return complaint ? current : next;
     });
+  }, []);
+
+  /** Grows with the prompt, up to the cap the class can absorb. */
+  const grow = useCallback(() => {
+    const el = box.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, []);
 
   const send = useCallback(async () => {
@@ -124,11 +155,7 @@ export function PracticeBench({
     setPrompt('');
     setFiles([]);
     if (fileInput.current) fileInput.current.value = '';
-
-    const scroll = () =>
-      requestAnimationFrame(() =>
-        feed.current?.scrollTo({ top: feed.current.scrollHeight, behavior: 'smooth' }),
-      );
+    requestAnimationFrame(grow);
     scroll();
 
     try {
@@ -190,7 +217,7 @@ export function PracticeBench({
             next[next.length - 1] = { role: 'assistant', content: answer };
             return next;
           });
-          scroll();
+          scroll('auto');
         } else if (msg.t === 'warn') {
           setWarnings(msg.warnings ?? []);
         } else if (msg.t === 'error') {
@@ -222,12 +249,58 @@ export function PracticeBench({
       setBusy(false);
       scroll();
     }
-  }, [prompt, files, busy, modelId, sessionId, turns, onExchange, onFailure]);
+  }, [prompt, files, busy, modelId, sessionId, turns, onExchange, onFailure, grow, scroll]);
+
+  /** Take the answer out of here, which is the point of producing it. */
+  const copy = useCallback(async (text: string, index: number) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(index);
+      window.setTimeout(() => setCopied((c) => (c === index ? null : c)), 1600);
+    } catch {
+      /* Selecting it by hand still works; nothing here is worth an alert. */
+    }
+  }, []);
 
   const empty = turns.length === 0;
 
   return (
-    <section className="overflow-hidden rounded-xl border border-line bg-surface shadow-sm">
+    <section
+      /*
+       * Drop anywhere on the panel, not only on the ＋. Dragging a spreadsheet
+       * onto a chat is what people try first, and making it work removes the
+       * sentence that would otherwise have to explain where the button is.
+       */
+      onDragEnter={(e) => {
+        if (!e.dataTransfer.types.includes('Files')) return;
+        dragDepth.current += 1;
+        setDragging(true);
+      }}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('Files')) e.preventDefault();
+      }}
+      onDragLeave={() => {
+        dragDepth.current = Math.max(0, dragDepth.current - 1);
+        if (dragDepth.current === 0) setDragging(false);
+      }}
+      onDrop={(e) => {
+        if (!e.dataTransfer.types.includes('Files')) return;
+        e.preventDefault();
+        dragDepth.current = 0;
+        setDragging(false);
+        addFiles(e.dataTransfer.files);
+      }}
+      className={`animate-rise relative overflow-hidden rounded-xl border bg-surface shadow-sm transition-colors duration-200 ${
+        dragging ? 'border-accent ring-4 ring-accent-soft' : 'border-line'
+      }`}
+    >
+      {/* The drop target, shown only while something is over the panel. */}
+      {dragging && (
+        <div className="animate-fade pointer-events-none absolute inset-0 z-10 grid place-items-center bg-surface/90 backdrop-blur-[1px]">
+          <p className="text-sm font-medium text-accent">Suelta el archivo acá</p>
+        </div>
+      )}
+
       <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-5 py-3.5">
         <h2 className="text-sm font-semibold text-ink">Banco de práctica</h2>
         {/*
@@ -236,97 +309,134 @@ export function PracticeBench({
           not being counted is a lie they would believe.
         */}
         {left !== null && (
-          <p className={left <= 2 ? 'text-xs font-medium text-danger' : 'text-xs text-muted'}>
+          <p
+            className={`animate-fade text-xs ${
+              left <= 2 ? 'font-medium text-danger' : 'text-muted'
+            }`}
+          >
             {left === 0 ? 'Sin minutos' : `Te quedan ${left} ${left === 1 ? 'minuto' : 'minutos'}`}
           </p>
         )}
       </header>
 
-      {/*
-        The exercise, kept in front of them. The teacher says it once and the
-        learner then spends two minutes typing; by the end of a long prompt the
-        original task is three turns of audio ago and gone.
-      */}
       {task && (
         <p className="border-b border-line bg-surface-alt/50 px-5 py-3 text-sm text-ink/85">
           <span className="font-medium">Ejercicio:</span> {task}
         </p>
       )}
 
-      <div
-        ref={feed}
-        className="max-h-[28rem] min-h-[13rem] space-y-5 overflow-y-auto px-5 py-5"
-        aria-live="polite"
-      >
-        {empty ? (
-          /*
-           * The empty state carries the one instruction that changes behaviour,
-           * and it is the instruction the whole bench exists to give: hand over
-           * the file, do not describe it. A learner who types "tengo una
-           * planilla con tres hojas" has already lost the exercise.
-           */
-          /*
-           * Everything the learner has to be told sits here, in the one moment
-           * they have nothing else to read: before the first message. Once the
-           * thread starts it all disappears, because a disclosure repeated under
-           * every message box stops being read and starts being clutter — which
-           * is exactly what it became.
-           */
-          <div className="py-8 text-center">
-            <p className="text-sm text-ink/85">Escríbele lo que el profesor te dictó.</p>
-            <p className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-muted">
-              Si la tarea vive en un archivo, adjúntalo en vez de describírselo.
-            </p>
-            <p className="mx-auto mt-4 max-w-xs text-[11px] leading-relaxed text-soft">
-              Corre {model.detail} por API. Los archivos no se guardan; lo que escribas sí.{' '}
-              <a
-                href="/privacidad"
-                className="underline underline-offset-2 transition-colors duration-150 hover:text-accent"
-              >
-                Qué se guarda
-              </a>
-              .
-            </p>
-          </div>
-        ) : (
-          turns.map((turn, i) =>
-            turn.role === 'user' ? (
-              <div key={i} className="flex justify-end">
-                <div className="max-w-[85%] rounded-2xl rounded-br-md bg-accent px-4 py-2.5 text-[15px] leading-relaxed text-white">
-                  {turn.files && turn.files.length > 0 && (
-                    <p className="mb-1.5 text-xs opacity-80">📎 {turn.files.join(', ')}</p>
-                  )}
-                  <p className="whitespace-pre-wrap break-words">{turn.content}</p>
+      <div className="relative">
+        <div
+          ref={feed}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            setAway(el.scrollHeight - el.scrollTop - el.clientHeight > 80);
+          }}
+          className="max-h-[28rem] min-h-[13rem] space-y-5 overflow-y-auto px-5 py-5"
+          aria-live="polite"
+        >
+          {empty ? (
+            /*
+             * Everything the learner has to be told sits here, in the one
+             * moment they have nothing else to read. Once the thread starts it
+             * disappears: a disclosure repeated under every message box stops
+             * being read and becomes furniture.
+             */
+            <div className="animate-fade py-8 text-center">
+              <p className="text-sm text-ink/85">Escríbele lo que el profesor te dictó.</p>
+              <p className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-muted">
+                Si la tarea vive en un archivo, arrástralo hasta acá.
+              </p>
+              <p className="mx-auto mt-4 max-w-xs text-[11px] leading-relaxed text-soft">
+                Corre {model.detail} por API. Los archivos no se guardan; lo que escribas sí.{' '}
+                <a
+                  href="/privacidad"
+                  className="underline underline-offset-2 transition-colors duration-150 hover:text-accent"
+                >
+                  Qué se guarda
+                </a>
+                .
+              </p>
+            </div>
+          ) : (
+            turns.map((turn, i) =>
+              turn.role === 'user' ? (
+                <div key={i} className="animate-pop flex justify-end">
+                  <div className="max-w-[85%] rounded-2xl rounded-br-md bg-accent px-4 py-2.5 text-[15px] leading-relaxed text-white">
+                    {turn.files && turn.files.length > 0 && (
+                      <p className="mb-1.5 text-xs opacity-80">📎 {turn.files.join(', ')}</p>
+                    )}
+                    <p className="whitespace-pre-wrap break-words">{turn.content}</p>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              /*
-               * The answer runs full width with no bubble, which is the modern
-               * convention and not decoration: this is the text the learner has
-               * to *inspect* — a consolidated table, a list, a number to check —
-               * and a narrow tinted box is the wrong container for the only
-               * thing on screen worth reading closely.
-               */
-              <div key={i} className="text-[15px] leading-relaxed text-ink">
-                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-soft">
-                  Asistente
-                </p>
-                <p className="whitespace-pre-wrap break-words">
-                  {turn.content}
-                  {busy && i === turns.length - 1 && (
-                    <span
-                      aria-hidden
-                      className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[0.15em] bg-accent [animation:caret_1.1s_step-end_infinite]"
-                    />
-                  )}
-                </p>
-              </div>
-            ),
-          )
-        )}
+              ) : (
+                /*
+                 * The answer runs full width with no bubble: it is the one thing
+                 * on screen worth reading closely — a consolidated table, a
+                 * total to check — and a narrow tinted box is the wrong
+                 * container for that.
+                 */
+                <div key={i} className="animate-pop group text-[15px] leading-relaxed text-ink">
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-soft">
+                      Asistente
+                    </p>
+                    {/*
+                      Copying the answer is the next thing they do with it —
+                      into the report, the email, the sheet. Revealed on hover
+                      and always reachable by keyboard, so it is there without
+                      being one more thing on screen.
+                    */}
+                    {turn.content && !busy && (
+                      <button
+                        type="button"
+                        onClick={() => void copy(turn.content, i)}
+                        className="text-[11px] text-muted opacity-0 transition-opacity duration-150 hover:text-accent focus:opacity-100 group-hover:opacity-100"
+                      >
+                        {copied === i ? 'copiado' : 'copiar'}
+                      </button>
+                    )}
+                  </div>
+                  <p className="whitespace-pre-wrap break-words">
+                    {turn.content}
+                    {busy && i === turns.length - 1 && (
+                      <span
+                        aria-hidden
+                        className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[0.15em] bg-accent [animation:caret_1.1s_step-end_infinite]"
+                      />
+                    )}
+                  </p>
+                </div>
+              ),
+            )
+          )}
 
-        {busy && turns[turns.length - 1]?.role === 'user' && (
-          <p className="text-[13px] text-muted">Pensando…</p>
+          {/* Working, not stuck. Three dots beat a word for the same reason a
+              spinner does: it keeps moving while nothing else does. */}
+          {busy && turns[turns.length - 1]?.role === 'user' && (
+            <p className="flex items-center gap-1" aria-label="Pensando">
+              {[0, 1, 2].map((d) => (
+                <span
+                  key={d}
+                  aria-hidden
+                  className="h-1.5 w-1.5 rounded-full bg-muted [animation:dot_1.4s_ease-in-out_infinite]"
+                  style={{ animationDelay: `${d * 0.16}s` }}
+                />
+              ))}
+            </p>
+          )}
+        </div>
+
+        {/* Only when they have scrolled away from it, so it is an answer to a
+            question they are actually asking. */}
+        {away && (
+          <button
+            type="button"
+            onClick={() => scroll()}
+            className="animate-pop absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-line bg-surface px-3 py-1 text-xs text-muted shadow-sm transition-colors duration-150 hover:border-line-strong hover:text-accent"
+          >
+            Ir a lo último ↓
+          </button>
         )}
       </div>
 
@@ -336,7 +446,7 @@ export function PracticeBench({
             {files.map((f, i) => (
               <li
                 key={`${f.name}-${i}`}
-                className="inline-flex items-center gap-2 rounded-full border border-line bg-surface-alt px-3 py-1 text-xs text-ink/80"
+                className="animate-pop inline-flex items-center gap-2 rounded-full border border-line bg-surface-alt px-3 py-1 text-xs text-ink/80"
               >
                 {f.name}
                 <button
@@ -352,8 +462,6 @@ export function PracticeBench({
           </ul>
         )}
 
-        {/* One rounded field holding the controls, so attaching reads as part
-            of writing the message rather than as a separate step. */}
         <div className="flex items-end gap-2 rounded-2xl border border-field bg-surface px-3 py-2 transition-colors duration-150 focus-within:border-accent focus-within:ring-4 focus-within:ring-accent-soft hover:border-line-strong">
           <input
             ref={fileInput}
@@ -367,15 +475,32 @@ export function PracticeBench({
           <label
             htmlFor="practica-files"
             title="Adjuntar archivo"
-            className="mb-1 cursor-pointer rounded-full px-2 py-1 text-lg leading-none text-muted transition-colors duration-150 hover:bg-surface-alt hover:text-accent"
+            className="mb-1 cursor-pointer rounded-full px-2 py-1 text-lg leading-none text-muted transition-all duration-150 hover:bg-surface-alt hover:text-accent active:scale-90"
           >
             <span aria-hidden>＋</span>
             <span className="sr-only">Adjuntar archivo</span>
           </label>
 
           <textarea
+            ref={box}
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            onChange={(e) => {
+              setPrompt(e.target.value);
+              grow();
+            }}
+            /*
+             * Pasting a screenshot is how people move something from another
+             * window into a chat. Without this it silently does nothing, which
+             * reads as the panel being broken rather than as an unsupported
+             * gesture.
+             */
+            onPaste={(e) => {
+              const dropped = Array.from(e.clipboardData.files);
+              if (dropped.length > 0) {
+                e.preventDefault();
+                addFiles(dropped);
+              }
+            }}
             onKeyDown={(e) => {
               /*
                * Enter sends, shift+enter breaks the line. A prompt with real
@@ -389,7 +514,7 @@ export function PracticeBench({
             }}
             rows={1}
             placeholder="Escribe tu petición…"
-            className="max-h-40 min-h-[2.25rem] flex-1 resize-none border-0 bg-transparent py-1.5 text-[15px] leading-relaxed text-ink placeholder:text-muted focus:outline-none focus:ring-0"
+            className="max-h-40 min-h-[2.25rem] flex-1 resize-none overflow-y-auto border-0 bg-transparent py-1.5 text-[15px] leading-relaxed text-ink placeholder:text-muted focus:outline-none focus:ring-0"
           />
 
           <button
@@ -397,10 +522,14 @@ export function PracticeBench({
             onClick={() => void send()}
             disabled={busy || (!prompt.trim() && files.length === 0)}
             aria-label="Enviar"
-            className="mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent text-white transition duration-150 ease-out hover:bg-accent-hover disabled:opacity-40"
+            className="mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent text-white transition-all duration-200 ease-out hover:bg-accent-hover active:scale-90 disabled:scale-100 disabled:opacity-40"
           >
             <span aria-hidden className="text-base leading-none">
-              {busy ? '…' : '↑'}
+              {busy ? (
+                <span className="block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+              ) : (
+                '↑'
+              )}
             </span>
           </button>
         </div>
@@ -408,7 +537,7 @@ export function PracticeBench({
         {warnings.length > 0 && (
           <ul className="mt-2.5 space-y-1">
             {warnings.map((w, i) => (
-              <li key={i} className="text-xs text-ink/75">
+              <li key={i} className="animate-fade text-xs text-ink/75">
                 · {w}
               </li>
             ))}
@@ -418,7 +547,7 @@ export function PracticeBench({
         {error && (
           <div
             role="alert"
-            className="mt-2.5 rounded-md border border-danger/25 bg-danger-soft/60 px-3.5 py-2.5 text-sm text-ink/85"
+            className="animate-pop mt-2.5 rounded-md border border-danger/25 bg-danger-soft/60 px-3.5 py-2.5 text-sm text-ink/85"
           >
             <p>
               {withoutUpgradeMarker(error)}{' '}
@@ -436,11 +565,6 @@ export function PracticeBench({
           </div>
         )}
 
-        {/*
-          The door out. The bench is a rehearsal — the products cannot be
-          embedded — and the weekly saving has to keep working in the learner's
-          own account after they stop paying us.
-        */}
         {lastPrompt && <OpenInProduct prompt={lastPrompt} label="Repítelo en tu cuenta" />}
       </div>
     </section>
