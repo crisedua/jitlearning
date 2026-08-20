@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { SessionBar } from '@/components/SessionBar';
 import { OpenInProduct } from '@/components/OpenInProduct';
 import { currentUser } from '@/lib/supabase/server';
+import { mintLabToken } from '@/lib/lab-token';
 import { signInPath } from '@/lib/paths';
 import { isAdminEmail } from '@/lib/admin';
 import {
@@ -69,6 +70,28 @@ export default async function ProgresoPage({
   searchParams: Promise<{ pago?: string }>;
 }) {
   const user = await currentUser();
+
+  /*
+   * The claim the lab needs, minted here rather than by an API call.
+   *
+   * This page is a server component and already knows who is reading it, so the
+   * token costs one HMAC and no round trip. It exists because the lab runs on a
+   * different Supabase project: the same person has a different `auth.uid()`
+   * there and no way to say whose practice it was when reporting back.
+   *
+   * Null when INGEST_SECRET is absent, which is a deployment that cannot sign
+   * anything. The lab link still works and still carries the prompt; the only
+   * thing lost is the teacher hearing about the practice afterwards, and a
+   * missing secret must never be the reason somebody cannot go and practise.
+   */
+  const labToken = (() => {
+    if (!user) return null;
+    try {
+      return mintLabToken(user.id);
+    } catch {
+      return null;
+    }
+  })();
   if (!user) redirect(signInPath('/progreso'));
 
   const [profile, steps, history, subscription, balance, offer, lastSession, params] = await Promise.all([
@@ -146,6 +169,7 @@ export default async function ProgresoPage({
           steps={steps}
           currentId={current?.step.id ?? null}
           outOfMinutes={minutesLeft(balance) === 0}
+          labToken={labToken}
         />
       )}
 
@@ -740,10 +764,13 @@ function Plan({
   steps,
   currentId,
   outOfMinutes,
+  labToken,
 }: {
   steps: PlanStep[];
   currentId: string | null;
   outOfMinutes: boolean;
+  /** Minted once per render and handed to every level 2 step. */
+  labToken: string | null;
 }) {
   const done = steps.filter((s) => s.status === 'done').length;
 
@@ -800,6 +827,7 @@ function Plan({
                       isCurrent={step.id === currentId}
                       level={level.id}
                       outOfMinutes={outOfMinutes}
+                      labToken={labToken}
                     />
                   </li>
                 ))}
@@ -823,12 +851,20 @@ function Step({
   isCurrent,
   level,
   outOfMinutes,
+  labToken,
 }: {
   step: PlanStep;
   isCurrent: boolean;
   level: LevelId;
   /** No free minutes left, so "have a class" is not an available instruction. */
   outOfMinutes: boolean;
+  /**
+   * Signed here on the server and handed to the lab, which lives on a different
+   * Supabase project and would otherwise have no way to say whose practice it
+   * was. Null when it could not be minted; the link still works, the teacher
+   * just never hears about the practice.
+   */
+  labToken: string | null;
 }) {
   const detail = stepDetail(step);
 
@@ -1078,6 +1114,7 @@ function Step({
             <OpenInProduct
               prompt={step.recipePrompt}
               variant="lab"
+              labToken={labToken}
               label="Pruébala en varios modelos"
             />
           )}

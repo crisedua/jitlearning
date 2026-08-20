@@ -23,9 +23,12 @@ export function OpenInProduct({
   prompt,
   label,
   variant = 'products',
+  labToken,
 }: {
   prompt: string;
   label?: string;
+  /** Signed on the server, so the lab can report this learner's practice back. */
+  labToken?: string | null;
   /**
    * `products` sends them to their own Gemini/Claude/ChatGPT, which is the
    * level 1 move: the saving has to keep working after they stop paying us.
@@ -83,7 +86,7 @@ export function OpenInProduct({
      */
     <p className="mt-3 text-xs text-muted">
       {label ?? 'Ahora hazlo en tu cuenta'}:{' '}
-      {(variant === 'lab' ? [labHandoff(prompt)] : handoffs(prompt)).map((h, i) => (
+      {(variant === 'lab' ? [labHandoff(prompt, labToken)] : handoffs(prompt)).map((h, i) => (
         <span key={h.id}>
           {i > 0 && <span aria-hidden> · </span>}
           <button

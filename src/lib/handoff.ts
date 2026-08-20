@@ -116,13 +116,35 @@ const PRODUCTS: Record<PracticeModelId, { home: string; prefill: ((p: string) =>
  */
 export const LAB_URL = 'https://iajit.vercel.app/';
 
-export function labHandoff(prompt: string): Handoff {
+export function labHandoff(prompt: string, token?: string | null): Handoff {
   const text = prompt.trim();
   const canPrefill = text.length > 0 && text.length <= MAX_URL_PROMPT;
+
+  /*
+   * `t` is the signed claim that says which modojit learner this is, so the lab
+   * can report their practice back to a database it has no account on. Optional
+   * on purpose: without it the link still opens and still carries the prompt,
+   * and the only thing lost is the teacher hearing about it afterwards. A
+   * missing token must never be the reason somebody cannot practise.
+   */
+  /*
+   * Built with `encodeURIComponent` rather than `URLSearchParams`, which
+   * encodes a space as `+`. Both are correct for a query string and the second
+   * is only correct if the reader decodes it as form data. The reader here is
+   * another codebase, and a lab that does `decodeURIComponent(...)` on the raw
+   * value — the obvious thing to write — turns every space in the prompt into a
+   * plus sign. `%20` is unambiguous for both, and it matches how the rest of
+   * this file encodes.
+   */
+  const params: string[] = [];
+  if (canPrefill) params.push(`q=${encodeURIComponent(text)}`);
+  if (token) params.push(`t=${encodeURIComponent(token)}`);
+  const query = params.join('&');
+
   return {
     id: 'lab',
     label: 'el laboratorio',
-    url: canPrefill ? `${LAB_URL}?q=${encodeURIComponent(text)}` : LAB_URL,
+    url: query ? `${LAB_URL}?${query}` : LAB_URL,
     prefilled: canPrefill,
   };
 }
