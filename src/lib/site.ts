@@ -55,7 +55,7 @@ export const TAGLINE = 'Profesor de IA por voz, en español, para tu trabajo.';
 
 export const HERO = {
   title: 'La primera clase termina con una tarea de tu trabajo ya hecha.',
-  sub: 'Un profesor de IA por voz, en español. Te pregunta qué haces, elige la tarea que más te pesa y la resuelven juntos en la sesión, hoy. Al final mides cuánto tardabas antes y cuánto tardas ahora: ese número es tuyo y se repite cada semana.',
+  sub: 'Un profesor de IA por voz, en español. Eligen juntos la tarea que más te pesa, la resuelven en la sesión, y mides cuánto tiempo recuperas cada semana.',
 } as const;
 
 /**
@@ -74,46 +74,52 @@ export const PROMISES: readonly {
   {
     key: 'resolver',
     title: 'Empiezas resolviendo, no escuchando.',
-    body: 'La primera sesión no es teoría ni un diagnóstico largo: es tu tarea más pesada, hecha contigo, con tus datos, hoy.',
+    body: 'Tu primera sesión es tu tarea más pesada, hecha contigo, con tus datos, hoy.',
   },
   {
     key: 'medir',
     title: 'Mides lo que ahorras.',
-    body: 'Cada tarea de tu semana queda con dos números tuyos: lo que tardabas y lo que tardas ahora. La suma está en tu página de progreso y puedes revisarla tarea por tarea.',
+    body: 'Cada tarea queda con 2 números: lo que tardabas y lo que tardas ahora. La suma vive en tu página de progreso.',
   },
   {
     key: 'memory',
     title: 'Se acuerda de ti.',
-    body: 'Cada sesión parte por lo que te comprometiste la vez anterior, y no acepta un "sí, lo hice" sin que le cuentes qué salió.',
+    body: 'Cada sesión parte por lo que te comprometiste la vez anterior, y te pide contarle qué salió.',
   },
   {
     key: 'honesty',
     title: 'No inventa.',
-    body: 'Cuando responde desde una fuente la nombra, y cuando es criterio general te lo dice. Ninguna cifra sin fuente.',
+    body: 'Nombra la fuente cuando la tiene, avisa cuando es criterio general. Ninguna cifra sin fuente.',
   },
 ];
 
-/** How the whole thing goes, for the "cómo funciona" band. */
+/**
+ * How the whole thing goes, for the "cómo funciona" band.
+ *
+ * One sentence per body. Each row renders next to an animated vignette in
+ * `AnimatedSteps` that shows the stage, so the prose only has to say what the
+ * picture cannot.
+ */
 export const STEPS = [
   {
     title: '4 preguntas, no un cuestionario',
-    body: 'Qué haces, en qué se te va la semana, cuál de esas tareas te pesa más, y qué tienes a mano. Nada más: lo demás se pregunta después.',
+    body: 'Qué haces, en qué se te va la semana, qué tarea te pesa más, y qué tienes a mano.',
   },
   {
     title: '2 minutos de privacidad',
-    body: 'Qué no se pega nunca en un chat y cómo dejar anónimo lo que vas a usar. Antes de tocar un documento de tu trabajo, no después.',
+    body: 'Qué no se pega nunca en un chat, antes de tocar un documento de tu trabajo.',
   },
   {
     title: 'Hacen la tarea, ahora',
-    body: 'Tú ejecutas y te va guiando: qué abrir, qué escribir, qué revisar. Un paso a la vez. Si vas caminando, la dictan y la terminas después.',
+    body: 'Tú ejecutas y te va guiando: qué abrir, qué escribir, qué revisar. Si vas caminando, la dictan.',
   },
   {
-    title: 'Mides los dos números',
-    body: 'Cuánto tardabas y cuánto tardaste. La resta es lo que recuperas cada semana, y queda anotada en tu página de progreso. Si la dictaste caminando, los números se cierran en la clase siguiente.',
+    title: 'Mides los 2 números',
+    body: 'Cuánto tardabas y cuánto tardaste: la resta es lo que recuperas cada semana.',
   },
   {
     title: 'Recién ahí, tu plan',
-    body: 'El mapa de qué más es posible y las clases que siguen, una por cada tarea tuya. Cuesta menos creerlo cuando ya viste funcionar algo tuyo.',
+    body: 'El mapa de qué más es posible, con una clase por cada tarea tuya.',
   },
 ] as const;
 
@@ -162,27 +168,22 @@ export const FEEDBACK_DEAL = `El trato: lo pruebas, dejas tu feedback en esta p�
 export const DIFFERENCES = [
   {
     title: 'Terminas con trabajo hecho',
-    generic:
-      'Responde lo que le preguntas. Si no sabes qué preguntar, la conversación no avanza y no queda nada hecho.',
-    teacher:
-      'La primera sesión termina con una tarea real de tu semana resuelta y el tiempo que ahorras medido.',
+    generic: 'Responde lo que le preguntas, y no queda nada hecho.',
+    teacher: 'La sesión termina con una tarea tuya resuelta y el ahorro medido.',
   },
   {
     title: 'Tiene un currículum',
-    generic: 'Cada chat empieza de cero y termina donde lo dejaste.',
-    teacher:
-      `${LEVELS.length} niveles en orden, y el primero son tus propias tareas. Sabes en qué paso vas de cuántos.`,
+    generic: 'Cada chat empieza de cero.',
+    teacher: `${LEVELS.length} niveles en orden, y el primero son tus propias tareas.`,
   },
   {
     title: 'Sabe qué te falta',
     generic: 'No recuerda la conversación de ayer.',
-    teacher:
-      'Abre por lo que te comprometiste y te pide que le cuentes qué construiste antes de seguir.',
+    teacher: 'Abre por tu compromiso anterior y te pregunta qué salió.',
   },
   {
     title: 'Distingue lo que sabe de lo que tiene',
-    generic: 'Responde con la misma seguridad venga de donde venga, y a veces inventa la cita.',
-    teacher:
-      'Nombra la fuente cuando la tiene, te avisa cuando es criterio general, y no da cifras sin fuente.',
+    generic: 'Responde igual de seguro venga de donde venga.',
+    teacher: 'Nombra fuentes, avisa el criterio general, ninguna cifra sin fuente.',
   },
 ] as const;

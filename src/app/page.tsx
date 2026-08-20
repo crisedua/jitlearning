@@ -150,7 +150,7 @@ export default function HomePage() {
                 {level.perTask && (
                   <p className="mt-4 rounded-md border border-gold/30 bg-gold-soft/30 px-4 py-3 text-[15px] leading-relaxed text-ink/85">
                     Y una clase por cada tarea de tu semana, entre {WEEKLY_MIN} y {WEEKLY_MAX}.
-                    Esas las define tu diagnóstico: son tus tareas, no ejemplos.
+                    Tus tareas, no ejemplos.
                   </p>
                 )}
 
@@ -199,8 +199,7 @@ export default function HomePage() {
 ¿En qué se diferencia de preguntarle a ChatGPT?
         </h2>
         <p className="reveal mt-5 max-w-[58ch] text-[17px] leading-relaxed text-muted">
-          Es la pregunta correcta, así que va contestada. 4 diferencias, todas comprobables en
-          una sola sesión.
+          Es la pregunta correcta. 4 diferencias, comprobables en 1 sesión.
         </p>
 
         <ul className="mt-12 grid gap-4 lg:grid-cols-2">
@@ -210,22 +209,22 @@ export default function HomePage() {
               style={{ animationRange: `entry 0% entry ${55 + (i % 2) * 10}%` }}
               className="reveal overflow-hidden rounded-lg border border-line bg-surface transition duration-300 ease-out hover:-translate-y-1.5 hover:border-accent/35"
             >
-              <h3 className="border-b border-line px-7 pb-4 pt-6 text-xl font-semibold tracking-[-0.01em]">
+              <h3 className="border-b border-line px-6 pb-3.5 pt-5 text-xl font-semibold tracking-[-0.01em]">
                 {d.title}
               </h3>
               <div className="grid sm:grid-cols-2">
-                <div className="border-line px-7 py-6 max-sm:border-b sm:border-r">
+                <div className="border-line px-6 py-4 max-sm:border-b sm:border-r">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-soft">
                     Un asistente general
                   </p>
-                  <p className="mt-2.5 text-[15px] leading-relaxed text-soft">{d.generic}</p>
+                  <p className="mt-2 text-[15px] leading-relaxed text-soft">{d.generic}</p>
                 </div>
-                <div className="bg-accent-soft/25 px-7 py-6">
+                <div className="bg-accent-soft/25 px-6 py-4">
                   <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-accent">
                     <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-gold" />
                     ModoJIT
                   </p>
-                  <p className="mt-2.5 text-[15px] leading-relaxed text-ink">{d.teacher}</p>
+                  <p className="mt-2 text-[15px] leading-relaxed text-ink">{d.teacher}</p>
                 </div>
               </div>
             </li>
