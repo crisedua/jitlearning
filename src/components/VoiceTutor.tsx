@@ -592,7 +592,23 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
   );
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_24rem] xl:gap-8">
+    /*
+      One column during a class, two before it.
+      
+      The sidebar is suggestion material for somebody deciding what to ask. Once
+      the teacher is talking it is a column of prompts competing with the thing
+      they were prompting for, and on a laptop it takes a third of the width the
+      transcript and the bench have to share. Collapsing the grid rather than
+      only hiding the child matters: a hidden child in a fixed two-column grid
+      leaves 20rem of nothing.
+    */
+    <div
+      className={
+        connected
+          ? 'grid gap-6'
+          : 'grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_24rem] xl:gap-8'
+      }
+    >
       <div className="space-y-6">
         {/*
           Session controls first, directly under the page heading.
@@ -604,47 +620,58 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
           are the same action, and a second name for it reads as a second thing.
         */}
         <section className="rounded-lg border border-line bg-surface p-5 shadow-sm sm:p-6">
-          <label className="block">
-            {/*
-              "Si quieres" rather than nothing.
+          {/*
+            Gone once the class starts, rather than greyed out.
+            
+            It was `disabled={connected}`, which is correct behaviour and the
+            wrong appearance: a dead input box sitting above a live conversation
+            is a control that looks broken and can never be used again this
+            session. Its job — seeding the first turn — is finished the moment
+            the socket opens.
+          */}
+          {!connected && (
+            <label className="block">
+              {/*
+                "Si quieres" rather than nothing.
               
-              The field is optional and read as required, which is the wrong way
-              round for the one screen whose whole job is to get a button
-              pressed. A first-time learner does not know what to write here —
-              the teacher asks the same question in its first minute, which is
-              where they will answer it better — and an empty box above a button
-              reads as a form to complete before the thing starts.
+                The field is optional and read as required, which is the wrong way
+                round for the one screen whose whole job is to get a button
+                pressed. A first-time learner does not know what to write here —
+                the teacher asks the same question in its first minute, which is
+                where they will answer it better — and an empty box above a button
+                reads as a form to complete before the thing starts.
               
-              Two words, and the button stops waiting on a decision nobody has
-              to make. Somebody returning with a task in mind still types it and
-              saves themselves a turn, which is who the field was for.
-            */}
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-muted">
-              Tu objetivo de hoy{' '}
-              <span className="font-normal normal-case tracking-normal text-soft">
-                · si quieres
+                Two words, and the button stops waiting on a decision nobody has
+                to make. Somebody returning with a task in mind still types it and
+                saves themselves a turn, which is who the field was for.
+              */}
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-muted">
+                Tu objetivo de hoy{' '}
+                <span className="font-normal normal-case tracking-normal text-soft">
+                  · si quieres
+                </span>
               </span>
-            </span>
-            <input
-              value={objective}
-              onChange={(e) => setObjective(e.target.value)}
-              /*
-               * A placeholder is an example of what to type, so it has to be an
-               * example this product's learner would recognise. This said
-               * "revertir una versión que falló" — reverting a failed release,
-               * a developer's task, left over from a product this one is not.
-               *
-               * The people here are analysts, lawyers, operations, people out
-               * of work: the curriculum's own examples are supplier email and
-               * the weekly report. Somebody who reads a placeholder about
-               * releases concludes the teacher is for somebody else, in the one
-               * field they were about to type their own task into.
-               */
-              placeholder="el informe semanal que me toma toda la mañana"
-              disabled={connected}
-              className="w-full max-w-xl rounded-md border border-field bg-surface px-3.5 py-2.5 text-[15px] text-ink transition-colors duration-150 ease-out placeholder:text-muted hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft disabled:bg-surface-alt disabled:text-muted"
-            />
-          </label>
+              <input
+                value={objective}
+                onChange={(e) => setObjective(e.target.value)}
+                /*
+                 * A placeholder is an example of what to type, so it has to be an
+                 * example this product's learner would recognise. This said
+                 * "revertir una versión que falló" — reverting a failed release,
+                 * a developer's task, left over from a product this one is not.
+                 *
+                 * The people here are analysts, lawyers, operations, people out
+                 * of work: the curriculum's own examples are supplier email and
+                 * the weekly report. Somebody who reads a placeholder about
+                 * releases concludes the teacher is for somebody else, in the one
+                 * field they were about to type their own task into.
+                 */
+                placeholder="el informe semanal que me toma toda la mañana"
+                disabled={connected}
+                className="w-full max-w-xl rounded-md border border-field bg-surface px-3.5 py-2.5 text-[15px] text-ink transition-colors duration-150 ease-out placeholder:text-muted hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft disabled:bg-surface-alt disabled:text-muted"
+              />
+            </label>
+          )}
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
             {connected ? (
@@ -796,7 +823,7 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
         {!connected && turns.length > 0 && <AfterSession />}
       </div>
 
-      <KnownTopics onPick={pickExample} connected={connected} />
+      {!connected && <KnownTopics onPick={pickExample} connected={connected} />}
     </div>
   );
 }
