@@ -750,7 +750,18 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
 
         <Transcript turns={turns} scrollRef={transcriptRef} />
 
-        {connected && <TextFallback onSend={sendTyped} />}
+        {/*
+          Two text boxes on one screen is the crowding people report as "too
+          much information", and it is worse than clutter: one of them writes to
+          the teacher and the other writes to the model, they look identical,
+          and nothing on screen says which is which. Somebody types their prompt
+          into the wrong one and the class goes sideways.
+
+          So the typed channel to the teacher folds away while the bench is
+          open. It is a fallback — the name says so, most people are talking —
+          and one line of text costs far less attention than a second input.
+        */}
+        {connected && <TextFallback onSend={sendTyped} collapsed={Boolean(bench)} />}
 
         {/*
           During the class, and only once the teacher has opened it.
@@ -933,8 +944,34 @@ function AfterSession() {
 }
 
 /** Typing fallback for noisy rooms or when the mic misfires. */
-function TextFallback({ onSend }: { onSend: (text: string) => void }) {
+function TextFallback({
+  onSend,
+  collapsed = false,
+}: {
+  onSend: (text: string) => void;
+  collapsed?: boolean;
+}) {
   const [value, setValue] = useState('');
+  const [open, setOpen] = useState(false);
+
+  /*
+   * Folded by default while the practice bench is on screen, so there is only
+   * ever one visible place to type. Opening it is one click and the state is
+   * local: closing the bench brings the input straight back, because `collapsed`
+   * goes false and this branch stops running.
+   */
+  if (collapsed && !open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-[13px] text-muted underline underline-offset-2 transition-colors duration-150 hover:text-accent"
+      >
+        Escribirle al profesor
+      </button>
+    );
+  }
+
   return (
     <form
       onSubmit={(e) => {
@@ -953,7 +990,7 @@ function TextFallback({ onSend }: { onSend: (text: string) => void }) {
         id="fallback"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="O escribe tu pregunta…"
+        placeholder="Escríbele al profesor…"
         className="flex-1 rounded-md border border-field bg-surface px-3.5 py-2.5 text-sm text-ink transition-colors duration-150 ease-out placeholder:text-muted hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft"
       />
       <button className="rounded-md border border-line bg-surface px-5 py-2.5 text-sm font-semibold text-ink shadow-sm transition duration-150 ease-out hover:border-line-strong hover:shadow-md">

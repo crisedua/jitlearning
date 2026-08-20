@@ -265,10 +265,27 @@ export function PracticeBench({
            * the file, do not describe it. A learner who types "tengo una
            * planilla con tres hojas" has already lost the exercise.
            */
+          /*
+           * Everything the learner has to be told sits here, in the one moment
+           * they have nothing else to read: before the first message. Once the
+           * thread starts it all disappears, because a disclosure repeated under
+           * every message box stops being read and starts being clutter — which
+           * is exactly what it became.
+           */
           <div className="py-8 text-center">
             <p className="text-sm text-ink/85">Escríbele lo que el profesor te dictó.</p>
-            <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-muted">
-              Si la tarea vive en un archivo, adjúntalo en vez de describírselo. Para eso está.
+            <p className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-muted">
+              Si la tarea vive en un archivo, adjúntalo en vez de describírselo.
+            </p>
+            <p className="mx-auto mt-4 max-w-xs text-[11px] leading-relaxed text-soft">
+              Corre {model.detail} por API. Los archivos no se guardan; lo que escribas sí.{' '}
+              <a
+                href="/privacidad"
+                className="underline underline-offset-2 transition-colors duration-150 hover:text-accent"
+              >
+                Qué se guarda
+              </a>
+              .
             </p>
           </div>
         ) : (
@@ -387,27 +404,6 @@ export function PracticeBench({
             </span>
           </button>
         </div>
-
-        {/*
-          What is actually running, stated and not offered.
-
-          A learner who believes they have used Gemini and then opens the real
-          one — different screen, a Drive button, no history — has been misled by
-          us, on the product whose whole pitch is that it teaches this honestly.
-          Small type because it is a disclosure, not a decision.
-        */}
-        <p className="mt-2.5 text-[11px] leading-relaxed text-muted">
-          Corre {model.detail} por API: el mismo modelo que hay detrás del producto, sin lo que el
-          producto le agrega encima. Los archivos no se guardan; lo que escribas sí, para que el
-          profesor pueda enseñarte sobre tus peticiones.{' '}
-          <a
-            href="/privacidad"
-            className="underline underline-offset-2 transition-colors duration-150 hover:text-accent"
-          >
-            Qué se guarda
-          </a>
-          .
-        </p>
 
         {warnings.length > 0 && (
           <ul className="mt-2.5 space-y-1">

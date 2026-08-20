@@ -52,31 +52,40 @@ export function OpenInProduct({ prompt, label }: { prompt: string; label?: strin
   if (!prompt.trim()) return null;
 
   return (
-    <div className="mt-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-soft">
-        {label ?? 'Ahora hazlo en tu cuenta'}
-      </p>
-
-      <div className="mt-2 flex flex-wrap gap-2">
-        {handoffs(prompt).map((h) => (
+    /*
+     * One line, not a block.
+     *
+     * This was a heading, three pill buttons and a status sentence — four
+     * elements under a panel that already carries a thread, a composer and a
+     * meter, for an action taken once at the end. Buttons that size announce
+     * themselves as the next thing to do, and this is not: the next thing is
+     * to look at the answer.
+     *
+     * Text links in a row read as a footnote, which is the right weight, and
+     * the note only appears after a click, when it is an answer rather than an
+     * instruction nobody asked for.
+     */
+    <p className="mt-3 text-xs text-muted">
+      {label ?? 'Ahora hazlo en tu cuenta'}:{' '}
+      {handoffs(prompt).map((h, i) => (
+        <span key={h.id}>
+          {i > 0 && <span aria-hidden> · </span>}
           <button
-            key={h.id}
             type="button"
             onClick={() => void go(h)}
-            className="rounded-full border border-line bg-surface px-4 py-1.5 text-[13px] font-medium text-ink transition-colors duration-150 hover:border-line-strong hover:text-accent"
+            className="underline underline-offset-2 transition-colors duration-150 hover:text-accent"
           >
-            Abrir en {h.label}
+            {h.label}
           </button>
-        ))}
-      </div>
-
+        </span>
+      ))}
       {done && (
-        <p className="mt-2 text-xs text-muted" role="status">
+        <span className="block pt-1 text-soft" role="status">
           {failed
-            ? `No pude copiarla sola. Selecciónala aquí arriba y pégala en ${done.label}.`
+            ? `No pude copiarla sola. Selecciónala arriba y pégala en ${done.label}.`
             : handoffNote(done)}
-        </p>
+        </span>
       )}
-    </div>
+    </p>
   );
 }
