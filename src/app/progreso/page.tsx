@@ -1163,12 +1163,21 @@ function Step({
   );
 }
 
-/** What happened, session by session, newest first. */
+/**
+ * What happened, class by class, newest first.
+ *
+ * Headed "Tus sesiones" until somebody went looking for their past classes and
+ * did not find them. Everything the learner is ever shown calls this a clase —
+ * the button says "empezar la clase", the curriculum counts clases, the teacher
+ * says it out loud — and then the one place they are kept called them something
+ * else. A person scanning for the word they were given has no reason to stop on
+ * a different one.
+ */
 function Historial({ history }: { history: SessionRecord[] }) {
   return (
     <section className="space-y-5">
       <h2 className="font-serif text-[26px] font-normal leading-snug tracking-[-0.01em]">
-        Tus sesiones
+        Tus clases
       </h2>
 
       <ul className="space-y-3">

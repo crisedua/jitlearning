@@ -101,12 +101,22 @@ export default async function CoachPage() {
           The notebook, linked from the classroom. Everything worth keeping lives
           there: the map, the plan and the evidence. A voice session cannot show
           a plan of 11 steps, so it has to be one click away at all times.
+
+          The link used to say "ver tu mapa y tu plan", which named two of those
+          three and not the one people go looking for. Somebody asked where
+          their past classes had been saved while looking at this page — the
+          answer was one click away under a label that did not mention them.
+
+          It also now names the destination the way the destination names
+          itself. "Tu registro" is the h1 over there; a link that promises a map
+          and lands on a register makes somebody check whether they clicked the
+          right thing.
         */}
         <Link
           href="/progreso"
           className="mt-4 inline-flex items-center gap-1.5 text-[14px] font-medium text-accent transition-colors duration-150 ease-out hover:text-accent-hover"
         >
-          Ver tu mapa y tu plan
+          Tu registro: tus clases, tu mapa y tu plan
           <span aria-hidden>→</span>
         </Link>
 
