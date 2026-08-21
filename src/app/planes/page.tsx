@@ -199,10 +199,22 @@ function PlanAction({
   plan,
   buyable,
   mpBuyable,
+  mpLive,
 }: {
   plan: Plan;
   buyable: boolean;
+  /** Whether the local rail can take money for *this* plan: a peso price above zero. */
   mpBuyable: boolean;
+  /**
+   * Whether this deployment quotes in pesos at all.
+   *
+   * Separate from `mpBuyable`, and the separation is the point. `mpBuyable`
+   * answers "can this be charged", which the free plan fails at zero; this
+   * answers "which currency is this page speaking", which the free plan should
+   * follow like every other card. Wiring the price to the first is what left
+   * "US$0" sitting beside "$9.900" after everything else had been converted.
+   */
+  mpLive: boolean;
 }) {
   if (plan.priceMinor === 0) {
     return (
@@ -281,7 +293,7 @@ function PlanAction({
    */
   const subject = encodeURIComponent(`Quiero el plan ${plan.name}`);
   const body = encodeURIComponent(
-    `Hola, quiero contratar el plan ${plan.name} (${formatPlanPrice(plan, mpBuyable)} al mes). ¿Cómo seguimos?`,
+    `Hola, quiero contratar el plan ${plan.name} (${formatPlanPrice(plan, mpLive)} al mes). ¿Cómo seguimos?`,
   );
   const whatsapp = `https://wa.me/${WHATSAPP.number}?text=${body}`;
 
@@ -399,7 +411,7 @@ function PlanCard({
 
       <p className="mt-4 flex items-baseline gap-1.5">
         <span className="font-mono text-[34px] font-medium leading-none tracking-[-0.02em] text-ink">
-          {formatPlanPrice(plan, mpBuyable)}
+          {formatPlanPrice(plan, mpLive)}
         </span>
         <span className="text-[15px] text-soft">{plan.priceMinor === 0 ? '' : '/mes'}</span>
       </p>
@@ -476,7 +488,7 @@ function PlanCard({
           mismo, así que toma ese.
         </p>
       ) : (
-        <PlanAction plan={plan} buyable={buyable} mpBuyable={mpBuyable} />
+        <PlanAction plan={plan} buyable={buyable} mpBuyable={mpBuyable} mpLive={mpLive} />
       )}
     </li>
   );

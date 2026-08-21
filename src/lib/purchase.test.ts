@@ -59,6 +59,32 @@ describe('the gates between wanting to pay and having a plan', () => {
     );
   });
 
+  /*
+   * Two questions that look like one and are not.
+   *
+   * `mpBuyable` asks whether this plan can be charged, and mirrors
+   * `mpPurchasablePlan` by requiring a peso price above zero. `mpLive` asks which
+   * currency the page is speaking. The free plan separates them: it carries a
+   * peso zero so the page can quote one currency, and it must never grow a
+   * checkout button, because the route refuses anything at or below zero.
+   *
+   * Wiring the displayed price to the purchasability flag is what left "US$0"
+   * sitting beside "$9.900" on a page that had otherwise been converted — a
+   * wrong page with every test green.
+   */
+  it('1c. the price shown follows the currency, not whether it can be charged', () => {
+    assert.match(
+      planes,
+      /\{formatPlanPrice\(plan, mpLive\)\}/,
+      'the headline price is back on the purchasability flag, so a zero-priced plan quotes the wrong currency',
+    );
+    assert.doesNotMatch(
+      planes,
+      /formatPlanPrice\(plan, mpBuyable\)/,
+      'a price is being displayed from the flag that decides whether it can be charged',
+    );
+  });
+
   it('2. no checkout at all: the offer under the hours does the same', () => {
     // Same fix as gate 1, and this is the surface where the old coupling cost
     // most: the argument for paying was just made in the learner's own measured

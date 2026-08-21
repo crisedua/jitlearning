@@ -52,15 +52,14 @@ end $$;
 -- tenía contra qué comparar los $9.900 que efectivamente va a pagar. El precio
 -- de lista solo sirve si está en la misma moneda que el precio con descuento.
 --
--- 19.900 mantiene la proporción con 9.900 y es el punto de precio equivalente al
--- de la tarjeta de al lado. Cuando Fundador se cierre, este es el número que
--- queda vigente, así que vale mirarlo de nuevo ese día.
+-- 19.990. Cuando Fundador se cierre, este es el número que queda vigente y el
+-- que va a cobrarse de verdad, así que vale mirarlo de nuevo ese día.
 do $$
 declare
   touched int;
 begin
   update public.plans
-     set mp_price_minor = 19900
+     set mp_price_minor = 19990
    where id = 'standard';
 
   get diagnostics touched = row_count;
