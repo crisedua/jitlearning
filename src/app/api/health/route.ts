@@ -301,19 +301,30 @@ export async function GET(req: Request) {
    * either path — the transcript is dropped with a 200 and the row stays an
    * estimate forever — and the learner is told their class was not saved.
    *
-   * So this counts exactly that: classes that ended and can never be repaired.
-   * A handful is normal (somebody who opened the page and closed it before the
-   * call connected has no id to report). A run of them is the failure this
-   * check exists to name, out loud, instead of leaving it to whoever reads a
+   * So this counts exactly that: classes old enough to be over, with no id.
+   *
+   * Age is the filter, not `ended_at`, and the first version of this check got
+   * that wrong. It asked for rows where `ended_at` was set and the id was null,
+   * which cannot catch the failure it was written for: the report that stamps
+   * `ended_at` is the same report that carries the id, so a lost one leaves
+   * both columns null and the row slips past. Shipped green against a
+   * deployment that had just lost somebody's class.
+   *
+   * A class is capped at CLASS_CAP_MINUTES, so anything that started an hour
+   * ago and still has no id is finished and unrecoverable, however it ended.
+   * A handful is normal — opening the page and closing it before the call
+   * connects leaves a row with nothing to report. A run of them is the failure
+   * this exists to name out loud, rather than leaving it to whoever reads a
    * WhatsApp message weeks later.
    */
   if (checks.usageLedger.state === 'ok') {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1_000).toISOString();
+    const settled = new Date(Date.now() - 60 * 60 * 1_000).toISOString();
     const { data, error } = await supabaseAdmin()
       .from('coach_sessions')
       .select('id')
       .gte('started_at', since)
-      .not('ended_at', 'is', null)
+      .lt('started_at', settled)
       .is('conversation_id', null)
       .limit(50);
 
@@ -321,10 +332,10 @@ export async function GET(req: Request) {
     checks.classesSaved = error
       ? { state: 'fail', detail: `could not count unsaved classes: ${error.message}` }
       : orphaned === 0
-        ? { state: 'ok', detail: 'Every class that ended in the last 7 days can reach its summary' }
+        ? { state: 'ok', detail: 'Every class in the last 7 days carries the id its summary needs' }
         : {
             state: 'fail',
-            detail: `${orphaned} class(es) in the last 7 days ended with no conversation_id, so their transcripts were dropped and sync:usage cannot recover them.`,
+            detail: `${orphaned} class(es) in the last 7 days have no conversation_id, so their transcripts were dropped and sync:usage cannot recover them.`,
           };
   }
 
