@@ -48,10 +48,21 @@ export function CheckoutButton({
   plan,
   label,
   recommended,
+  provider = 'stripe',
 }: {
   plan: string;
   label: string;
   recommended: boolean;
+  /**
+   * Which rail to open.
+   *
+   * Two routes, one button. The flow is identical from here — post a plan id,
+   * get back a URL, navigate to it — and the only thing that differs is which
+   * hosted page the learner lands on, so duplicating the component would
+   * duplicate the timeout, the 401 redirect and the error handling for the sake
+   * of one string.
+   */
+  provider?: 'stripe' | 'mercadopago';
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,12 +72,15 @@ export function CheckoutButton({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch('/api/checkout', {
+      const res = await fetch(
+        provider === 'mercadopago' ? '/api/checkout/mercadopago' : '/api/checkout',
+        {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan }),
         signal: AbortSignal.timeout?.(REQUEST_TIMEOUT_MS),
-      });
+        },
+      );
 
       if (res.status === 401) {
         window.location.href = signInPath(here || '/planes');
@@ -76,8 +90,9 @@ export function CheckoutButton({
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok || !data.url) throw new Error(data.error ?? 'No pudimos abrir el pago.');
 
-      // Stripe's hosted page. Full navigation, not a popup: popups get blocked and
-      // a blocked payment window is indistinguishable from a broken button.
+      // The provider's hosted page. Full navigation, not a popup: popups get
+      // blocked and a blocked payment window is indistinguishable from a broken
+      // button.
       window.location.href = data.url;
     } catch (err) {
       setError(

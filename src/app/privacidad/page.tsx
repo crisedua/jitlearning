@@ -96,7 +96,20 @@ export default function PrivacidadPage() {
         los pasa a Google, Anthropic u OpenAI según con cuál elegiste practicar; van sin tu nombre,
         sin tu correo y sin tu cuenta, y el profesor recibe una copia de lo que escribiste y de lo
         que te respondieron para poder enseñarte sobre eso. Y si algún día pagas, la tarjeta la
-        recibe Stripe y nunca pasa por acá.
+        recibe Stripe o Mercado Pago, según con cuál pagues, y nunca pasa por acá.
+      </p>
+      {/*
+        Mercado Pago named the day the integration shipped, because a payment
+        processor is a company that receives a person's data — the email the
+        subscription is billed to — and this page is where that is declared.
+        There is a test that reads the hostnames the code calls and fails when
+        one of them is missing from this paragraph, which is how it got here on
+        the same commit rather than a month later.
+      */}
+      <p className="mt-3 text-[17px] leading-relaxed text-muted">
+        Si pagas con Mercado Pago (mercadopago.cl), ellos reciben tu correo para poder cobrarte y
+        para avisarte de los cobros. Nosotros guardamos el identificador de tu suscripción, para poder mostrarte
+        qué tienes contratado, y nada más de lo que ocurre en su plataforma.
       </p>
 
       <h2 className="mt-10 font-serif text-[24px] font-normal leading-snug">Quién lo ve</h2>

@@ -189,11 +189,35 @@ function PlanAction({ plan, buyable }: { plan: Plan; buyable: boolean }) {
 
   if (buyable) {
     return (
-      <CheckoutButton
-        plan={plan.id}
-        label={`Contratar ${plan.name}`}
-        recommended={plan.id === RECOMMENDED_PLAN_ID}
-      />
+      <>
+        <CheckoutButton
+          plan={plan.id}
+          label={`Contratar ${plan.name}`}
+          recommended={plan.id === RECOMMENDED_PLAN_ID}
+        />
+        {/*
+          The local rail, shown only when there is a peso price to charge.
+
+          Second and not first because the card everybody has works on both, and
+          a second full-width button competing with the first turns a decision
+          about a plan into a decision about a payment processor. It appears at
+          all because this is sold in Chile, where the answer to "do you take
+          Mercado Pago" is the one that decides the sale more often than the
+          price above it does.
+
+          `mpPriceMinor` is null until somebody sets a price by hand, so a plan
+          that would be refused by the checkout route never grows a button that
+          leads there.
+        */}
+        {plan.mpPriceMinor !== null && (
+          <CheckoutButton
+            plan={plan.id}
+            provider="mercadopago"
+            label={`Pagar con Mercado Pago · ${formatMoney(plan.mpPriceMinor, 'CLP')}`}
+            recommended={false}
+          />
+        )}
+      </>
     );
   }
 

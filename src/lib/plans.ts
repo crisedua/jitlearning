@@ -46,6 +46,15 @@ export interface Plan {
   seatMinimum: number | null;
   /** One-time implementation fee, in the currency's smallest unit. null = none. */
   setupMinor: number | null;
+  /**
+   * Monthly price in whole CLP, for Mercado Pago. Null = not sold through it.
+   *
+   * A second price rather than a conversion of `priceMinor`. A rate applied at
+   * render time makes the number move between the page somebody read and the
+   * charge they authorised, and "9 dólares" at today's rate is a number nobody
+   * chose: 8.990 is a price, 8.743 is an exchange rate.
+   */
+  mpPriceMinor: number | null;
   /** False for plans that are sold rather than bought — no self-serve checkout. */
   isPublic: boolean;
   /**
@@ -66,7 +75,7 @@ export interface Plan {
 
 /** The columns the pricing page needs, as named in Postgres. */
 export const PLAN_COLUMNS =
-  'id, name, period, monthly_minutes, monthly_sessions, price_minor, currency, overage_minor_per_min, seat_minimum, setup_minor, is_public, sort_order, blurb, stripe_price_id';
+  'id, name, period, monthly_minutes, monthly_sessions, price_minor, currency, overage_minor_per_min, seat_minimum, setup_minor, is_public, sort_order, blurb, stripe_price_id, mp_price_minor';
 
 /** Shape of a `plans` row as it comes back from Supabase. */
 interface PlanRow {
@@ -84,6 +93,7 @@ interface PlanRow {
   sort_order: number;
   blurb: string | null;
   stripe_price_id: string | null;
+  mp_price_minor: number | null;
 }
 
 export function rowToPlan(row: PlanRow): Plan {
@@ -105,6 +115,12 @@ export function rowToPlan(row: PlanRow): Plan {
     sortOrder: row.sort_order,
     blurb: row.blurb,
     stripePriceId: row.stripe_price_id ?? null,
+    /*
+     * Null until somebody sets a peso price by hand, which is deliberate: it is
+     * what stops the page offering a Mercado Pago button for a plan whose
+     * checkout would refuse the sale.
+     */
+    mpPriceMinor: row.mp_price_minor ?? null,
   };
 }
 
@@ -128,6 +144,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     sortOrder: 10,
     blurb: '20 minutos para resolver una tarea de tu semana y medir lo que ahorra.',
     stripePriceId: null,
+    mpPriceMinor: null,
   },
   {
     id: 'founder',
@@ -147,6 +164,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     // Postgres is unreachable, and offering a checkout with a hardcoded price id
     // during an outage is how somebody gets charged for the wrong thing.
     stripePriceId: null,
+    mpPriceMinor: null,
   },
   {
     id: 'standard',
@@ -163,6 +181,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     sortOrder: 30,
     blurb: 'Una clase por semana, con memoria entre sesiones.',
     stripePriceId: null,
+    mpPriceMinor: null,
   },
 ] as const;
 

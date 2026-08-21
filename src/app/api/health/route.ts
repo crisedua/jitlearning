@@ -340,6 +340,35 @@ export async function GET(req: Request) {
   }
 
   /*
+   * 5d. Mercado Pago, if this deployment sells through it.
+   *
+   * Three states rather than two, because not selling through Mercado Pago is a
+   * legitimate configuration and must not paint a deployment red. Skipped when
+   * neither variable is set; the failure is the half-configured case, which is
+   * the one that takes money and never grants a plan: a token mints
+   * subscriptions and sends people off to pay, and a missing webhook secret has
+   * every notification about those payments refused with a 503.
+   *
+   * The transcript webhook spent days in exactly that shape while every check
+   * here stayed green. The difference between that and this is that somebody's
+   * money is involved.
+   */
+  {
+    const token = Boolean(process.env.MP_ACCESS_TOKEN?.trim());
+    const secret = Boolean(process.env.MP_WEBHOOK_SECRET?.trim());
+    checks.mercadoPago = !token && !secret
+      ? { state: 'skipped', detail: 'Mercado Pago is not set up in this deployment' }
+      : token && secret
+        ? { state: 'ok', detail: 'Mercado Pago can charge and can hear back about it' }
+        : {
+            state: 'fail',
+            detail: token
+              ? 'MP_ACCESS_TOKEN is set but MP_WEBHOOK_SECRET is missing: subscriptions can be started and no payment will ever grant a plan.'
+              : 'MP_WEBHOOK_SECRET is set but MP_ACCESS_TOKEN is missing: no subscription can be started.',
+          };
+  }
+
+  /*
    * 5c. Can the transcript get back in at all?
    *
    * The webhook route returns 503 to every delivery when
