@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { AnimatedSteps } from '@/components/AnimatedSteps';
 import { SessionPreview } from '@/components/SessionPreview';
-import { DIFFERENCES, HERO, PROMISES, TAGLINE } from '@/lib/site';
+import { CLOSING, CURRICULUM_BAND, DIFFERENCES, HERO, PROMISES, TAGLINE } from '@/lib/site';
 import { LEVELS, WEEKLY_MAX, WEEKLY_MIN, lessonsForLevel } from '@/lib/curriculum';
 import { ASSUMED_SESSION_MINUTES, FREE_PLAN, spellMinutes } from '@/lib/plans';
 
@@ -97,11 +97,10 @@ export default function HomePage() {
             or adding a level would have left the heading counting the old
             shape while the rows below it showed the new one.
           */}
-          {LEVELS.length} niveles, y el primero es tu propio trabajo
+          {LEVELS.length} niveles, {CURRICULUM_BAND.title}
         </h2>
         <p className="reveal mt-5 max-w-[58ch] text-[17px] leading-relaxed text-muted">
-          El nivel 1 son tus tareas, una por una, resueltas contigo. Los niveles 2 y 3 son clases
-          escritas, y el 4 es juntar las pruebas en algo que puedas mostrar.
+          {CURRICULUM_BAND.body}
         </p>
 
         <ul className="mt-12 grid gap-5 lg:grid-cols-2">
@@ -259,6 +258,21 @@ export default function HomePage() {
       </section>
 
       {/* ----------------------------------------------------------- CTA panel */}
+      {/* ------------------------------------------------------------ Closing */}
+      {/*
+        The page went from the how-it-works band straight to "¿Hacemos la
+        primera clase?", which asks for the click without ever saying what the
+        thing is for. This says it once, plainly, immediately before the button.
+      */}
+      <section className="mx-auto max-w-[75rem] px-6 pb-4 pt-8 lg:pt-12">
+        <h2 className="reveal max-w-[26ch] font-serif text-[clamp(2rem,4.5vw,3rem)] font-normal leading-[1.08] tracking-[-0.02em]">
+          {CLOSING.title}
+        </h2>
+        <p className="reveal mt-5 max-w-[58ch] text-[17px] leading-relaxed text-muted">
+          {CLOSING.body}
+        </p>
+      </section>
+
       <section className="mx-auto max-w-[75rem] px-6 py-24 lg:py-28">
         <div className="reveal relative overflow-hidden rounded-xl bg-accent-hover px-8 py-16 sm:px-16 sm:py-18">
           <div
@@ -273,7 +287,7 @@ export default function HomePage() {
               href="/coach"
               className="inline-flex items-center gap-3 rounded-full bg-bg px-7 py-4 text-[17px] font-semibold text-accent-deep transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-surface"
             >
-              Empezar
+              {CLOSING.cta}
               <span
                 aria-hidden
                 className="h-[7px] w-[7px] rounded-full bg-gold [animation:ring_2.2s_ease-out_infinite]"

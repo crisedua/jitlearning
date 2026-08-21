@@ -5,7 +5,15 @@ import { useEffect, useState } from 'react';
 const QUESTION = 'Listo, quedó armado. Me tomó veinte minutos.';
 const ANSWER =
   'Antes tardabas noventa. Acabas de recuperar setenta minutos, y eso se repite cada semana que hagas este informe. Te lo anoto en tu página de progreso.';
-const SOURCE = 'Los dos números los pusiste tú. La resta es lo único que ponemos nosotros.';
+/*
+ * The line under the card, which is where the demo says what it means.
+ *
+ * It used to defend the arithmetic ("los dos números los pusiste tú"), which
+ * answered a doubt nobody had yet and made the saving the point. The exchange
+ * above is unchanged; what it is evidence *of* is not.
+ */
+const SOURCE =
+  'Esto no es solo tiempo recuperado. Es una tarea de tu trabajo que ahora sabes resolver con IA, y quedó registrada.';
 
 /** Milliseconds from the start of a loop at which each stage begins. */
 const CUES = { userTyping: 600, user: 2000, coachTyping: 3000, coach: 4600 } as const;

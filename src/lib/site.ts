@@ -53,9 +53,22 @@ export const hasContact = Boolean(PROFILE.email || PROFILE.bookingUrl);
 /** One line, used in metadata and as the tagline under the wordmark. */
 export const TAGLINE = 'Profesor de IA por voz, en español, para tu trabajo.';
 
+/**
+ * The promise moved from productivity to career.
+ *
+ * It used to lead with the saving: a task done today and a number that repeats
+ * every week. True, checkable, and the wrong headline for who is reading. The
+ * person landing here is not shopping for a faster Tuesday, they are worried
+ * about being left behind at work, and "recuperas setenta minutos" answers a
+ * question they did not ask.
+ *
+ * So the saving drops from headline to evidence. It is still measured, still
+ * theirs, still on the progress page, and it is now the proof under a claim
+ * about capability rather than the claim itself.
+ */
 export const HERO = {
-  title: 'La primera clase termina con una tarea de tu trabajo ya hecha.',
-  sub: 'Un profesor de IA por voz, en español. Eligen juntos la tarea que más te pesa, la resuelven en la sesión, y mides cuánto tiempo recuperas cada semana.',
+  title: 'Tu trabajo ya exige IA. A ti nadie te enseñó a usarla.',
+  sub: 'Un profesor de IA por voz, en español. En cada clase resuelves una tarea real de tu trabajo usando IA, y sales sabiendo hacerla tú. Al final del currículum no tienes un certificado: tienes un portafolio de trabajo hecho con IA que puedes mostrar.',
 } as const;
 
 /**
@@ -78,8 +91,15 @@ export const PROMISES: readonly {
   },
   {
     key: 'medir',
-    title: 'Mides lo que ahorras.',
-    body: 'Cada tarea queda con 2 números: lo que tardabas y lo que tardas ahora. La suma vive en tu página de progreso.',
+    /*
+     * Same behaviour, demoted. The teacher still asks for both numbers and
+     * still says the subtraction out loud, which is what the `medir` marker
+     * guarantees. What changed is what the number is *for*: it used to be the
+     * product's headline claim and it is now the evidence under a capability
+     * the learner can name.
+     */
+    title: 'Queda registrado lo que sabes hacer.',
+    body: 'Cada tarea que resuelves queda en tu página de progreso con lo que construiste y tus 2 números: lo que tardabas y lo que tardas ahora.',
   },
   {
     key: 'memory',
@@ -115,13 +135,46 @@ export const STEPS = [
   },
   {
     title: 'Mides los 2 números',
-    body: 'Cuánto tardabas y cuánto tardaste: la resta es lo que recuperas cada semana.',
+    body: 'Cuánto tardabas y cuánto tardaste. La tarea queda anotada con esa resta al lado, como prueba de que ya sabes resolverla.',
   },
   {
     title: 'Recién ahí, tu plan',
     body: 'El mapa de qué más es posible, con una clase por cada tarea tuya.',
   },
 ] as const;
+
+/**
+ * The curriculum band's own heading, which used to be typed into `page.tsx`.
+ *
+ * It lives here for the same reason the rest of this file does: it is a claim
+ * about the product, and claims belong where the parity rule can see them. The
+ * count itself is still read from `LEVELS.length` at the call site, so retiring
+ * a level cannot leave a stale "4" on the page.
+ */
+export const CURRICULUM_BAND = {
+  title: 'del primer prompt a un portafolio que te respalda.',
+  body: 'No estudias IA en abstracto. Cada nivel trabaja sobre tareas reales de tu pega, y lo que aprendes queda registrado en tu página de progreso: qué sabes hacer con IA, en qué tareas, y cuánto tiempo te devuelve cada una.',
+} as const;
+
+/**
+ * The closing argument, said once, immediately before the last button.
+ *
+ * The page did not have one: it went from the how-it-works band straight to
+ * "¿Hacemos la primera clase?", which asks for the click without ever saying
+ * what the thing is for. This is where the new promise gets stated plainly
+ * instead of implied.
+ *
+ * Every sentence here is checkable against a behaviour. No videos and no tests
+ * is a statement about what this product does not contain. Resolving your own
+ * work class by class is the session spine in `agent.ts`. "Anota lo que ya sabes
+ * hacer" is the progress page, written by the post-call extraction. The three
+ * things the record holds are the three things `/progreso` renders.
+ */
+export const CLOSING = {
+  title: 'El que sabe usar IA no es el que hizo un curso. Es el que la usa en su trabajo y puede probarlo.',
+  body: 'Por eso ModoJIT no te muestra videos ni te toma pruebas. Te pone a resolver tu propio trabajo con IA, clase por clase, y anota lo que ya sabes hacer. Tu página de progreso es tu registro: capacidades, tareas y tiempo recuperado, con tus propios números.',
+  cta: 'Empezar la primera clase',
+} as const;
 
 /**
  * The feedback deal, in one place because it was in three.
@@ -169,7 +222,7 @@ export const DIFFERENCES = [
   {
     title: 'Terminas con trabajo hecho',
     generic: 'Responde lo que le preguntas, y no queda nada hecho.',
-    teacher: 'La sesión termina con una tarea tuya resuelta y el ahorro medido.',
+    teacher: 'La sesión termina con una tarea tuya resuelta, anotada en tu registro y medida.',
   },
   {
     title: 'Tiene un currículum',

@@ -78,13 +78,35 @@ export interface Level {
   perTask: boolean;
 }
 
+/*
+ * TODO (copy brief, 2026-08-19): the brief that moved the promise to career and
+ * portfolio also specified level names and descriptions that do not match this
+ * curriculum, and they were not applied. Recorded here rather than published,
+ * per the rule that no claim ships without a behaviour behind it.
+ *
+ * It asked for: 1 Fundamentos ("aprendes a pedirle a la IA lo que necesitas"),
+ * 2 Aplicado ("resuelves tareas completas: informes, correos"), 3 Avanzado,
+ * 4 Portafolio. Levels 3 and 4 match what is here. Levels 1 and 2 are the
+ * inverse of it: this product does the learner's real task first and teaches
+ * the criterion afterwards, which is the reordering the block at the top of
+ * this file exists to explain, and it is the reason the first session can end
+ * with something finished instead of with a plan.
+ *
+ * Renaming them is also not a copy change. `plan_steps.level` carries a check
+ * constraint on these four ids (migration 20260814000000, written after a
+ * rename silently rejected every plan insert), and the brief said not to touch
+ * the schema.
+ *
+ * So the titles stay and the purposes below carry the new promise instead.
+ * Decide the level names deliberately if the curriculum order is ever revisited.
+ */
 export const LEVELS: readonly Level[] = [
   {
     id: 'semana',
     number: 1,
     title: 'Tu semana',
     purpose:
-      'La tarea que más te pesa, hecha contigo en la sesión, y el tiempo que te ahorra cada semana desde ahora.',
+      'La primera clase parte mapeando tu trabajo y armando tu plan. Sales de ella con 1 tarea tuya resuelta con IA, anotada en tu registro y con lo que te ahorra medido.',
     perTask: true,
   },
   {
@@ -92,21 +114,23 @@ export const LEVELS: readonly Level[] = [
     number: 2,
     title: 'Por qué funcionó',
     purpose:
-      'El criterio detrás de lo que ya hiciste, para que te sirva con cualquier herramienta y no solo con la de hoy.',
+      'El criterio detrás de lo que ya resolviste, para que te sirva con cualquier herramienta. Cada tarea que cierras suma una capacidad demostrada a tu registro.',
     perTask: false,
   },
   {
     id: 'flujo',
     number: 3,
     title: 'De tarea a flujo',
-    purpose: 'Que lo que hiciste una vez se repita solo, y hasta donde llegue tu objetivo.',
+    purpose:
+      'Conviertes tareas sueltas en flujos que repites cada semana sin partir de cero. Acá dejas de usar IA y empiezas a trabajar con IA.',
     perTask: false,
   },
   {
     id: 'portafolio',
     number: 4,
     title: 'Portafolio',
-    purpose: 'Juntar las pruebas y saber contarlas.',
+    purpose:
+      'Ordenas lo que hiciste en un portafolio de trabajo real resuelto con IA: las tareas, los flujos y el tiempo medido. Es lo que muestras en una evaluación o en una entrevista, en vez de decir que sabes usar IA.',
     perTask: false,
   },
 ];

@@ -428,7 +428,7 @@ export default async function PlanesPage() {
       <section className="mx-auto max-w-[96rem] px-6 pb-16 pt-20 lg:pt-24">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Planes</p>
         <h1 className="mt-4 max-w-[22ch] font-serif text-[clamp(2.25rem,5vw,3.75rem)] font-normal leading-[1.04] tracking-[-0.02em]">
-          Primero mides lo que ahorras.{' '}
+          Primero resuelves una tarea tuya.{' '}
           <span className="relative inline-block">
             Después
             <span

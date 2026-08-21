@@ -47,7 +47,7 @@ import { saveEvidence, saveMinutes, saveRecipe, setCommitmentDone } from './acti
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Tu progreso · ModoJIT',
+  title: 'Tu registro · ModoJIT',
 };
 
 /**
@@ -116,14 +116,22 @@ export default async function ProgresoPage({
         </div>
         <p className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em] text-accent">
           <span aria-hidden className="inline-block h-px w-[34px] bg-gold" />
-          Tu cuaderno
+          Tu registro
         </p>
+        {/*
+          The page used to be "tu cuaderno / tu mapa y tu plan", which described
+          where the words came from rather than what they are worth. It is the
+          learner's evidence: what they can now do with AI, on which tasks, and
+          what each one gives back. The plan is still here and still ordered; it
+          is no longer the title.
+        */}
         <h1 className="mt-3 font-serif text-[clamp(2rem,4.5vw,2.875rem)] font-normal leading-[1.05] tracking-[-0.02em]">
-          Tu mapa y tu plan
+          Tu registro: qué sabes hacer con IA
         </h1>
         <p className="mt-3 max-w-2xl text-[17px] leading-relaxed text-muted">
-          Lo que hablaste por voz, escrito. El estado de cada paso lo pone la clase; lo que
-          construiste y si cumpliste, lo pones tú.
+          Cada tarea que resolviste en clase queda acá, con lo que construiste y con lo que te
+          devuelve cada semana. El estado de cada paso lo pone la clase; lo que construiste y si
+          cumpliste, lo pones tú.
         </p>
 
         <Link
@@ -469,17 +477,22 @@ function Suscripcion({ subscription }: { subscription: Subscription }) {
 function Recuperado({ saved }: { saved: TimeSaved }) {
   return (
     <section className="rounded-lg border border-success/30 bg-success-soft/40 p-6">
+      {/*
+        Still the same measurement, no longer the headline of the page. It reads
+        as one dimension of the record rather than as the reason the record
+        exists.
+      */}
       <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-success">
-        Lo que recuperas cada semana
+        Tiempo que te devuelve, cada semana
       </p>
       <p className="mt-2 font-serif text-[clamp(2rem,5vw,3rem)] font-normal leading-none tracking-[-0.02em]">
         {spellMinutes(saved.perWeek)}
       </p>
       <p className="mt-3 max-w-[52ch] text-[15px] leading-relaxed text-ink/85">
         Medido por ti en {saved.tasksMeasured}{' '}
-        {saved.tasksMeasured === 1 ? 'tarea' : 'tareas'} de tu semana: lo que tardabas antes menos
-        lo que tardas ahora. Cada tarea de abajo muestra sus dos números, para que puedas revisar
-        la cuenta.
+        {saved.tasksMeasured === 1 ? 'tarea que ya sabes resolver' : 'tareas que ya sabes resolver'}{' '}
+        con IA: lo que tardabas antes menos lo que tardas ahora. Cada tarea de abajo muestra sus
+        dos números, para que puedas revisar la cuenta.
       </p>
     </section>
   );
