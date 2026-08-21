@@ -49,8 +49,13 @@ describe('the gates between wanting to pay and having a plan', () => {
     assert.match(planes, /\{mpBuyable && /, 'the Mercado Pago button is no longer independently gated');
     assert.match(
       planes,
-      /mpConfigured\(\) \? selfServe\.filter\(\(p\) => p\.mpPriceMinor !== null\)/,
-      'mpBuyable no longer derives from the Mercado Pago token and a peso price',
+      /const mpLive = mpConfigured\(\)/,
+      'the page no longer asks whether Mercado Pago is configured',
+    );
+    assert.match(
+      planes,
+      /mpLive && plan\.mpPriceMinor !== null && plan\.mpPriceMinor > 0/,
+      'the per-plan half is gone: a plan with no peso price would grow a button the checkout route refuses',
     );
   });
 

@@ -43,7 +43,45 @@ begin
   end if;
 end $$;
 
--- Estándar (id `standard`) queda en null a propósito. Mientras Fundador siga abierto, su tarjeta
--- no muestra botón: es el precio de lista contra el que se compara el descuento,
--- y `dominatedBy` la deja sin acción justamente para que nadie tome el peor de
--- los dos. Cuando Fundador se cierre, este es el sitio donde ponerle precio.
+-- Estándar (id `standard`) también, aunque su tarjeta no tenga botón.
+--
+-- `dominatedBy` la deja sin acción mientras Fundador siga abierto, para que
+-- nadie tome el peor de dos planes iguales, y esa parte no cambia. Lo que sí
+-- cambia es que ahora la página cobra en pesos: sin un precio acá, la tarjeta de
+-- Estándar quedaba en dólares al lado de un botón en pesos, y el visitante no
+-- tenía contra qué comparar los $9.900 que efectivamente va a pagar. El precio
+-- de lista solo sirve si está en la misma moneda que el precio con descuento.
+--
+-- 19.900 mantiene la proporción con 9.900 y es el punto de precio equivalente al
+-- de la tarjeta de al lado. Cuando Fundador se cierre, este es el número que
+-- queda vigente, así que vale mirarlo de nuevo ese día.
+do $$
+declare
+  touched int;
+begin
+  update public.plans
+     set mp_price_minor = 19900
+   where id = 'standard';
+
+  get diagnostics touched = row_count;
+
+  if touched = 0 then
+    raise exception
+      'No hay ningún plan con id ''standard'', así que el precio de lista en pesos no se puso.';
+  end if;
+end $$;
+
+-- Y Gratis en cero, que no es un precio sino la última moneda que quedaba
+-- mezclada.
+--
+-- Con Fundador y Estándar en pesos, la tarjeta de Gratis seguía diciendo "US$0"
+-- al lado de "$9.900". Cero es cero en cualquier moneda, así que el número no
+-- cambia; lo que cambia es que la página deja de mostrar dos símbolos distintos
+-- en la misma fila, que era todo el problema.
+--
+-- No abre ninguna puerta: `mpPurchasablePlan` rechaza cualquier plan con
+-- `mp_price_minor <= 0`, y la tarjeta de Gratis devuelve "Empezar gratis" antes
+-- de llegar a mirar un botón de pago.
+update public.plans
+   set mp_price_minor = 0
+ where id = 'free';

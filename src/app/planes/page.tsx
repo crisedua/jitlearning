@@ -7,11 +7,16 @@
  * `src/lib/plans.ts` holds the card copy and a fallback copy of the figures for
  * when the database cannot be reached.
  *
- * The paid cards open a Stripe checkout, but only for a plan that actually has a
- * price created in Stripe (`plans.stripe_price_id`). A plan without one falls back
- * to writing to a person: a button that pretends to take money and then cannot is
- * worse than one that admits it is not ready, and this page will be read by people
- * deciding whether to trust us with a card.
+ * The paid cards open whichever checkout this deployment can actually complete:
+ * Stripe when there is a key and a `plans.stripe_price_id`, Mercado Pago when
+ * there is a token and a `plans.mp_price_minor`, either alone, or both. With
+ * neither they fall back to writing to a person — a button that pretends to take
+ * money and then cannot is worse than one that admits it is not ready, and this
+ * page will be read by people deciding whether to trust us with a card.
+ *
+ * The price shown follows the rail that will charge it. Quoting dollars above a
+ * button that takes pesos asks a visitor to trust that two numbers are the same
+ * thing, on the page where they are deciding whether to trust us at all.
  */
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -34,6 +39,7 @@ import {
   dominatedBy,
   formatMinutes,
   formatMoney,
+  formatPlanPrice,
   formatOverage,
   rowToPlan,
   spellMinutes,
@@ -174,8 +180,9 @@ function Check() {
  *
  * ## Two rails, two conditions
  *
- * `buyable` and `mpBuyable` are resolved separately on the server, per plan, and
- * either one alone is enough to show a button.
+ * `buyable` and `mpBuyable` are resolved separately, and either one alone is
+ * enough to show a button. Each is a deployment-level fact (a key, a token) and a
+ * per-plan one (a Stripe price id, a peso price).
  *
  * They used to be one condition: the Mercado Pago button was nested inside
  * `if (buyable)`, so the local rail could only appear on a deployment that also
@@ -274,7 +281,7 @@ function PlanAction({
    */
   const subject = encodeURIComponent(`Quiero el plan ${plan.name}`);
   const body = encodeURIComponent(
-    `Hola, quiero contratar el plan ${plan.name} (${formatMoney(plan.priceMinor, plan.currency)} al mes). ¿Cómo seguimos?`,
+    `Hola, quiero contratar el plan ${plan.name} (${formatPlanPrice(plan, mpBuyable)} al mes). ¿Cómo seguimos?`,
   );
   const whatsapp = `https://wa.me/${WHATSAPP.number}?text=${body}`;
 
@@ -311,14 +318,30 @@ function PlanAction({
 function PlanCard({
   plan,
   buyable,
-  mpBuyable,
+  mpLive,
   supersededBy,
 }: {
   plan: Plan;
   buyable: boolean;
-  mpBuyable: boolean;
+  /**
+   * Whether this deployment can charge through Mercado Pago at all.
+   *
+   * Deployment-level rather than per-plan, because this card renders two plans'
+   * prices: its own, and — when it is the dominated tier — the cheaper one it
+   * points at. Both have to be quoted in the currency they would actually be
+   * charged in, and each has its own peso price or lack of one.
+   */
+  mpLive: boolean;
   supersededBy: Plan | null;
 }) {
+  /*
+   * `> 0` and not merely `!== null`, mirroring `mpPurchasablePlan`, which refuses
+   * any plan at or below zero. The free plan carries a peso zero so the page can
+   * quote one currency, and that is a display fact rather than a purchasable one:
+   * a card that showed it a checkout button would open a subscription the route
+   * declines.
+   */
+  const mpBuyable = mpLive && plan.mpPriceMinor !== null && plan.mpPriceMinor > 0;
   // A dominated tier is not an option, so it does not get the recommendation
   // ring or the button. See `dominatedBy` for why it stays on the page at all.
   const recommended = !supersededBy && plan.id === RECOMMENDED_PLAN_ID;
@@ -376,12 +399,17 @@ function PlanCard({
 
       <p className="mt-4 flex items-baseline gap-1.5">
         <span className="font-mono text-[34px] font-medium leading-none tracking-[-0.02em] text-ink">
-          {formatMoney(plan.priceMinor, plan.currency)}
+          {formatPlanPrice(plan, mpBuyable)}
         </span>
         <span className="text-[15px] text-soft">{plan.priceMinor === 0 ? '' : '/mes'}</span>
       </p>
       {plan.setupMinor !== null && (
         <p className="mt-2 text-[13px] leading-relaxed text-muted">
+          {/*
+            The setup fee stays in the plan's own currency: there is no peso
+            column for it, and converting one here would be the exchange rate
+            standing in for a price that the migration refuses to invent.
+          */}
           + {formatMoney(plan.setupMinor, plan.currency)} de implementación, por una vez
         </p>
       )}
@@ -444,7 +472,7 @@ function PlanCard({
       {supersededBy ? (
         <p className="mt-6 border-t border-line pt-5 text-[14px] leading-relaxed text-muted">
           Este es el precio sin el descuento de fundador. Mientras {supersededBy.name} siga
-          abierto, cuesta {formatMoney(supersededBy.priceMinor, supersededBy.currency)} y te da lo
+          abierto, cuesta {formatPlanPrice(supersededBy, mpLive)} y te da lo
           mismo, así que toma ese.
         </p>
       ) : (
@@ -479,18 +507,16 @@ export default async function PlanesPage() {
   );
 
   /*
-   * The same two conditions for the local rail, resolved independently: this
-   * deployment has a Mercado Pago token, and the plan row carries a peso price.
+   * Whether the local rail can take money at all here. The per-plan half of the
+   * condition is a peso price on the row, and each card checks that itself.
    *
    * `mp_price_minor` is null on every row the moment the migration runs, and
    * deliberately so — see 20260823000000_mercadopago.sql, which refuses to invent
    * an amount from an exchange rate. So a deployment with both Mercado Pago
-   * secrets set still shows nothing here until somebody decides what the plan
-   * costs in pesos, which is a price and not a conversion.
+   * secrets set still shows nothing until somebody decides what the plan costs in
+   * pesos, which is a price and not a conversion.
    */
-  const mpBuyable = new Set(
-    mpConfigured() ? selfServe.filter((p) => p.mpPriceMinor !== null).map((p) => p.id) : [],
-  );
+  const mpLive = mpConfigured();
 
   return (
     <>
@@ -532,7 +558,7 @@ export default async function PlanesPage() {
               key={plan.id}
               plan={plan}
               buyable={buyable.has(plan.id)}
-              mpBuyable={mpBuyable.has(plan.id)}
+              mpLive={mpLive}
               supersededBy={dominatedBy(plan, selfServe)}
             />
           ))}

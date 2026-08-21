@@ -323,6 +323,44 @@ function symbol(currency: string): string {
  * anything with a fraction keeps them, so a per-minute rate still reads as
  * `US$0,35`.
  */
+/**
+ * What a plan costs, in the currency this deployment actually charges in.
+ *
+ * The page used to render `priceMinor` in `currency` everywhere, which was right
+ * while Stripe in dollars was the only rail. With Mercado Pago live, a Chilean
+ * visitor was shown "US$9/mes" as the headline and "$9.900" on the button of the
+ * same card and had to take on faith that those were the same thing — while the
+ * card beside it quoted US$19 with no peso figure at all, so there was nothing
+ * to compare the number they would actually be charged against.
+ *
+ * So the displayed price follows the charge. When the local rail is the one that
+ * will take the money, the peso figure is the price and the dollar one is not
+ * shown; otherwise nothing changes.
+ *
+ * Deliberately not a conversion: it returns the price somebody decided, or the
+ * other price somebody decided. `mp_price_minor` is null until a human writes it
+ * — see 20260823000000_mercadopago.sql on why an exchange rate must never stand
+ * in for a price — and a plan without one keeps showing dollars rather than a
+ * number nobody chose.
+ */
+export function displayPrice(
+  plan: Pick<Plan, 'priceMinor' | 'currency' | 'mpPriceMinor'>,
+  local: boolean,
+): { minor: number; currency: string } {
+  return local && plan.mpPriceMinor !== null
+    ? { minor: plan.mpPriceMinor, currency: 'CLP' }
+    : { minor: plan.priceMinor, currency: plan.currency };
+}
+
+/** `displayPrice`, already formatted. The common case at every call site. */
+export function formatPlanPrice(
+  plan: Pick<Plan, 'priceMinor' | 'currency' | 'mpPriceMinor'>,
+  local: boolean,
+): string {
+  const { minor, currency } = displayPrice(plan, local);
+  return formatMoney(minor, currency);
+}
+
 export function formatMoney(minor: number, currency: string): string {
   const value = minor / minorPerUnit(currency);
   const whole = Number.isInteger(value);

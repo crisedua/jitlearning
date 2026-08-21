@@ -35,6 +35,7 @@ import {
   ASSUMED_SESSION_MINUTES,
   formatMinutes,
   formatMoney,
+  formatPlanPrice,
   spellMinutes,
   type Plan,
 } from '@/lib/plans';
@@ -270,7 +271,7 @@ function Ofrecer({
         {saved.tasksMeasured === 1
           ? `Con una sola tarea ya recuperas ${spellMinutes(saved.perWeek)} cada semana, medidos por ti.`
           : `Con ${saved.tasksMeasured} tareas ya recuperas ${spellMinutes(saved.perWeek)} cada semana, medidos por ti.`}{' '}
-        El plan {plan.name} cuesta {formatMoney(plan.priceMinor, plan.currency)} al mes y son{' '}
+        El plan {plan.name} cuesta {formatPlanPrice(plan, mpBuyable)} al mes y son{' '}
         {formatMinutes(plan.monthlyMinutes)} de clase: alcanza para las {WEEKLY_MIN} a {WEEKLY_MAX}{' '}
         tareas de tu semana y para los otros {LEVELS.length - 1} niveles, hasta el portafolio.
       </p>
@@ -329,7 +330,7 @@ function Ofrecer({
         ) : (
           <IntentLink
             href={`https://wa.me/${WHATSAPP.number}?text=${encodeURIComponent(
-              `Hola, quiero contratar el plan ${plan.name} (${formatMoney(plan.priceMinor, plan.currency)} al mes). ¿Cómo seguimos?`,
+              `Hola, quiero contratar el plan ${plan.name} (${formatPlanPrice(plan, mpBuyable)} al mes). ¿Cómo seguimos?`,
             )}`}
             plan={plan.id}
             channel="whatsapp"
@@ -337,7 +338,7 @@ function Ofrecer({
             rel="noopener noreferrer"
             className="inline-flex w-full items-center justify-center rounded-full bg-accent px-5 py-2.5 text-[15px] font-medium text-bg transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover"
           >
-            Quiero {plan.name} · {formatMoney(plan.priceMinor, plan.currency)} al mes
+            Quiero {plan.name} · {formatPlanPrice(plan, mpBuyable)} al mes
           </IntentLink>
         )}
       </div>
@@ -349,7 +350,7 @@ function Ofrecer({
             Te escribimos para activarlo. También por correo:{' '}
             <IntentLink
               href={`mailto:${PROFILE.email}?subject=${encodeURIComponent(`Quiero el plan ${plan.name}`)}&body=${encodeURIComponent(
-                `Hola, quiero contratar el plan ${plan.name} (${formatMoney(plan.priceMinor, plan.currency)} al mes). ¿Cómo seguimos?`,
+                `Hola, quiero contratar el plan ${plan.name} (${formatPlanPrice(plan, mpBuyable)} al mes). ¿Cómo seguimos?`,
               )}`}
               plan={plan.id}
               channel="email"
