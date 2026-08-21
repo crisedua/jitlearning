@@ -129,19 +129,19 @@ export const PROMISES: readonly {
      * the learner can name.
      */
     title: 'Queda registrado lo que sabes hacer.',
-    body: 'Cada tarea que resuelves queda en tu página de progreso con lo que construiste y tus 2 números: lo que tardabas y lo que tardas ahora.',
+    body: 'Cada tarea que resuelves queda en tu progreso con lo construido y tus 2 números.',
     generic: 'Un chat empieza de cero y termina donde lo dejaste.',
   },
   {
     key: 'memory',
     title: 'Se acuerda de ti.',
-    body: 'Cada sesión parte por lo que te comprometiste la vez anterior, y te pide contarle qué salió.',
+    body: 'Cada sesión parte por lo que te comprometiste la vez anterior.',
     generic: 'Un chat no recuerda la conversación de ayer.',
   },
   {
     key: 'honesty',
     title: 'No inventa.',
-    body: 'Nombra la fuente cuando la tiene, avisa cuando es criterio general. Ninguna cifra sin fuente.',
+    body: 'Nombra la fuente cuando la tiene, avisa cuando es criterio general.',
     generic: 'Un chat responde con la misma seguridad venga de donde venga.',
   },
 ];

@@ -210,17 +210,34 @@ export default function HomePage() {
             the same 4 things again. It is the last line of each card now, so
             the claim and the chat window it is measured against are read
             together instead of a scroll apart.
+
+            Hidden until the pointer is on the card, which is a claim about the
+            device rather than about the design: `[@media(hover:hover)]` is what
+            hides it, so a phone — where there is no cursor to move and no way
+            to reveal anything — gets all 4 contrasts visible from the start.
+            The line telling you to hover is gated on the same query, because an
+            instruction to do something impossible is worse than no instruction.
+
+            It fades in place rather than expanding. Growing the card on hover
+            would push the whole grid row, so pointing at one promise would move
+            the other 3 out from under the cursor.
           */}
-          <ul className="-mx-6 mt-12 flex snap-x snap-mandatory gap-5 overflow-x-auto px-6 pb-3 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-x-visible sm:px-0 sm:pb-0">
+          <p className="reveal mt-4 hidden text-[15px] text-soft [@media(hover:hover)]:block">
+            Pasa el cursor sobre cada tarjeta para ver la diferencia con un chat.
+          </p>
+
+          <ul className="-mx-6 mt-10 flex snap-x snap-mandatory gap-5 overflow-x-auto px-6 pb-3 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-x-visible sm:px-0 sm:pb-0 lg:grid-cols-4">
             {PROMISES.map((promise, i) => (
               <li
                 key={promise.key}
                 style={{ animationRange: `entry 0% entry ${55 + i * 10}%` }}
-                className="reveal flex w-[82vw] shrink-0 snap-start flex-col rounded-lg border border-line bg-surface p-7 sm:w-auto sm:shrink"
+                className="reveal group flex w-[82vw] shrink-0 snap-start flex-col rounded-lg border border-line bg-surface p-7 transition duration-300 ease-out hover:-translate-y-1 hover:shadow-md sm:w-auto sm:shrink"
               >
-                <h3 className="text-xl font-semibold tracking-[-0.01em]">{promise.title}</h3>
-                <p className="mt-2.5 text-[15px] leading-relaxed text-muted">{promise.body}</p>
-                <p className="mt-auto flex items-start gap-2 pt-4 text-[14px] leading-snug text-soft">
+                <h3 className="font-serif text-[22px] font-normal leading-tight tracking-[-0.01em]">
+                  {promise.title}
+                </h3>
+                <p className="mt-3 text-[15px] leading-relaxed text-muted">{promise.body}</p>
+                <p className="mt-auto flex items-start gap-2 pt-5 text-[14px] leading-snug text-soft opacity-100 transition-opacity duration-300 ease-out group-hover:opacity-100 [@media(hover:hover)]:opacity-0">
                   <span aria-hidden className="font-mono text-danger/70">
                     ×
                   </span>
