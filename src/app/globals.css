@@ -35,11 +35,11 @@
   --color-soft: #706b5f;
 
   /* Navy */
-  --color-accent: #2b4e7e;
-  --color-accent-hover: #1b3252;
-  --color-accent-deep: #14263f;
-  --color-accent-lift: #3e6690;
-  --color-accent-soft: #e4ebf4;
+  --color-accent: #123b2e;
+  --color-accent-hover: #0f3327;
+  --color-accent-deep: #0c2a20;
+  --color-accent-lift: #3c7a64;
+  --color-accent-soft: #e4eee9;
 
   /*
    * Brand green. The logo's own colour, deliberately separate from `accent`:
