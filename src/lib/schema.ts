@@ -34,6 +34,26 @@ export const MIGRATION_SENSITIVE: ReadonlyArray<{
   { table: 'session_summaries', column: 'conversation_id', why: 'no commitments carry over' },
   { table: 'feedback', column: 'message', why: 'the /feedback deal cannot collect anybody' },
   { table: 'billing_events', column: 'handled_at', why: 'a failed payment is never retried' },
+  /*
+   * Both halves of the Mercado Pago rail, and the first one is the dangerous
+   * kind of missing.
+   *
+   * `plans` is read with an explicit column list, so a `mp_price_minor` that
+   * does not exist fails the whole select with 42703 and the pricing page
+   * falls back to the hardcoded plans — quietly, correctly, and ignoring every
+   * price anybody has edited in the database since. A pricing page that has
+   * stopped reading its own prices looks exactly like one that is working.
+   */
+  {
+    table: 'plans',
+    column: 'mp_price_minor',
+    why: 'the pricing page silently stops reading the database and shows the fallback prices',
+  },
+  {
+    table: 'profiles',
+    column: 'mp_preapproval_id',
+    why: 'a Mercado Pago payment cannot be written, so nobody who pays gets their plan',
+  },
   {
     table: 'purchase_intents',
     column: 'channel',
