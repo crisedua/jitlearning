@@ -571,9 +571,13 @@ export default async function EstadoPage() {
         <Link href="/admin/embudo" className="text-accent underline underline-offset-2">
           /admin/embudo
         </Link>
-        , y lo que escribieron en{' '}
+        , lo que escribieron en{' '}
         <Link href="/admin/feedback" className="text-accent underline underline-offset-2">
           /admin/feedback
+        </Link>
+        , y quién tiene cuenta en{' '}
+        <Link href="/admin/usuarios" className="text-accent underline underline-offset-2">
+          /admin/usuarios
         </Link>
         .
       </p>
