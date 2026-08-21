@@ -286,6 +286,49 @@ export async function GET(req: Request) {
   }
 
   /*
+   * 5b. Are the classes that happened actually reaching the notebook?
+   *
+   * The check above proves `coach_sessions` is queryable, and then says
+   * "sessions are being recorded", which is a different claim and was the one
+   * that turned out to be false. A learner reported a class that left no trace,
+   * and every check here was green while it happened: the agent was right, the
+   * persona matched, the tools were attached, the schema was complete, the
+   * webhook was registered in ElevenLabs. Nothing looked at the outcome.
+   *
+   * `conversation_id` is the whole story. It is the only key the post-call
+   * webhook can match a transcript on, and the only key `sync:usage` can
+   * reconcile a row on. A finished class with a null there is unrecoverable by
+   * either path — the transcript is dropped with a 200 and the row stays an
+   * estimate forever — and the learner is told their class was not saved.
+   *
+   * So this counts exactly that: classes that ended and can never be repaired.
+   * A handful is normal (somebody who opened the page and closed it before the
+   * call connected has no id to report). A run of them is the failure this
+   * check exists to name, out loud, instead of leaving it to whoever reads a
+   * WhatsApp message weeks later.
+   */
+  if (checks.usageLedger.state === 'ok') {
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1_000).toISOString();
+    const { data, error } = await supabaseAdmin()
+      .from('coach_sessions')
+      .select('id')
+      .gte('started_at', since)
+      .not('ended_at', 'is', null)
+      .is('conversation_id', null)
+      .limit(50);
+
+    const orphaned = data?.length ?? 0;
+    checks.classesSaved = error
+      ? { state: 'fail', detail: `could not count unsaved classes: ${error.message}` }
+      : orphaned === 0
+        ? { state: 'ok', detail: 'Every class that ended in the last 7 days can reach its summary' }
+        : {
+            state: 'fail',
+            detail: `${orphaned} class(es) in the last 7 days ended with no conversation_id, so their transcripts were dropped and sync:usage cannot recover them.`,
+          };
+  }
+
+  /*
    * 6. Did the migrations actually run *here*?
    *
    * `npm run doctor` asks this too, and asks it of whatever `.env.local` points

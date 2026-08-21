@@ -146,8 +146,14 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
    * the same session. `keepalive` is what lets the request outlive the page.
    *
    * Failure is silent on purpose: the learner has finished talking and can do
-   * nothing about it, and `npm run sync:usage` reconciles missed rows against
-   * ElevenLabs afterwards.
+   * nothing about it.
+   *
+   * This used to add that `npm run sync:usage` reconciles missed rows
+   * afterwards, which was not true of the case that matters. That script
+   * matches rows to conversations by `conversation_id`, so a row that lost this
+   * report has nothing to match on and is counted as unmatched. The id is now
+   * written at connect time as well, which is what makes the sentence above
+   * survivable at all.
    */
   const reportUsage = useCallback(() => {
     const usage = usageRef.current;
@@ -226,10 +232,32 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
       },
     },
     onConnect: ({ conversationId }: { conversationId: string }) => {
-      // The id ElevenLabs bills under. Without it a usage row cannot be
-      // reconciled against their side later.
+      // The id ElevenLabs bills under, and the only key the post-call webhook
+      // has for working out whose class this was.
       usageRef.current.conversationId = conversationId;
       setError(null);
+
+      /*
+       * Reported now, not only in the beacon at teardown.
+       *
+       * The beacon was the single carrier of this id, and it fires while the
+       * page is being dismantled — so a dropped connection took the id with it,
+       * the webhook could not match the transcript to anybody, and the learner
+       * was told their class had not been saved. `sync:usage` matches on the
+       * same column, so it could not repair it either.
+       *
+       * Fire-and-forget on purpose: the class is starting and there is nothing
+       * useful to say to somebody about a bookkeeping write. The beacon still
+       * carries the same id, so this is a second chance rather than a swap.
+       */
+      const sessionId = usageRef.current.sessionId;
+      if (sessionId) {
+        void fetch(`/api/sessions/${sessionId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversationId }),
+        }).catch(() => {});
+      }
     },
     onDisconnect: () => reportUsage(),
     onMessage: ({ message, source }: { message: string; source: string }) => {

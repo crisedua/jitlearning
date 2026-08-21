@@ -411,6 +411,46 @@ export async function startCoachSession(
 }
 
 /**
+ * Stamps the conversation id on a usage row the moment the call connects.
+ *
+ * ## The failure this exists to close
+ *
+ * The id used to reach the server exactly once, inside the `pagehide` beacon
+ * that closes the row. That is the most fragile moment in the whole session:
+ * the tab is being torn down, and a learner whose connection drops mid-class —
+ * which is how this was found, from somebody reporting "el audio se corta" —
+ * loses the beacon with it.
+ *
+ * What that costs is not a metric. `conversation_id` is the only key the
+ * post-call webhook has: with no row carrying it, the webhook cannot tell whose
+ * class it is and drops the transcript with a 200, so the learner is told
+ * "tuviste una clase y no quedó guardada". And the documented recovery,
+ * `npm run sync:usage`, matches on the same column, so it cannot repair the one
+ * case that needs repairing — it counts the row as unmatched and moves on.
+ *
+ * Reporting at connect instead of at teardown removes the single point of
+ * failure. The beacon still runs and still carries the duration and the turn
+ * count; if it is lost, the class is now merely an estimate rather than gone.
+ *
+ * Deliberately does not touch `ended_at`: the call is starting, not finishing.
+ */
+export async function linkConversation(
+  sessionId: string,
+  userId: string,
+  conversationId: string,
+): Promise<void> {
+  if (!serviceConfigured()) return;
+
+  const { error } = await supabaseAdmin()
+    .from('coach_sessions')
+    .update({ conversation_id: conversationId })
+    .eq('id', sessionId)
+    .eq('user_id', userId);
+
+  if (error) console.error('[account] could not link conversation:', error.message);
+}
+
+/**
  * Close a usage row with what the browser observed.
  *
  * These numbers are a first approximation: the browser can lie, and a closed
@@ -428,17 +468,23 @@ export async function finishCoachSession(
 ): Promise<void> {
   if (!serviceConfigured()) return;
 
+  /*
+   * Only the fields actually reported, rather than nulling the rest.
+   *
+   * This wrote `patch.conversationId ?? null`, so a report that arrived without
+   * one erased whatever was already on the row — including the id
+   * `linkConversation` now stamps at connect time. The conversation id is what
+   * the post-call webhook matches on, so overwriting it with null is the one
+   * write here that can lose a whole class.
+   */
+  const update: Record<string, unknown> = { ended_at: new Date().toISOString() };
+  if (patch.conversationId !== undefined) update.conversation_id = patch.conversationId;
+  if (patch.durationSeconds !== undefined) update.duration_seconds = patch.durationSeconds;
+  if (patch.messageCount !== undefined) update.message_count = patch.messageCount;
+
   const { error, count } = await supabaseAdmin()
     .from('coach_sessions')
-    .update(
-      {
-        conversation_id: patch.conversationId ?? null,
-        duration_seconds: patch.durationSeconds ?? null,
-        message_count: patch.messageCount ?? null,
-        ended_at: new Date().toISOString(),
-      },
-      { count: 'exact' },
-    )
+    .update(update, { count: 'exact' })
     .eq('id', sessionId)
     .eq('user_id', userId);
 
