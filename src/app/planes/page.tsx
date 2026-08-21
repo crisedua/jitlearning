@@ -20,6 +20,7 @@ import { anonKey, authConfigured, supabaseUrl } from '@/lib/supabase/env';
 import { CheckoutButton } from '@/components/CheckoutButton';
 import { IntentLink } from '@/components/IntentLink';
 import { billingConfigured } from '@/lib/billing';
+import { mpConfigured } from '@/lib/mercadopago';
 import { withDeadline } from '@/lib/deadline';
 import { PROFILE, WHATSAPP } from '@/lib/site';
 import {
@@ -166,16 +167,36 @@ function Check() {
 /**
  * What the card's button does.
  *
- * The free plan starts a session. The paid ones open a Stripe checkout, unless
- * this deployment has no Stripe key or the plan has no price created yet, in which
- * case they fall back to writing to a person — a button that opens a dead checkout
- * is worse than one that says it is not ready.
+ * The free plan starts a session. A paid one opens whichever checkouts this
+ * deployment can actually complete, and falls back to writing to a person when it
+ * can complete none — a button that opens a dead checkout is worse than one that
+ * says it is not ready.
  *
- * `buyable` is resolved on the server, per plan, from `plans.stripe_price_id`. It
- * is not a global flag: the founder tier can be purchasable while a later tier is
- * still being set up, and the page should tell the truth about each.
+ * ## Two rails, two conditions
+ *
+ * `buyable` and `mpBuyable` are resolved separately on the server, per plan, and
+ * either one alone is enough to show a button.
+ *
+ * They used to be one condition: the Mercado Pago button was nested inside
+ * `if (buyable)`, so the local rail could only appear on a deployment that also
+ * had a Stripe key and a Stripe price id on the row. That made the rail this
+ * product is actually sold on depend on the one almost nobody in its market uses.
+ * A deployment configured for Mercado Pago and nothing else showed no pay button
+ * at all and sent every buyer to WhatsApp, with both providers healthy and
+ * nothing anywhere reporting a problem.
+ *
+ * Neither is a global flag: the founder tier can be purchasable while a later
+ * tier is still being set up, and the page should tell the truth about each.
  */
-function PlanAction({ plan, buyable }: { plan: Plan; buyable: boolean }) {
+function PlanAction({
+  plan,
+  buyable,
+  mpBuyable,
+}: {
+  plan: Plan;
+  buyable: boolean;
+  mpBuyable: boolean;
+}) {
   if (plan.priceMinor === 0) {
     return (
       <Link
@@ -187,34 +208,42 @@ function PlanAction({ plan, buyable }: { plan: Plan; buyable: boolean }) {
     );
   }
 
-  if (buyable) {
+  if (buyable || mpBuyable) {
     return (
       <>
-        <CheckoutButton
-          plan={plan.id}
-          label={`Contratar ${plan.name}`}
-          recommended={plan.id === RECOMMENDED_PLAN_ID}
-        />
+        {buyable && (
+          <CheckoutButton
+            plan={plan.id}
+            label={`Contratar ${plan.name}`}
+            recommended={plan.id === RECOMMENDED_PLAN_ID}
+          />
+        )}
         {/*
-          The local rail, shown only when there is a peso price to charge.
+          The local rail.
 
-          Second and not first because the card everybody has works on both, and
-          a second full-width button competing with the first turns a decision
-          about a plan into a decision about a payment processor. It appears at
-          all because this is sold in Chile, where the answer to "do you take
-          Mercado Pago" is the one that decides the sale more often than the
-          price above it does.
+          Second when both are shown, and not first, because the card everybody
+          has works on both and a second full-width button competing with the
+          first turns a decision about a plan into a decision about a payment
+          processor. It appears at all because this is sold in Chile, where the
+          answer to "do you take Mercado Pago" decides the sale more often than
+          the price above it does.
 
-          `mpPriceMinor` is null until somebody sets a price by hand, so a plan
-          that would be refused by the checkout route never grows a button that
-          leads there.
+          When it is the only rail it takes the primary styling, because then it
+          is not an alternative to anything — it is the button.
+
+          `mpBuyable` already requires a peso price on the row, so a plan the
+          checkout route would refuse never grows a button that leads there.
         */}
-        {plan.mpPriceMinor !== null && (
+        {mpBuyable && plan.mpPriceMinor !== null && (
           <CheckoutButton
             plan={plan.id}
             provider="mercadopago"
-            label={`Pagar con Mercado Pago · ${formatMoney(plan.mpPriceMinor, 'CLP')}`}
-            recommended={false}
+            label={
+              buyable
+                ? `Pagar con Mercado Pago · ${formatMoney(plan.mpPriceMinor, 'CLP')}`
+                : `Contratar ${plan.name} · ${formatMoney(plan.mpPriceMinor, 'CLP')}`
+            }
+            recommended={!buyable && plan.id === RECOMMENDED_PLAN_ID}
           />
         )}
       </>
@@ -282,10 +311,12 @@ function PlanAction({ plan, buyable }: { plan: Plan; buyable: boolean }) {
 function PlanCard({
   plan,
   buyable,
+  mpBuyable,
   supersededBy,
 }: {
   plan: Plan;
   buyable: boolean;
+  mpBuyable: boolean;
   supersededBy: Plan | null;
 }) {
   // A dominated tier is not an option, so it does not get the recommendation
@@ -417,7 +448,7 @@ function PlanCard({
           mismo, así que toma ese.
         </p>
       ) : (
-        <PlanAction plan={plan} buyable={buyable} />
+        <PlanAction plan={plan} buyable={buyable} mpBuyable={mpBuyable} />
       )}
     </li>
   );
@@ -445,6 +476,20 @@ export default async function PlanesPage() {
    */
   const buyable = new Set(
     billingConfigured() ? selfServe.filter((p) => p.stripePriceId).map((p) => p.id) : [],
+  );
+
+  /*
+   * The same two conditions for the local rail, resolved independently: this
+   * deployment has a Mercado Pago token, and the plan row carries a peso price.
+   *
+   * `mp_price_minor` is null on every row the moment the migration runs, and
+   * deliberately so — see 20260823000000_mercadopago.sql, which refuses to invent
+   * an amount from an exchange rate. So a deployment with both Mercado Pago
+   * secrets set still shows nothing here until somebody decides what the plan
+   * costs in pesos, which is a price and not a conversion.
+   */
+  const mpBuyable = new Set(
+    mpConfigured() ? selfServe.filter((p) => p.mpPriceMinor !== null).map((p) => p.id) : [],
   );
 
   return (
@@ -487,6 +532,7 @@ export default async function PlanesPage() {
               key={plan.id}
               plan={plan}
               buyable={buyable.has(plan.id)}
+              mpBuyable={mpBuyable.has(plan.id)}
               supersededBy={dominatedBy(plan, selfServe)}
             />
           ))}

@@ -28,9 +28,30 @@ describe('the gates between wanting to pay and having a plan', () => {
   const hook = read('src', 'app', 'api', 'webhooks', 'stripe', 'route.ts');
   const billing = read('src', 'lib', 'billing.ts');
 
-  it('1. no Stripe: /planes writes to a person instead of a dead button', () => {
-    assert.match(planes, /if \(buyable\) \{/);
+  /*
+   * The condition was `if (buyable)` — Stripe alone — and that was both the
+   * gate and a bug: the Mercado Pago button lived inside it, so the rail this
+   * product is actually sold on could not appear without the one its market does
+   * not use. What this gate is for survives the fix and is now stated properly:
+   * the page writes to a person when it can complete *no* checkout, not when it
+   * cannot complete Stripe's.
+   */
+  it('1. no checkout at all: /planes writes to a person instead of a dead button', () => {
+    assert.match(planes, /if \(buyable \|\| mpBuyable\) \{/);
     assert.match(planes, /IntentLink/, 'the fallback no longer records that somebody tried');
+  });
+
+  it('1b. either rail alone is enough to show a button', () => {
+    // Each provider's button carries its own condition. Nesting one inside the
+    // other is the failure above, and it is invisible: both providers healthy,
+    // every buyer sent to WhatsApp, nothing logged anywhere.
+    assert.match(planes, /\{buyable && \(/, 'the Stripe button is no longer independently gated');
+    assert.match(planes, /\{mpBuyable && /, 'the Mercado Pago button is no longer independently gated');
+    assert.match(
+      planes,
+      /mpConfigured\(\) \? selfServe\.filter\(\(p\) => p\.mpPriceMinor !== null\)/,
+      'mpBuyable no longer derives from the Mercado Pago token and a peso price',
+    );
   });
 
   it('2. no Stripe: the offer under the hours does the same', () => {

@@ -25,6 +25,13 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
       disallow: [
+        /*
+         * The index and everything under it. Two lines for the same reason
+         * `/progreso` needs two: robots.txt treats a rule as a prefix, and this
+         * project's route audit deliberately does not, so `/admin/` covers the
+         * pages inside and only `/admin` covers the door.
+         */
+        '/admin',
         '/admin/',
         '/knowledge',
         // Both redirect to a sign-in a crawler cannot complete, so every fetch

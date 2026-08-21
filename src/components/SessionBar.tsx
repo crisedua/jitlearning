@@ -1,7 +1,9 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getAccount } from '@/lib/account';
+import { isAdminEmail } from '@/lib/admin';
 
 /**
  * Who you are signed in as, which plan you are on, and the way out.
@@ -35,6 +37,28 @@ export async function SessionBar() {
           {plan.name}
         </span>
       )}
+      {/*
+        The way in, for the one person it applies to.
+
+        Six operator pages had grown under `/admin` and the only ways to reach
+        them were typing a URL from memory or finding a link one of them had
+        left for another. This bar is on every signed-in page and already knows
+        who is looking, so it is where the door belongs.
+
+        Rendered from the same `isAdminEmail` the pages themselves gate on, so
+        a link can never appear for somebody the page would then refuse — and
+        it is a link, not a permission: `checkAdmin` runs again over there,
+        against Supabase's own view of the session.
+      */}
+      {isAdminEmail(profile.email) && (
+        <Link
+          href="/admin"
+          className="rounded-sm border-b border-transparent pb-0.5 transition-colors duration-200 ease-out hover:border-gold hover:text-ink"
+        >
+          Admin
+        </Link>
+      )}
+
       <form
         action={async () => {
           'use server';
