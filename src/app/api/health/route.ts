@@ -340,6 +340,34 @@ export async function GET(req: Request) {
   }
 
   /*
+   * 5c. Can the transcript get back in at all?
+   *
+   * The webhook route returns 503 to every delivery when
+   * `ELEVENLABS_WEBHOOK_SECRET` is missing, and ElevenLabs has nowhere to put
+   * that: the class happened, the learner spent their minutes, and the summary
+   * bounces off the door. From the inside everything else looks healthy, which
+   * is how this survived — the agent, the persona, the tools, the schema, the
+   * usage rows and the registration on the ElevenLabs side were all fine and
+   * all green, and a learner still got "tuviste una clase y no quedó guardada".
+   *
+   * `/progreso` already names this as one of the two usual causes, in a hint
+   * only an admin sees, on a page somebody reaches after the class is already
+   * lost. Checking it here is the same knowledge moved to where it is read
+   * before that happens.
+   *
+   * Presence only. Whether the value matches what ElevenLabs signs with cannot
+   * be settled without a real delivery, but a missing one is decisive on its
+   * own and is what actually happened here.
+   */
+  checks.webhookSecret = process.env.ELEVENLABS_WEBHOOK_SECRET?.trim()
+    ? { state: 'ok', detail: 'ELEVENLABS_WEBHOOK_SECRET is set; post-call transcripts can be accepted' }
+    : {
+        state: 'fail',
+        detail:
+          'ELEVENLABS_WEBHOOK_SECRET is missing, so /api/webhooks/elevenlabs answers 503 to every post-call delivery and no class is ever saved.',
+      };
+
+  /*
    * 6. Did the migrations actually run *here*?
    *
    * `npm run doctor` asks this too, and asks it of whatever `.env.local` points
