@@ -36,16 +36,25 @@ export default function HomePage() {
           <div className="animate-rise mt-9 flex flex-wrap items-center gap-3.5 [animation-delay:520ms]">
             <Link
               href="/coach"
-              className="inline-flex items-center gap-3 rounded-full bg-accent px-7 py-4 text-[17px] font-medium text-bg shadow-[0_10px_30px_-12px_rgba(20,38,63,0.6)] transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover"
+              className="inline-flex items-center gap-3 rounded-full bg-gold px-7 py-4 text-[17px] font-semibold text-ink shadow-[0_10px_30px_-12px_rgba(138,98,23,0.55)] transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-gold-light"
             >
               Empezar la primera clase
               <span aria-hidden className="font-mono">
                 →
               </span>
             </Link>
+            {/*
+              A link, not a second button.
+
+              Two pills side by side made these read as a choice between equals,
+              and they are not: one starts the class, the other is for somebody
+              who wants to look before starting. Dropping the border says that
+              without saying it, and it leaves the gold as the only filled shape
+              in the hero, which is what makes it the obvious thing to press.
+            */}
             <a
               href="#curriculum"
-              className="inline-flex items-center rounded-full border border-line-strong bg-surface px-6 py-4 text-[17px] font-medium text-ink transition duration-200 ease-out hover:-translate-y-0.5 hover:border-accent"
+              className="text-[17px] font-medium text-ink underline-offset-4 transition-colors duration-200 hover:text-accent hover:underline"
             >
               Ver el currículum
             </a>

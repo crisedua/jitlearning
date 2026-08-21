@@ -99,10 +99,22 @@ export function SessionPreview() {
     };
   }, []);
 
+  /*
+   * A dark card, so the demo reads as a screen rather than as more page.
+   *
+   * This sat on `bg-surface` with a hairline, which put white on cream beside a
+   * white hero: the one element that shows the product working was the one with
+   * the least separation from everything around it. Inverting it costs nothing
+   * structurally and makes the panel the thing the eye lands on.
+   *
+   * Text on it is `bg` — the page cream used as a foreground, which is the same
+   * pairing every filled button in the product already uses and the one the
+   * palette test knows about.
+   */
   return (
-    <div className="rounded-xl border border-line bg-surface p-6 shadow-lg sm:p-7">
-      <div className="flex items-center justify-between gap-4 border-b border-line pb-4">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-soft">
+    <div className="rounded-xl bg-accent-deep p-6 shadow-lg sm:p-7">
+      <div className="flex items-center justify-between gap-4 border-b border-bg/15 pb-4">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-bg/60">
           El final de la primera clase
         </span>
         <Waveform />
@@ -117,7 +129,7 @@ export function SessionPreview() {
         )}
         {step === 3 && <TypingDots side="coach" />}
         {step >= 4 && (
-          <p className="animate-pop max-w-[92%] self-start rounded-[16px_16px_16px_4px] border border-line bg-bg px-4 py-3.5 text-[15px] leading-relaxed text-ink">
+          <p className="animate-pop max-w-[92%] self-start rounded-[16px_16px_16px_4px] border border-bg/12 bg-bg/[0.07] px-4 py-3.5 text-[15px] leading-relaxed text-bg">
             {step >= 5 ? ANSWER : ANSWER.slice(0, typed)}
             <span className="ml-0.5 inline-block h-[15px] w-0.5 -translate-y-px bg-gold align-[-2px] [animation:caret_1s_step-end_infinite]" />
           </p>
@@ -127,7 +139,7 @@ export function SessionPreview() {
       {step >= 5 && (
         <p
           aria-hidden
-          className="animate-fade mt-3.5 flex items-baseline gap-2.5 border-t border-line pt-3.5 text-[13px] leading-relaxed text-soft"
+          className="animate-fade mt-3.5 flex items-baseline gap-2.5 border-t border-bg/15 pt-3.5 text-[13px] leading-relaxed text-bg/70"
         >
           <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" />
           {SOURCE}
@@ -165,8 +177,8 @@ function TypingDots({ side }: { side: 'user' | 'coach' }) {
     <span
       className={`animate-pop flex items-center gap-1.5 px-4 py-3 ${
         user
-          ? 'self-end rounded-[16px_16px_4px_16px] bg-accent-soft'
-          : 'self-start rounded-[16px_16px_16px_4px] bg-surface-alt'
+          ? 'self-end rounded-[16px_16px_4px_16px] bg-accent'
+          : 'self-start rounded-[16px_16px_16px_4px] bg-bg/[0.07]'
       }`}
     >
       {[0, 0.15, 0.3].map((delay) => (
@@ -174,7 +186,7 @@ function TypingDots({ side }: { side: 'user' | 'coach' }) {
           key={delay}
           style={{ animationDelay: `${delay}s` }}
           className={`h-1.5 w-1.5 rounded-full [animation:dot_1.2s_ease-in-out_infinite] ${
-            user ? 'bg-accent' : 'bg-soft'
+            user ? 'bg-bg/70' : 'bg-bg/50'
           }`}
         />
       ))}

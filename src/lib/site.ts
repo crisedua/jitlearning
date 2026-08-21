@@ -68,7 +68,18 @@ export const TAGLINE = 'Profesor de IA por voz, en español, para tu trabajo.';
  */
 export const HERO = {
   title: 'Tu trabajo ya exige IA. A ti nadie te enseñó a usarla.',
-  sub: 'Un profesor de IA por voz, en español. En cada clase resuelves una tarea real de tu trabajo usando IA, y sales sabiendo hacerla tú. Al final del currículum no tienes un certificado: tienes un portafolio de trabajo hecho con IA que puedes mostrar.',
+  /*
+   * The portfolio sentence used to close this and now closes the curriculum
+   * band instead.
+   *
+   * It is the career framing and it earns its place, but not here: three
+   * sentences under a two-line headline is where a visitor stops reading, and
+   * the third was the one asking them to imagine the end of a curriculum they
+   * have not started. The first class is the thing being sold on this screen.
+   * The portfolio is still promised, one scroll down, beside the 4 levels that
+   * produce it.
+   */
+  sub: 'Un profesor de IA por voz, en español. En cada clase resuelves una tarea real de tu trabajo usando IA, y sales sabiendo hacerla tú.',
 } as const;
 
 /**
