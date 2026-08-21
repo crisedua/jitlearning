@@ -5,7 +5,6 @@ import { micMessage } from '@/lib/mic';
 import { liveCallMessage } from '@/lib/errors';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConversationProvider, useConversation } from '@elevenlabs/react';
-import { KnownTopics } from './KnownTopics';
 import { PracticeBench } from './PracticeBench';
 import {
   benchFailureUpdate,
@@ -531,20 +530,6 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
     [connected, sendTyped, start],
   );
 
-  /**
-   * A tapped example means something different either side of the connection.
-   * Before the session it seeds the objective, which is what gets sent as
-   * context on connect; during the session there is nothing to seed, so it goes
-   * in as the learner's turn.
-   */
-  const pickExample = useCallback(
-    (question: string) => {
-      if (connected) sendTyped(question);
-      else setObjective(question);
-    },
-    [connected, sendTyped],
-  );
-
   /*
    * The bench, into the teacher's ear.
    *
@@ -593,22 +578,20 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
 
   return (
     /*
-      One column during a class, two before it.
-      
-      The sidebar is suggestion material for somebody deciding what to ask. Once
-      the teacher is talking it is a column of prompts competing with the thing
-      they were prompting for, and on a laptop it takes a third of the width the
-      transcript and the bench have to share. Collapsing the grid rather than
-      only hiding the child matters: a hidden child in a fixed two-column grid
-      leaves 20rem of nothing.
+      One column, now that there is only one thing to put in it.
+
+      This was two columns before a class: the explorer on the left, a sidebar
+      on the right. Both rendered the same 15 questions out of `TOPICS`, so the
+      screen where somebody decides what to ask first offered 30 tappable
+      items, half of them repeats, with nothing to say why the same question
+      appeared twice or which copy to trust.
+
+      The sidebar lost. The explorer says the same things and starts the class
+      on whichever one is tapped, which is what this screen is for; the sidebar
+      only filled the objective field, and that field is directly above it with
+      a cursor already in it.
     */
-    <div
-      className={
-        connected
-          ? 'grid gap-6'
-          : 'grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_24rem] xl:gap-8'
-      }
-    >
+    <div className="grid gap-6">
       <div className="space-y-6">
         {/*
           Session controls first, directly under the page heading.
@@ -823,7 +806,6 @@ function VoiceTutorInner({ canSearch }: { canSearch: boolean }) {
         {!connected && turns.length > 0 && <AfterSession />}
       </div>
 
-      {!connected && <KnownTopics onPick={pickExample} connected={connected} />}
     </div>
   );
 }

@@ -99,7 +99,15 @@ export function CoachExplorer({
 
       </header>
 
-      <ul className="grid gap-2.5 px-5 py-5 sm:grid-cols-2 sm:px-6">
+      {/*
+        Three across on a laptop, not two.
+
+        The grid used to share the row with a 20rem sidebar; without it these
+        15 cards would each be half a screen wide holding one short question.
+        Three columns is 5 rows instead of 8, which is the point: this list is
+        long and the page it sits on was the complaint.
+      */}
+      <ul className="grid gap-2.5 px-5 py-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-3">
         {questions.map(({ question, topic }, i) => (
           <li key={question}>
             <button
@@ -109,10 +117,16 @@ export function CoachExplorer({
               style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
               className="group animate-pop flex h-full w-full flex-col items-start gap-2 rounded-md border border-line bg-surface px-4 py-3.5 text-left transition duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/40 hover:bg-accent-soft/25 hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
             >
-              <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-soft">
-                {topic}
-              </span>
+              {/*
+                The topic label used to sit here, on every card.
 
+                `TOPICS` has 4 groups and the grid is flat, so it printed the
+                same uppercase line on 4 consecutive cards and then the next
+                one 4 times, which is a taxonomy the learner did not ask for
+                repeated until it reads as noise. The question is the label:
+                nobody needs to be told that "¿Cómo verifico lo que me
+                devuelve?" belongs to the class-today group.
+              */}
               <span className="text-[15px] font-medium leading-snug text-ink">
                 «{question}»
               </span>
