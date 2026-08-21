@@ -22,11 +22,28 @@
 -- cambia acá y no a mano en la tabla: el paquete de `npm run sql` se vuelve a
 -- pegar entero y un valor puesto a mano se perdería sin que nadie lo notara.
 
-update public.plans
-   set mp_price_minor = 9900
- where id = 'fundador';
+-- `founder`, no `fundador`. El id del plan está en inglés y solo el nombre que
+-- se muestra está en español, y la primera versión de esta migración usó el
+-- nombre: actualizó cero filas, Postgres respondió UPDATE 0 sin error, y la
+-- página siguió mostrando "Conversemos" con el SQL "ya corrido". El bloque de
+-- abajo existe para que eso no pueda volver a pasar en silencio.
+do $$
+declare
+  touched int;
+begin
+  update public.plans
+     set mp_price_minor = 9900
+   where id = 'founder';
 
--- Estándar queda en null a propósito. Mientras Fundador siga abierto, su tarjeta
+  get diagnostics touched = row_count;
+
+  if touched = 0 then
+    raise exception
+      'No hay ningún plan con id ''founder'', así que el precio en pesos no se puso. Los ids están en src/lib/plans.ts (free, founder, standard).';
+  end if;
+end $$;
+
+-- Estándar (id `standard`) queda en null a propósito. Mientras Fundador siga abierto, su tarjeta
 -- no muestra botón: es el precio de lista contra el que se compara el descuento,
 -- y `dominatedBy` la deja sin acción justamente para que nadie tome el peor de
 -- los dos. Cuando Fundador se cierre, este es el sitio donde ponerle precio.

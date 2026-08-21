@@ -32,6 +32,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { MIGRATION_SENSITIVE } from './schema';
+import { FALLBACK_PLANS } from './plans';
 
 /** The repo root. `process.cwd()` is where npm test runs, which is the root. */
 const ROOT = process.cwd();
@@ -541,4 +542,55 @@ describe('learner data is closed by user', () => {
       }
     }
   });
+});
+
+/**
+ * Every plan id a migration writes to is a plan that exists.
+ *
+ * This is the third variant of the same failure in this repo, and the cheapest
+ * one to catch. `plan_steps.level` once carried the old level names and Postgres
+ * rejected every insert; `onConflict` above promises a constraint that has to be
+ * there. This one is quieter than both: a migration that says
+ * `where id = 'fundador'` when the id is `founder` updates nothing, Postgres
+ * answers `UPDATE 0`, and the SQL editor shows success.
+ *
+ * That happened. The peso price for the founder plan was written with the
+ * Spanish display name instead of the id, the operator ran the whole bundle, and
+ * `/planes` went on sending every buyer to WhatsApp with the price "already set".
+ * Nothing anywhere reported a problem, because nothing had gone wrong — the
+ * statement simply matched no rows.
+ *
+ * `FALLBACK_PLANS` is the right list to check against: it is the compiled copy
+ * the page falls back to, so its ids are the ids the product actually ships.
+ */
+describe('plan ids in the migrations exist', () => {
+  const dir = path.join(ROOT, 'supabase', 'migrations');
+  const known = new Set(FALLBACK_PLANS.map((p) => p.id));
+
+  /** Every `... public.plans ... where id = 'x'`, with the file it came from. */
+  const referenced: { file: string; id: string }[] = [];
+  for (const file of readdirSync(dir).sort()) {
+    if (!file.endsWith('.sql')) continue;
+    const sql = readFileSync(path.join(dir, file), 'utf8');
+    for (const m of sql.matchAll(
+      /(?:update|delete\s+from)\s+(?:public\.)?plans\b[\s\S]*?\bwhere\s+id\s*=\s*'([^']+)'/gi,
+    )) {
+      referenced.push({ file, id: m[1]! });
+    }
+  }
+
+  it('found the statements, so the assertions below mean something', () => {
+    assert.ok(known.size >= 3, `only ${known.size} plan(s) compiled in`);
+    assert.ok(referenced.length >= 1, 'no migration writes to a plan row at all');
+  });
+
+  for (const { file, id } of referenced) {
+    it(`${file} names '${id}'`, () => {
+      assert.ok(
+        known.has(id),
+        `no plan has id '${id}', so this statement updates no rows and Postgres reports ` +
+          `success. Real ids: ${[...known].join(', ')}.`,
+      );
+    });
+  }
 });
