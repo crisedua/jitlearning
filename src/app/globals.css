@@ -34,21 +34,38 @@
   --color-muted: #57544b;
   --color-soft: #706b5f;
 
-  /* Navy */
-  --color-accent: #123b2e;
-  --color-accent-hover: #0f3327;
-  --color-accent-deep: #0c2a20;
-  --color-accent-lift: #3c7a64;
-  --color-accent-soft: #e4eee9;
+  /*
+   * Pine. The interface colour: buttons, links, every live state.
+   *
+   * This block said "Navy" and held navy until the brand moved to green, and
+   * then sat at #123b2e — 3.5% luminance and 53% saturation, which is a green
+   * that reads as black. Every filled button on the site looked like a black
+   * button. A learner asked for "colores más vivos" and that was the honest
+   * complaint underneath it.
+   *
+   * #0f6b4a is 3x the luminance and 75% saturation at 6.14:1 on paper, both
+   * directions. The headroom over 4.5 is deliberate: this colour is painted at
+   * /85 and /70 in a dozen places, and a token chosen at exactly the floor
+   * fails the moment somebody adds an opacity modifier.
+   */
+  --color-accent: #0f6b4a;
+  --color-accent-hover: #0c5a3e;
+  --color-accent-deep: #0a3325;
+  --color-accent-lift: #2f9a70;
+  --color-accent-soft: #e2f1ea;
 
   /*
-   * Brand green. The logo's own colour, deliberately separate from `accent`:
-   * navy is the interface, green is the mark. `brand` clears 4.5:1 on every
-   * paper surface and does carry the "JIT" of the wordmark; `brand-soft` is the
-   * logo's back card and is decorative only — it sits near gold's contrast and
-   * must never carry text.
+   * Brand green. The logo's own colour, and it has to stay distinguishable
+   * from `accent` — the pair used to be navy-vs-green, and when accent went
+   * pine they landed 2 or 3 per channel apart, which is two names for one
+   * colour and the kind of thing that rots quietly.
+   *
+   * The distinction is weight now rather than hue: the interface is the vivid
+   * pine above, the mark is this deep one. `brand` carries the "JIT" of the
+   * wordmark; `brand-soft` is the logo's back card and is decorative only — it
+   * sits near gold's contrast and must never carry text.
    */
-  --color-brand: #14382b;
+  --color-brand: #0c3626;
   --color-brand-soft: #8fb3a0;
 
   /* Gold — decoration only, never text on light surfaces. */
