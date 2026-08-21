@@ -54,9 +54,21 @@ describe('the gates between wanting to pay and having a plan', () => {
     );
   });
 
-  it('2. no Stripe: the offer under the hours does the same', () => {
-    assert.match(progreso, /buyable \? \(/);
+  it('2. no checkout at all: the offer under the hours does the same', () => {
+    // Same fix as gate 1, and this is the surface where the old coupling cost
+    // most: the argument for paying was just made in the learner's own measured
+    // hours, and a Mercado-Pago-only deployment sent them to WhatsApp anyway.
+    assert.match(progreso, /buyable \|\| mpBuyable \? \(/);
     assert.match(progreso, /channel="whatsapp"/);
+  });
+
+  it('2b. the offer can take the local rail on its own', () => {
+    assert.match(
+      progreso,
+      /mpBuyable=\{mpConfigured\(\) && offer\.mpPriceMinor !== null\}/,
+      'the offer no longer resolves Mercado Pago independently of Stripe',
+    );
+    assert.match(progreso, /provider="mercadopago"/, 'the offer has no Mercado Pago button');
   });
 
   it('3. no Stripe: somebody already paying is told how to reach a person', () => {

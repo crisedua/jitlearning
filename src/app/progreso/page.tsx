@@ -28,6 +28,7 @@ import {
   type PathId,
 } from '@/lib/curriculum';
 import { billingConfigured, isComped, subscriptionFor, type Subscription } from '@/lib/billing';
+import { mpConfigured } from '@/lib/mercadopago';
 import { getUsageBalance, lastSessionAt } from '@/lib/account';
 import { minutesLeft } from '@/lib/balance';
 import {
@@ -161,6 +162,7 @@ export default async function ProgresoPage({
           minutesLeft={minutesLeft(balance)}
           plan={offer}
           buyable={billingConfigured() && Boolean(offer.stripePriceId)}
+          mpBuyable={mpConfigured() && offer.mpPriceMinor !== null}
         />
       )}
 
@@ -224,11 +226,23 @@ function Ofrecer({
   minutesLeft,
   plan,
   buyable,
+  mpBuyable,
 }: {
   saved: TimeSaved;
   minutesLeft: number | null;
   plan: Plan;
   buyable: boolean;
+  /**
+   * Whether the local rail can take this payment: a Mercado Pago token on the
+   * deployment and a peso price on the plan.
+   *
+   * Separate from `buyable` for the reason `/planes` now has it separate. This
+   * surface had the same defect and it cost more here — the argument for paying
+   * was made in the learner's own measured hours one paragraph above, and a
+   * deployment selling through Mercado Pago sent that person to WhatsApp with a
+   * working checkout sitting unused.
+   */
+  mpBuyable: boolean;
 }) {
   const outOfMinutes = minutesLeft !== null && minutesLeft <= 5;
 
@@ -290,12 +304,28 @@ function Ofrecer({
           made in their numbers one paragraph ago. Turning that person away with
           jargon is the most expensive thing this page could do.
         */}
-        {buyable ? (
-          <CheckoutButton
-            plan={plan.id}
-            label={`Activar ${plan.name} · ${formatMoney(plan.priceMinor, plan.currency)} al mes`}
-            recommended
-          />
+        {buyable || mpBuyable ? (
+          <>
+            {buyable && (
+              <CheckoutButton
+                plan={plan.id}
+                label={`Activar ${plan.name} · ${formatMoney(plan.priceMinor, plan.currency)} al mes`}
+                recommended
+              />
+            )}
+            {mpBuyable && plan.mpPriceMinor !== null && (
+              <CheckoutButton
+                plan={plan.id}
+                provider="mercadopago"
+                label={
+                  buyable
+                    ? `Pagar con Mercado Pago · ${formatMoney(plan.mpPriceMinor, 'CLP')}`
+                    : `Activar ${plan.name} · ${formatMoney(plan.mpPriceMinor, 'CLP')} al mes`
+                }
+                recommended={!buyable}
+              />
+            )}
+          </>
         ) : (
           <IntentLink
             href={`https://wa.me/${WHATSAPP.number}?text=${encodeURIComponent(
@@ -312,7 +342,7 @@ function Ofrecer({
         )}
       </div>
       <p className="mt-3 text-[13px] leading-relaxed text-soft">
-        {buyable ? (
+        {buyable || mpBuyable ? (
           'Cancelas cuando quieras, desde esta misma página. '
         ) : (
           <>
