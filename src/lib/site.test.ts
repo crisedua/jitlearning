@@ -13,7 +13,7 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { DIFFERENCES, FEEDBACK_DEAL, FEEDBACK_REWARD } from './site';
+import { CURRICULUM_BAND, FEEDBACK_DEAL, FEEDBACK_REWARD, HERO, PROMISES } from './site';
 import { FALLBACK_PLANS, FREE_PLAN, PAID_PLANS } from './plans';
 import { LEVELS } from './curriculum';
 import { seatsLeft, FEEDBACK_REASON, type Grant } from './grants';
@@ -89,13 +89,36 @@ describe('counting the seats the site advertises', () => {
  * keeps quoting the old shape while the thing beside it shows the new one.
  */
 describe('copy that counts', () => {
-  it('the comparison table names as many levels as there are', () => {
-    const row = DIFFERENCES.find((d) => d.teacher.includes('niveles'));
-    assert.ok(row, 'no row in DIFFERENCES mentions levels');
-    assert.ok(
-      row.teacher.startsWith(`${LEVELS.length} niveles`),
-      `says "${row.teacher.slice(0, 24)}…" with ${LEVELS.length} levels defined`,
-    );
+  /*
+   * The guard outlived the sentence it was written for.
+   *
+   * It asserted that one row of the comparison table quoted `LEVELS.length`
+   * rather than a literal. That table is gone, folded into the promises, and
+   * the count now lives only in JSX, derived. Deleting the test with the row
+   * would have thrown away the invariant along with its one example, so it is
+   * generalised instead: no copy string anywhere in this file may hardcode a
+   * number of levels that disagrees with the curriculum.
+   *
+   * Stronger than the original, which only watched one sentence out of all the
+   * places somebody could type "4 niveles" again.
+   */
+  it('no copy string hardcodes a level count that could go stale', () => {
+    const strings = [
+      HERO.title,
+      HERO.sub,
+      CURRICULUM_BAND.title,
+      CURRICULUM_BAND.body,
+      ...PROMISES.flatMap((p) => [p.title, p.body, p.generic]),
+    ];
+    for (const text of strings) {
+      const quoted = text.match(/(\d+)\s+niveles/);
+      if (!quoted) continue;
+      assert.equal(
+        Number(quoted[1]),
+        LEVELS.length,
+        `"${text.slice(0, 40)}…" says ${quoted[1]} levels, curriculum has ${LEVELS.length}`,
+      );
+    }
   });
 
   it('the free tier is the one with a lifetime window', () => {

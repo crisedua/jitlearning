@@ -83,11 +83,30 @@ export const PROMISES: readonly {
   key: PromiseKey;
   title: string;
   body: string;
+  /**
+   * What a plain chat window does instead.
+   *
+   * This used to be a separate comparison table one section below, and 3 of its
+   * 4 rows said the same thing as the promise above them: "terminas con trabajo
+   * hecho" beside "empiezas resolviendo", "sabe qué te falta" beside "se
+   * acuerda de ti", "distingue lo que sabe" beside "no inventa". Two sections,
+   * 181 words, one argument, and a reader holding the first in their head while
+   * scrolling to the second.
+   *
+   * Folded in here the contrast gets stronger rather than weaker: the claim and
+   * the thing it is measured against sit in the same card.
+   *
+   * The row that did not overlap was "tiene un currículum", and it did not need
+   * saving: the curriculum is rendered in full two sections above, from the
+   * same array the teacher works through.
+   */
+  generic: string;
 }[] = [
   {
     key: 'resolver',
     title: 'Empiezas resolviendo, no escuchando.',
     body: 'Tu primera sesión es tu tarea más pesada, hecha contigo, con tus datos, hoy.',
+    generic: 'Un chat responde lo que le preguntas, y no queda nada hecho.',
   },
   {
     key: 'medir',
@@ -100,16 +119,19 @@ export const PROMISES: readonly {
      */
     title: 'Queda registrado lo que sabes hacer.',
     body: 'Cada tarea que resuelves queda en tu página de progreso con lo que construiste y tus 2 números: lo que tardabas y lo que tardas ahora.',
+    generic: 'Un chat empieza de cero y termina donde lo dejaste.',
   },
   {
     key: 'memory',
     title: 'Se acuerda de ti.',
     body: 'Cada sesión parte por lo que te comprometiste la vez anterior, y te pide contarle qué salió.',
+    generic: 'Un chat no recuerda la conversación de ayer.',
   },
   {
     key: 'honesty',
     title: 'No inventa.',
     body: 'Nombra la fuente cuando la tiene, avisa cuando es criterio general. Ninguna cifra sin fuente.',
+    generic: 'Un chat responde con la misma seguridad venga de donde venga.',
   },
 ];
 
@@ -210,33 +232,3 @@ export const FEEDBACK_REWARD = {
 
 export const FEEDBACK_DEAL = `El trato: lo pruebas, dejas tu feedback en esta página, lo bueno y lo malo sin filtro, y te activo ${FEEDBACK_REWARD.months} meses gratis del plan ${FEEDBACK_REWARD.plan}. Solo para las primeras ${FEEDBACK_REWARD.seats} personas.`;
 
-/**
- * The comparison every visitor makes silently, answered out loud.
- *
- * Anyone landing here can already open a chat window, so "por qué no ChatGPT" is
- * the only real objection. Every row is checkable in one session, which is the
- * constraint that keeps this from being marketing: a difference nobody can
- * observe reads as a difference nobody has.
- */
-export const DIFFERENCES = [
-  {
-    title: 'Terminas con trabajo hecho',
-    generic: 'Responde lo que le preguntas, y no queda nada hecho.',
-    teacher: 'La sesión termina con una tarea tuya resuelta, anotada en tu registro y medida.',
-  },
-  {
-    title: 'Tiene un currículum',
-    generic: 'Cada chat empieza de cero.',
-    teacher: `${LEVELS.length} niveles en orden, y el primero son tus propias tareas.`,
-  },
-  {
-    title: 'Sabe qué te falta',
-    generic: 'No recuerda la conversación de ayer.',
-    teacher: 'Abre por tu compromiso anterior y te pregunta qué salió.',
-  },
-  {
-    title: 'Distingue lo que sabe de lo que tiene',
-    generic: 'Responde igual de seguro venga de donde venga.',
-    teacher: 'Nombra fuentes, avisa el criterio general, ninguna cifra sin fuente.',
-  },
-] as const;

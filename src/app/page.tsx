@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { AnimatedSteps } from '@/components/AnimatedSteps';
 import { SessionPreview } from '@/components/SessionPreview';
-import { CLOSING, CURRICULUM_BAND, DIFFERENCES, HERO, PROMISES, TAGLINE } from '@/lib/site';
+import { CLOSING, CURRICULUM_BAND, HERO, PROMISES, TAGLINE } from '@/lib/site';
 import { LEVELS, WEEKLY_MAX, WEEKLY_MIN, lessonsForLevel } from '@/lib/curriculum';
 import { ASSUMED_SESSION_MINUTES, FREE_PLAN, spellMinutes } from '@/lib/plans';
 
@@ -103,14 +103,27 @@ export default function HomePage() {
           {CURRICULUM_BAND.body}
         </p>
 
-        <ul className="mt-12 grid gap-5 lg:grid-cols-2">
+        {/*
+          A slider on a phone, a grid on a laptop.
+          
+          4 level cards, each carrying its own lesson list, is most of a phone
+          screen four times over, and the section it sits in is one of five. Laid
+          out sideways they cost one screen and the swipe says there is more,
+          which a vertical stack of identical cards does not.
+          
+          Scroll snap and nothing else: no library, no state, no buttons that
+          break when JavaScript is slow. Every card stays in the DOM and in the
+          tab order, so this is a change of direction rather than of what is
+          reachable. Above `lg` it goes back to the grid, where there is room.
+        */}
+        <ul className="-mx-6 mt-12 flex snap-x snap-mandatory gap-5 overflow-x-auto px-6 pb-3 lg:mx-0 lg:grid lg:grid-cols-2 lg:overflow-x-visible lg:px-0 lg:pb-0">
           {LEVELS.map((level, i) => {
             const lessons = lessonsForLevel(level.id);
             return (
               <li
                 key={level.id}
                 style={{ animationRange: `entry 0% entry ${55 + (i % 2) * 10}%` }}
-                className="reveal flex flex-col rounded-lg border border-line bg-surface p-7 transition duration-300 ease-out hover:-translate-y-1.5 hover:border-accent/35 hover:shadow-md"
+                className="reveal flex w-[82vw] shrink-0 snap-start flex-col rounded-lg border border-line bg-surface p-7 transition duration-300 ease-out hover:-translate-y-1.5 hover:border-accent/35 hover:shadow-md sm:w-[60vw] lg:w-auto lg:shrink"
               >
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">
                   Nivel {level.number}
@@ -171,64 +184,34 @@ export default function HomePage() {
             Lo que sí hace
           </p>
           <h2 className="reveal mt-4 max-w-[24ch] font-serif text-[clamp(2rem,4.5vw,3rem)] font-normal leading-[1.08] tracking-[-0.02em]">
-            4 promesas, comprobables en 1 sesión
+            {PROMISES.length} promesas, comprobables en 1 sesión
           </h2>
 
-          <ul className="mt-12 grid gap-5 sm:grid-cols-2">
+          {/*
+            The comparison used to be its own section below this one and said
+            the same 4 things again. It is the last line of each card now, so
+            the claim and the chat window it is measured against are read
+            together instead of a scroll apart.
+          */}
+          <ul className="-mx-6 mt-12 flex snap-x snap-mandatory gap-5 overflow-x-auto px-6 pb-3 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-x-visible sm:px-0 sm:pb-0">
             {PROMISES.map((promise, i) => (
               <li
                 key={promise.key}
                 style={{ animationRange: `entry 0% entry ${55 + i * 10}%` }}
-                className="reveal rounded-lg border border-line bg-surface p-7"
+                className="reveal flex w-[82vw] shrink-0 snap-start flex-col rounded-lg border border-line bg-surface p-7 sm:w-auto sm:shrink"
               >
                 <h3 className="text-xl font-semibold tracking-[-0.01em]">{promise.title}</h3>
                 <p className="mt-2.5 text-[15px] leading-relaxed text-muted">{promise.body}</p>
+                <p className="mt-auto flex items-start gap-2 pt-4 text-[14px] leading-snug text-soft">
+                  <span aria-hidden className="font-mono text-danger/70">
+                    ×
+                  </span>
+                  {promise.generic}
+                </p>
               </li>
             ))}
           </ul>
         </div>
-      </section>
-
-      {/* --------------------------------------------------------- Difference */}
-      <section className="mx-auto max-w-[75rem] px-6 py-24 lg:py-28">
-        <p className="reveal text-xs font-semibold uppercase tracking-[0.14em] text-accent">
-          La diferencia
-        </p>
-        <h2 className="reveal mt-4 max-w-[26ch] font-serif text-[clamp(2rem,4.5vw,3rem)] font-normal leading-[1.08] tracking-[-0.02em]">
-¿En qué se diferencia de preguntarle a ChatGPT?
-        </h2>
-        <p className="reveal mt-5 max-w-[58ch] text-[17px] leading-relaxed text-muted">
-          Es la pregunta correcta. 4 diferencias, comprobables en 1 sesión.
-        </p>
-
-        <ul className="mt-12 grid gap-4 lg:grid-cols-2">
-          {DIFFERENCES.map((d, i) => (
-            <li
-              key={d.title}
-              style={{ animationRange: `entry 0% entry ${55 + (i % 2) * 10}%` }}
-              className="reveal overflow-hidden rounded-lg border border-line bg-surface transition duration-300 ease-out hover:-translate-y-1.5 hover:border-accent/35"
-            >
-              <h3 className="border-b border-line px-6 pb-3.5 pt-5 text-xl font-semibold tracking-[-0.01em]">
-                {d.title}
-              </h3>
-              <div className="grid sm:grid-cols-2">
-                <div className="border-line px-6 py-4 max-sm:border-b sm:border-r">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-soft">
-                    Un asistente general
-                  </p>
-                  <p className="mt-2 text-[15px] leading-relaxed text-soft">{d.generic}</p>
-                </div>
-                <div className="bg-accent-soft/25 px-6 py-4">
-                  <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-accent">
-                    <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-gold" />
-                    ModoJIT
-                  </p>
-                  <p className="mt-2 text-[15px] leading-relaxed text-ink">{d.teacher}</p>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
       </section>
 
       {/* --------------------------------------------------------------- Steps */}
@@ -257,7 +240,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ----------------------------------------------------------- CTA panel */}
       {/* ------------------------------------------------------------ Closing */}
       {/*
         The page went from the how-it-works band straight to "¿Hacemos la
