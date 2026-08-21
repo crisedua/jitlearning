@@ -206,6 +206,8 @@ export interface TimeSaved {
 export interface SessionRecord {
   id: string;
   createdAt: string;
+  /** The key the stored transcript is filed under, so a class can be opened. */
+  conversationId: string | null;
   lessonId: string | null;
   taught: string | null;
   commitment: string | null;
@@ -521,7 +523,7 @@ export async function sessionHistory(userId: string, limit = 20): Promise<Sessio
 
   const { data, error } = await supabaseAdmin()
     .from('session_summaries')
-    .select('id, created_at, lesson_id, taught, commitment, commitment_date, commitment_done')
+    .select('id, created_at, conversation_id, lesson_id, taught, commitment, commitment_date, commitment_done')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -536,6 +538,7 @@ export async function sessionHistory(userId: string, limit = 20): Promise<Sessio
     return {
       id: row.id as string,
       createdAt: row.created_at as string,
+      conversationId: (row.conversation_id as string) ?? null,
       lessonId: (row.lesson_id as string) ?? null,
       taught: (row.taught as string) ?? null,
       commitment: (row.commitment as string) ?? null,

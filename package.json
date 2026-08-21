@@ -21,7 +21,8 @@
     "sql": "tsx scripts/sql.ts",
     "test": "tsx --test --test-timeout=20000 \"scripts/**/*.test.ts\" \"src/**/*.test.ts\"",
     "forget": "tsx scripts/forget.ts",
-    "prose": "tsx scripts/prose.ts"
+    "prose": "tsx scripts/prose.ts",
+    "backfill:transcripts": "tsx scripts/backfill-transcripts.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

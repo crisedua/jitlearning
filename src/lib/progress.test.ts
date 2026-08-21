@@ -235,6 +235,7 @@ describe('the spoken opening for a returning learner', () => {
   const session = (over: Partial<SessionRecord> = {}): SessionRecord => ({
     id: 'c1',
     createdAt: '2026-08-01T10:00:00Z',
+      conversationId: null,
     lessonId: null,
     taught: null,
     commitment: null,
@@ -446,6 +447,7 @@ describe('deciding whether this is the first session', () => {
   const summary = (over: Partial<SessionRecord> = {}): SessionRecord => ({
     id: 'h1',
     createdAt: new Date().toISOString(),
+        conversationId: null,
     lessonId: null,
     taught: 'Responder correos',
     commitment: null,
@@ -507,6 +509,7 @@ describe('a commitment past its date', () => {
   const session = (over: Partial<SessionRecord> = {}): SessionRecord => ({
     id: 'c1',
     createdAt: new Date().toISOString(),
+        conversationId: null,
     lessonId: null,
     taught: null,
     commitment: 'mandar el resumen',
@@ -575,6 +578,7 @@ describe('what the teacher carries between sessions', () => {
         {
           id: 'h1',
           createdAt: new Date().toISOString(),
+        conversationId: null,
           lessonId: null,
           taught: 'algo',
           commitment: null,
@@ -855,6 +859,7 @@ describe('when every step of the plan is done', () => {
       {
         id: 'h1',
         createdAt: new Date().toISOString(),
+        conversationId: null,
         lessonId: null,
         taught: null,
         commitment: 'mandar el resumen',
@@ -942,6 +947,7 @@ describe('the record when it does not all fit', () => {
   const withCommitment: SessionRecord = {
     id: 'h1',
     createdAt: new Date().toISOString(),
+        conversationId: null,
     lessonId: null,
     taught: null,
     commitment: 'mandar el resumen del comité el jueves',

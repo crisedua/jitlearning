@@ -53,7 +53,22 @@ export default function PrivacidadPage() {
         En nuestra base de datos, que es Supabase, queda un resumen de la clase y unos pocos campos: a qué te
         dedicas, tu sector, los años que llevas, las tareas de tu semana, las herramientas que
         usas, qué buscas, tu plan, lo que te comprometiste a hacer, los minutos que medimos y lo
-        que escribas tú en tu página de progreso. No guardamos el audio.
+        que escribas tú en tu página de progreso.
+      </p>
+      {/*
+        Added when transcripts started being stored, which changed what the
+        paragraph above was describing.
+        
+        Until then this page could say "un resumen de la clase" and be complete.
+        Keeping the words is a bigger thing to hold than a summary, so it is
+        stated on its own rather than added to a list where it would read as one
+        more field.
+      */}
+      <p className="mt-3 text-[17px] leading-relaxed text-muted">
+        Desde ahora también queda el texto de la clase completo, para que puedas volver a leerla
+        en tu registro. Es lo que dijiste tú y lo que dijo el profesor, con el minuto de cada
+        cosa. Solo lo ves tú, y se borra cuando borras tu cuenta. No guardamos el audio: solo el
+        texto.
       </p>
       <p className="mt-3 text-[17px] leading-relaxed text-muted">
         Del banco de práctica, donde le escribes a Gemini, Claude o ChatGPT durante la clase,

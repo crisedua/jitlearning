@@ -31,6 +31,18 @@ export default function robots(): MetadataRoute.Robots {
         // is a 307 into a wall. Nothing to index and nothing to gain.
         '/coach',
         '/progreso',
+        /*
+         * And everything under the notebook, which is now more than the index.
+         *
+         * `/progreso/clase/<id>` is a learner's own class, word for word. A
+         * crawler cannot read one — the page redirects to a sign-in it cannot
+         * complete — but the entry above does not cover it: robots.txt treats a
+         * rule as a prefix, and this project's route audit deliberately does
+         * not, so that a private subroute has to be named rather than inherited
+         * by accident. Both lines stay, because the first covers the index and
+         * only the second covers what is under it.
+         */
+        '/progreso/',
         // The sign-in failure page. It exists to be landed on with an error
         // code in the URL, never to be found.
         '/acceso',

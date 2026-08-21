@@ -1197,6 +1197,24 @@ function Historial({ history }: { history: SessionRecord[] }) {
               <p className="mt-1.5 text-[15px] font-medium leading-snug">{session.taught}</p>
             )}
 
+            {/*
+              The way into the class itself, shown only when there is one.
+
+              Classes from before transcripts were kept have a summary and no
+              words, and a link that lands on "de esta clase no quedaron las
+              palabras" is a promise the row could have checked before making
+              it. `conversationId` is null on exactly those rows.
+            */}
+            {session.conversationId && (
+              <Link
+                href={`/progreso/clase/${session.conversationId}`}
+                className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-accent transition-colors duration-150 ease-out hover:text-accent-hover"
+              >
+                Leer la clase
+                <span aria-hidden>→</span>
+              </Link>
+            )}
+
             {session.commitment && (
               <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5 rounded-md bg-surface-alt/60 px-3.5 py-3">
                 <p className="min-w-0 text-[14px] leading-relaxed text-ink/85">

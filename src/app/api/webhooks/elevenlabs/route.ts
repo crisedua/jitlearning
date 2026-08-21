@@ -28,6 +28,7 @@
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { saveTranscript } from '@/lib/transcripts';
 import { applyConversation } from '@/lib/progress';
 import { serviceConfigured, supabaseAdmin } from '@/lib/supabase/admin';
 import type { ConversationDetail } from '@/lib/elevenlabs';
@@ -87,6 +88,12 @@ interface PostCallPayload {
   data?: {
     conversation_id?: string;
     analysis?: ConversationDetail['analysis'];
+    /*
+     * The class itself. Arrives because the workspace webhook is registered
+     * with `transcript_format: "json"`, and was read by nothing until the
+     * learner's own record started keeping it.
+     */
+    transcript?: unknown;
   };
 }
 
@@ -162,5 +169,16 @@ export async function POST(req: Request) {
 
   const result = await applyConversation(userId, conversationId, payload.data?.analysis);
 
-  return NextResponse.json({ ok: true, ...result });
+  /*
+   * After the summary, never instead of it.
+   *
+   * `applyConversation` writes the map, the plan and the two numbers — the
+   * things the product is built on. This writes the words, which are what
+   * somebody re-reads. Awaited so a redelivery cannot race itself, and unable
+   * to fail loudly: `saveTranscript` swallows its own errors, so a class that
+   * cannot be stored costs the reading of it and not the evidence.
+   */
+  const stored = await saveTranscript(userId, conversationId, payload.data?.transcript);
+
+  return NextResponse.json({ ok: true, ...result, turns: stored });
 }

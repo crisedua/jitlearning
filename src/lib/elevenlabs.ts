@@ -418,6 +418,17 @@ export interface ConversationDetail {
   status: string;
   metadata?: { start_time_unix_secs?: number };
   /**
+   * The class, turn by turn.
+   *
+   * Left as `unknown` rather than typed out: each entry carries about thirty
+   * fields — tool calls, token counts, latency metrics, guardrail flags — and
+   * three of them are the conversation. `trimTurns` in `transcripts.ts` is the
+   * one place that decides which three, and declaring the rest here would
+   * invite somebody to reach for a metric that has no business on a page a
+   * learner reads.
+   */
+  transcript?: unknown;
+  /**
    * ElevenLabs writes this automatically after every finished call. The
    * summary prose is typically English regardless of the call's language.
    */
