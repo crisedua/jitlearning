@@ -104,77 +104,86 @@ export default function HomePage() {
         </p>
 
         {/*
-          A slider on a phone, a grid on a laptop.
-          
-          4 level cards, each carrying its own lesson list, is most of a phone
-          screen four times over, and the section it sits in is one of five. Laid
-          out sideways they cost one screen and the swipe says there is more,
-          which a vertical stack of identical cards does not.
-          
-          Scroll snap and nothing else: no library, no state, no buttons that
-          break when JavaScript is slow. Every card stays in the DOM and in the
-          tab order, so this is a change of direction rather than of what is
-          reachable. Above `lg` it goes back to the grid, where there is room.
+          One level open at a time.
+
+          The 4 levels together were the longest block on this page: 4 purposes
+          plus 4 lesson lists, all expanded, in a section that is one of five.
+          Laying them sideways in a slider (what this was) moved the text
+          without reducing it. Collapsing does reduce it, and the shape is
+          honest about the content: 4 levels in sequence, you are looking at one.
+
+          `<details name>` rather than React state, matching how the lesson
+          lists were already disclosed here. The browser does the accordion:
+          opening one closes the rest, keyboard and screen readers get the real
+          thing, and it works before any JavaScript loads. Where `name` is not
+          supported yet the levels simply open independently, which is the
+          old behaviour rather than a broken one.
         */}
-        <ul className="-mx-6 mt-12 flex snap-x snap-mandatory gap-5 overflow-x-auto px-6 pb-3 lg:mx-0 lg:grid lg:grid-cols-2 lg:overflow-x-visible lg:px-0 lg:pb-0">
+        <div className="mt-12">
           {LEVELS.map((level, i) => {
             const lessons = lessonsForLevel(level.id);
             return (
-              <li
+              <details
                 key={level.id}
-                style={{ animationRange: `entry 0% entry ${55 + (i % 2) * 10}%` }}
-                className="reveal flex w-[82vw] shrink-0 snap-start flex-col rounded-lg border border-line bg-surface p-7 transition duration-300 ease-out hover:-translate-y-1.5 hover:border-accent/35 hover:shadow-md sm:w-[60vw] lg:w-auto lg:shrink"
+                name="nivel"
+                open={i === 0}
+                style={{ animationRange: `entry 0% entry ${55 + i * 6}%` }}
+                className="reveal group border-t border-line last:border-b"
               >
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">
-                  Nivel {level.number}
-                </p>
-                <h3 className="mt-2 font-serif text-[26px] font-normal leading-none tracking-[-0.01em]">
-                  {level.title}
-                </h3>
-                <p className="mt-3 text-[15px] leading-relaxed text-muted">{level.purpose}</p>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-6 transition-colors duration-200 hover:text-accent [&::-webkit-details-marker]:hidden">
+                  <span className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+                    {/*
+                      Accent, not gold. The mockup labels these in gold and our
+                      gold is a fill colour: at text size on paper it does not
+                      clear the contrast floor, which the palette test says out
+                      loud rather than leaving to whoever squints at it later.
+                    */}
+                    <span className="font-mono text-xs text-accent">Nivel {level.number}</span>
+                    <span className="font-serif text-[clamp(1.35rem,3vw,1.75rem)] font-normal leading-none tracking-[-0.01em]">
+                      {level.title}
+                    </span>
+                  </span>
+                  {/*
+                    A plus that becomes a cross. Rotation rather than swapping
+                    glyphs, so the open state is legible mid-transition and
+                    nothing reflows when it changes.
+                  */}
+                  <span
+                    aria-hidden
+                    className="shrink-0 text-xl leading-none text-soft transition-transform duration-300 ease-out group-open:rotate-45"
+                  >
+                    +
+                  </span>
+                </summary>
 
-                {/*
-                  On a phone these lists are most of the section's height, with
-                  4 levels of them in a row. The titles stay one tap away behind
-                  a native summary; on desktop, where they cost no scroll, the
-                  list stays open. Rendered twice rather than toggled with
-                  JavaScript, so both variants are plain HTML.
-                */}
-                {lessons.length > 0 && lessons.length <= 2 && (
-                  <LessonList lessons={lessons} className="mt-5" />
-                )}
-                {lessons.length > 2 && (
-                  <>
-                    <details className="mt-5 lg:hidden">
-                      <summary className="cursor-pointer text-[15px] font-medium text-accent">
-                        Ver las {lessons.length} clases
-                      </summary>
-                      <LessonList lessons={lessons} className="mt-3" />
-                    </details>
-                    <LessonList lessons={lessons} className="mt-5 hidden lg:block" />
-                  </>
-                )}
-
-                {/*
-                  The per-task half of level 1 is the part people are buying, so
-                  it is stated in the card rather than left implicit in a count.
-                */}
-                {level.perTask && (
-                  <p className="mt-4 rounded-md border border-gold/30 bg-gold-soft/30 px-4 py-3 text-[15px] leading-relaxed text-ink/85">
-                    Y una clase por cada tarea de tu semana, entre {WEEKLY_MIN} y {WEEKLY_MAX}.
-                    Tus tareas, no ejemplos.
+                <div className="animate-rise pb-9">
+                  <p className="max-w-[62ch] text-[15px] leading-relaxed text-muted">
+                    {level.purpose}
                   </p>
-                )}
 
-                {level.id === 'flujo' && (
-                  <p className="mt-4 text-[13px] leading-relaxed text-soft">
-                    De estas {lessons.length} haces las que correspondan al camino que elegiste.
-                  </p>
-                )}
-              </li>
+                  {lessons.length > 0 && <LessonList lessons={lessons} className="mt-6" />}
+
+                  {/*
+                    The per-task half of level 1 is the part people are buying, so
+                    it is stated in the card rather than left implicit in a count.
+                  */}
+                  {level.perTask && (
+                    <p className="mt-5 max-w-[62ch] rounded-md border border-gold/30 bg-gold-soft/30 px-4 py-3 text-[15px] leading-relaxed text-ink/85">
+                      Y una clase por cada tarea de tu semana, entre {WEEKLY_MIN} y {WEEKLY_MAX}.
+                      Tus tareas, no ejemplos.
+                    </p>
+                  )}
+
+                  {level.id === 'flujo' && (
+                    <p className="mt-4 text-[13px] leading-relaxed text-soft">
+                      De estas {lessons.length} haces las que correspondan al camino que elegiste.
+                    </p>
+                  )}
+                </div>
+              </details>
             );
           })}
-        </ul>
+        </div>
       </section>
 
       {/* ----------------------------------------------------------- Promises */}

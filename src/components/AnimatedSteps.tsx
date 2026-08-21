@@ -25,39 +25,60 @@ const VIGNETTES = [
 
 export function AnimatedSteps() {
   return (
-    <ol className="flex flex-col">
+    /*
+     * One body open at a time.
+     *
+     * Five steps with five paragraphs expanded is the second-longest block on
+     * the page, and it is the section people skim rather than read: they want
+     * the shape of a session, not every sentence about it. So the titles stay
+     * visible as a numbered list and the paragraph belongs to whichever step
+     * is open.
+     *
+     * `<details name>` for the same reason the levels use it: the browser
+     * gives the accordion, the keyboard and the screen reader behaviour, and
+     * it works with no JavaScript at all. Step 1 opens by default so the band
+     * is never a column of closed titles with nothing to read.
+     *
+     * The vignettes keep animating either way. They are the part that shows
+     * the session rather than describing it, and they cost no vertical space
+     * that the titles were not already using.
+     */
+    <div className="flex flex-col">
       {STEPS.map((step, i) => {
         const Vignette = VIGNETTES[i] ?? VIGNETTES[0];
         return (
-          <li
+          <details
             key={step.title}
+            name="paso"
+            open={i === 0}
             style={{ animationRange: `entry 0% entry ${60 + i * 8}%` }}
-            className={`reveal grid grid-cols-[4.75rem_1fr] items-start gap-5 border-t border-line-strong py-6 ${
+            className={`reveal group border-t border-line-strong ${
               i === STEPS.length - 1 ? 'border-b' : ''
             }`}
           >
-            <span
-              aria-hidden
-              style={{ animationDelay: STAGE_DELAYS[i] ?? '0s' }}
-              className="grid h-[4.25rem] w-[4.75rem] place-items-center rounded-md border border-line bg-surface [animation:stage_12.5s_ease-in-out_infinite]"
-            >
-              <Vignette />
-            </span>
-            <div>
-              <h3 className="flex items-baseline gap-2.5 text-xl font-semibold">
+            <summary className="grid cursor-pointer list-none grid-cols-[4.75rem_1fr] items-center gap-5 py-6 [&::-webkit-details-marker]:hidden">
+              <span
+                aria-hidden
+                style={{ animationDelay: STAGE_DELAYS[i] ?? '0s' }}
+                className="grid h-[4.25rem] w-[4.75rem] place-items-center rounded-md border border-line bg-surface [animation:stage_12.5s_ease-in-out_infinite]"
+              >
+                <Vignette />
+              </span>
+              <h3 className="flex items-baseline gap-2.5 text-xl font-semibold transition-colors duration-200 group-hover:text-accent">
                 <span aria-hidden className="font-mono text-[13px] font-normal text-soft">
                   {String(i + 1).padStart(2, '0')}
                 </span>
                 {step.title}
               </h3>
-              <p className="mt-1.5 max-w-[52ch] text-base leading-relaxed text-muted">
-                {step.body}
-              </p>
-            </div>
-          </li>
+            </summary>
+
+            <p className="animate-rise max-w-[52ch] pb-7 pl-[5.75rem] text-base leading-relaxed text-muted">
+              {step.body}
+            </p>
+          </details>
         );
       })}
-    </ol>
+    </div>
   );
 }
 
