@@ -1,3 +1,14 @@
+-- SUPERSEDED — DO NOT RUN. Kept for the reasoning, not for the numbers.
+--
+-- The decision this file proposed was taken, and taken differently:
+-- supabase/migrations/20260826000000_fundador_60_minutos.sql puts Fundador at
+-- 60 minutes, not 120, and leaves Estándar at 300. Running the statements below
+-- now would RAISE Fundador back to 120 and LOWER Estándar to 240, undoing it.
+--
+-- The 120 figure reasoned about classes of twenty or thirty minutes. It predates
+-- `CLASS_CAP_MINUTES = 10`: a class is capped at ten minutes, so 60 is six
+-- classes a month against a curriculum that assumes a weekly one.
+--
 -- OPTIONAL. Nothing runs this for you, and `npm run sql` does not include it.
 --
 -- Lowers the Fundador allowance from 300 minutes to 120, and Estándar from 300

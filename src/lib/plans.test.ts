@@ -99,10 +99,35 @@ describe('what a plan card claims', () => {
     assert.ok(planFeatures(free).some((f) => f.includes('en total')), 'free reads as monthly');
   });
 
-  it('quotes a task range the curriculum can actually build', () => {
-    const founder = FALLBACK_PLANS.find((p) => p.id === 'founder')!;
-    const said = planFeatures(founder).join(' | ');
-    assert.ok(said.includes(`${WEEKLY_MIN} a ${WEEKLY_MAX}`), said);
+  /*
+   * This pinned the founder card to the literal "3 a 5", which was the right
+   * check while every paid plan held 300 minutes and the wrong one the moment
+   * Fundador dropped to 60: the card correctly stopped saying it, and the test
+   * failed for the card telling the truth.
+   *
+   * The intent underneath was never "founder says 3 a 5" — it was "no card
+   * promises more of a week than the curriculum can build". `WEEKLY_MAX` bounds
+   * the tasks open at once, so a card claiming six would be selling a plan the
+   * curriculum cannot fill. That is what is checked now, for every paid tier.
+   *
+   * The other half — that a card never claims more than its own allowance holds
+   * — lives in purchase.test.ts, against `weeklyTasksCovered`.
+   */
+  it('never quotes a wider task range than the curriculum can build', () => {
+    for (const plan of FALLBACK_PLANS.filter((p) => p.priceMinor > 0 && p.isPublic)) {
+      const said = planFeatures(plan).join(' | ');
+      const numbers = [...said.matchAll(/(\d+) tareas/g)].map((m) => Number(m[1]));
+      for (const n of numbers) {
+        assert.ok(
+          n <= WEEKLY_MAX,
+          `${plan.name} claims ${n} weekly tasks, past the ${WEEKLY_MAX} the curriculum opens: ${said}`,
+        );
+      }
+      assert.ok(
+        said.includes('tarea'),
+        `${plan.name} says nothing about the weekly task, which is what it sells: ${said}`,
+      );
+    }
   });
 });
 

@@ -22,8 +22,6 @@ import {
   LEVELS,
   PATHS,
   stepDetail,
-  WEEKLY_MAX,
-  WEEKLY_MIN,
   type LevelId,
   type PathId,
 } from '@/lib/curriculum';
@@ -33,7 +31,9 @@ import { getUsageBalance, lastSessionAt } from '@/lib/account';
 import { minutesLeft } from '@/lib/balance';
 import {
   ASSUMED_SESSION_MINUTES,
+  approximateSessions,
   formatMinutes,
+  weeklyTaskPhrase,
   formatMoney,
   formatPlanPrice,
   spellMinutes,
@@ -271,9 +271,28 @@ function Ofrecer({
         {saved.tasksMeasured === 1
           ? `Con una sola tarea ya recuperas ${spellMinutes(saved.perWeek)} cada semana, medidos por ti.`
           : `Con ${saved.tasksMeasured} tareas ya recuperas ${spellMinutes(saved.perWeek)} cada semana, medidos por ti.`}{' '}
+        {/*
+          What the minutes actually buy, derived rather than asserted.
+
+          This said "alcanza para las 3 a 5 tareas de tu semana y para los otros
+          3 niveles", which was arithmetic about three constants living in three
+          files: the allowance, the length of a class, and the weekly range. It
+          was true of 300 minutes and became false the moment Fundador stopped
+          being 300 — on the paragraph that asks for the money, which is the
+          worst sentence on the site to have quietly stop being true.
+
+          Both halves now come from the plan: `weeklyTaskPhrase` sizes the
+          cadence to the allowance, and the levels are named as a path rather
+          than as something the month covers.
+        */}
         El plan {plan.name} cuesta {formatPlanPrice(plan, mpBuyable)} al mes y son{' '}
-        {formatMinutes(plan.monthlyMinutes)} de clase: alcanza para las {WEEKLY_MIN} a {WEEKLY_MAX}{' '}
-        tareas de tu semana y para los otros {LEVELS.length - 1} niveles, hasta el portafolio.
+        {formatMinutes(plan.monthlyMinutes)} de clase
+        {approximateSessions(plan.monthlyMinutes) !== null
+          ? `: unas ${approximateSessions(plan.monthlyMinutes)} clases`
+          : ''}
+        {' — '}
+        {weeklyTaskPhrase(plan)} — avanzando por los {LEVELS.length} niveles hasta el
+        portafolio.
       </p>
       {outOfMinutes && (
         <p className="mt-2 text-[14px] leading-relaxed text-warning">

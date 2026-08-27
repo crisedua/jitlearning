@@ -108,11 +108,23 @@ Stripe takes 2.9% + $0.30, which on a $9 subscription is 6% of the revenue.
 
 | Plan | Price | Net after Stripe | Minutes it covers | Minutes it promises | Underwater past |
 |---|---:|---:|---:|---:|---:|
-| Fundador | $9 | $8.44 | 56 | 300 | 19% of the allowance |
+| Fundador | $9 | $8.44 | 56 | **60** | roughly break-even |
 | Estándar | $19 | $18.15 | 120 | 300 | 40% of the allowance |
 
-**Both plans lose money on a subscriber who uses what they were sold.** A founder
-subscriber at the full 300 minutes costs $45.60 and pays $8.44.
+**Estándar still loses money on a subscriber who uses what it sells.** At the full
+300 minutes it costs $45.60 and nets $18.15. Its break-even is 120.
+
+Fundador no longer does: `20260826000000_fundador_60_minutos.sql` cut it from 300
+to 60. That is six classes a month at `CLASS_CAP_MINUTES = 10`, which is about
+one weekly task — not the three to five the page used to promise. The promise
+moved with it rather than the price: `weeklyTaskPhrase` in `src/lib/plans.ts`
+now sizes the claim to `monthly_minutes`, so the card and the paragraph on
+`/progreso` say what the allowance actually buys.
+
+Honouring the old promise would have meant 240 minutes — 21 weekly tasks plus
+the three remaining levels — at $36.48 of cost against $8.44 of net revenue. No
+allowance is both honest at $9.900 and profitable at full use, which is the
+choice this records.
 
 That is the ordinary shape of a subscription: allowances are sold on the
 assumption that average use sits far below them, and at 60 minutes a month the
@@ -135,12 +147,17 @@ Three ways out, in increasing order of how much they cost in trust:
 Repricing after people have subscribed is the expensive option, which is why the
 break-even table is on `/admin/costos` rather than only here.
 
-Option 1 is written and not applied:
-[`supabase/optional/founder_allowance_120.sql`](../supabase/optional/founder_allowance_120.sql).
-It is deliberately outside `supabase/migrations/`, so `npm run sql` cannot apply a
-pricing decision by accident. Run `npm run doctor` first — if the Billing section
-already reports subscribers, that file is the expensive option and raising the
-price is the cheaper one.
+Option 1 was taken for Fundador, at 60 rather than 120, while nobody had
+subscribed yet — the cheap moment. It is
+[`supabase/migrations/20260826000000_fundador_60_minutos.sql`](../supabase/migrations/20260826000000_fundador_60_minutos.sql),
+a real migration rather than an optional file, because `pricing_tiers` upserts
+`monthly_minutes` and re-pasting the `npm run sql` bundle would otherwise put it
+back to 300 with no error.
+[`supabase/optional/founder_allowance_120.sql`](../supabase/optional/founder_allowance_120.sql)
+is superseded and must not be run.
+
+**Estándar is still open.** It sells 300 minutes on $18.15 of net revenue and
+breaks even at 120.
 
 ### Fixed monthly costs
 

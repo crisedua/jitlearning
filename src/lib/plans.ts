@@ -1,5 +1,5 @@
 import { CLASS_CAP_MINUTES } from './class-length';
-import { WEEKLY_MAX, WEEKLY_MIN } from './curriculum';
+import { WEEKLY_MAX, WEEKLY_MIN, WEEKS_PER_MONTH } from './curriculum';
 /**
  * The plans, for display.
  *
@@ -150,7 +150,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     id: 'founder',
     name: 'Fundador',
     period: 'month',
-    monthlyMinutes: 300,
+    monthlyMinutes: 60,
     monthlySessions: null,
     priceMinor: 900,
     currency: 'USD',
@@ -227,7 +227,20 @@ export function planFeatures(plan: Plan): readonly string[] {
     plan.period === 'total'
       ? `${formatMinutes(plan.monthlyMinutes)} en total, no al mes`
       : `${formatMinutes(plan.monthlyMinutes)} al mes`;
-  const tasks = `Las ${WEEKLY_MIN} a ${WEEKLY_MAX} tareas de tu semana, una por una`;
+  /*
+   * The weekly-task claim, sized to the allowance instead of asserted.
+   *
+   * This was the fixed sentence "Las 3 a 5 tareas de tu semana, una por una" on
+   * every paid card, which was true of a 300 minute plan and false the moment
+   * one of them stopped being 300. Fundador is 60 — six classes a month, one
+   * task a week with room over — and the old bullet would have sold it seven
+   * times what it holds, on the card asking for the money.
+   *
+   * `weeklyTasksCovered` does the arithmetic the copy used to do in its head.
+   * Change an allowance in Postgres and the sentence follows it down.
+   */
+  const phrase = weeklyTaskPhrase(plan);
+  const tasks = phrase.charAt(0).toUpperCase() + phrase.slice(1);
 
   switch (plan.id) {
     case 'free':
@@ -260,14 +273,17 @@ export function planFeatures(plan: Plan): readonly string[] {
  * The cheaper plan that makes this one pointless, if there is one.
  *
  * A plan is dominated when a cheaper public plan in the same currency gives at
- * least as much of everything metered. Today Estándar is: US$19 for the same 300
- * minutes and the same unlimited sessions as Fundador at US$9, and without
- * Fundador's price lock. There is no axis on which the dearer one wins.
+ * least as much of everything metered. Estándar was, until
+ * 20260826000000_fundador_60_minutos.sql: the same 300 minutes and the same
+ * unlimited sessions as Fundador at half the price, and without Fundador's price
+ * lock, so there was no axis on which the dearer one won and the page withheld
+ * its button. With Fundador at 60 the domination is gone and the card is a real
+ * option again — no code changed, which is the point of deriving it.
  *
- * `npm run doctor` has failed on this since the ladder was written, and it is a
- * pricing decision, so the numbers are not this function's business. What is its
- * business is the moment of decision: somebody comparing two cards where one is
- * strictly worse does not conclude "I will take the cheap one", they conclude
+ * It is a pricing decision, so the numbers are not this function's business. What
+ * is its business is the moment of decision: somebody comparing two cards where
+ * one is strictly worse does not conclude "I will take the cheap one", they
+ * conclude
  * they have misread something and go away to think about it. A confusing choice
  * costs a sale more reliably than a dear one.
  *
@@ -433,6 +449,43 @@ export function formatOverage(plan: Plan): string {
  * so there is one place to change and no sentence that can disagree with it.
  */
 export const ASSUMED_SESSION_MINUTES = CLASS_CAP_MINUTES;
+
+/**
+ * How many of a week's tasks the allowance actually reaches.
+ *
+ * The offer is priced against a weekly cadence and the plan is sold by the
+ * month, so somewhere the two have to be converted into each other. That
+ * conversion used to happen only in a test, comparing a hardcoded sentence
+ * against `monthly_minutes` and failing when they drifted. Doing it here means
+ * the sentence is generated from the number instead of checked against it, and
+ * the drift stops being possible.
+ *
+ * Null for an unlimited allowance, which covers any cadence.
+ */
+/**
+ * The weekly cadence this plan can actually keep, as a phrase.
+ *
+ * One definition, used by the bullet on the pricing card and by the sentence on
+ * /progreso that asks for the money. Those two said the same thing in two
+ * hardcoded strings, which is how a plan could advertise "las 3 a 5 tareas de tu
+ * semana" in both places while holding six classes a month.
+ *
+ * Lowercase, because it is written to sit mid-sentence; the card capitalises it.
+ */
+export function weeklyTaskPhrase(plan: Plan): string {
+  const covered = weeklyTasksCovered(plan);
+  if (covered === null || covered >= WEEKLY_MAX) {
+    return `las ${WEEKLY_MIN} a ${WEEKLY_MAX} tareas de tu semana, una por una`;
+  }
+  if (covered <= 1) return 'una tarea de tu semana, cada semana';
+  return `hasta ${covered} tareas de tu semana, cada semana`;
+}
+
+export function weeklyTasksCovered(plan: Plan): number | null {
+  const classes = approximateSessions(plan.monthlyMinutes);
+  if (classes === null) return null;
+  return Math.floor(classes / WEEKS_PER_MONTH);
+}
 
 export function approximateSessions(minutes: number | null): number | null {
   if (minutes === null) return null;

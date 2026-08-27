@@ -12,7 +12,13 @@
  */
 import assert from 'node:assert/strict';
 import { LEVELS, WEEKLY_MAX, WEEKLY_MIN } from './curriculum';
-import { approximateSessions, FALLBACK_PLANS, formatMinutes } from './plans';
+import {
+  approximateSessions,
+  FALLBACK_PLANS,
+  formatMinutes,
+  weeklyTaskPhrase,
+  weeklyTasksCovered,
+} from './plans';
 import { dominatedBy } from './plans';
 import { describe, it } from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -245,47 +251,77 @@ describe('the offer under the measured hours', () => {
 /*
  * The promise the price is attached to.
  *
- * The offer says the plan's minutes reach "las 3 a 5 tareas de tu semana y los
- * otros 3 niveles, hasta el portafolio". That sentence is arithmetic between
- * three constants that live in three files and never meet: the plan's monthly
- * minutes, how long a class is, and how many weekly tasks the curriculum
- * claims. Nothing compared them.
+ * The offer used to say the plan's minutes reach "las 3 a 5 tareas de tu semana
+ * y los otros 3 niveles, hasta el portafolio" — a fixed sentence, in two files,
+ * doing arithmetic between three constants that live in three others: the
+ * allowance, the length of a class, and the weekly range. Nothing compared them.
  *
- * They did not add up. At the 15 minutes the site used to advertise, a 300
- * minute allowance is 20 classes, against 21 weekly tasks at the top of the
- * claimed range — short before the other levels are counted at all. The
- * sentence asking for money was promising an allowance that could not cover
- * what it described.
+ * They agreed only while every paid plan held 300 minutes. Cutting Fundador to
+ * 60 made both sentences false at once: six classes a month, sold as three to
+ * five tasks a week, on the card and in the paragraph that asks for the money.
  *
- * It holds now only because a class is 10 minutes. That is exactly the kind of
- * thing that comes undone the next time one of the three moves.
+ * The fix was to generate the claim instead of asserting it — `weeklyTaskPhrase`
+ * sizes it to `monthly_minutes` — so what is left to check is that nobody writes
+ * the sentence by hand again, and that the generated one never overstates.
  */
 describe('the allowance against what the offer promises it covers', () => {
-  const WEEKS_PER_MONTH = 4.345;
+  /** The largest weekly-task count a phrase claims. No digits means one. */
+  const claimed = (phrase: string) => {
+    const numbers = [...phrase.matchAll(/\d+/g)].map((m) => Number(m[0]));
+    return numbers.length ? Math.max(...numbers) : 1;
+  };
 
-  it('covers the weekly tasks at the top of the claimed range, and then some', () => {
-    for (const plan of FALLBACK_PLANS.filter((p) => p.priceMinor > 0 && p.isPublic)) {
-      const classes = approximateSessions(plan.monthlyMinutes);
-      assert.ok(classes !== null, `${plan.name} has no countable classes`);
+  for (const plan of FALLBACK_PLANS.filter((p) => p.priceMinor > 0 && p.isPublic)) {
+    it(`${plan.name} never promises more weekly tasks than it holds`, () => {
+      const covered = weeklyTasksCovered(plan);
+      if (covered === null) return; // unlimited covers any cadence
 
-      const tasksAtTop = Math.floor(WEEKLY_MAX * WEEKS_PER_MONTH);
+      const phrase = weeklyTaskPhrase(plan);
       assert.ok(
-        classes > tasksAtTop,
-        `${plan.name}: ${formatMinutes(plan.monthlyMinutes)} is ${classes} classes, but the ` +
-          `offer promises ${WEEKLY_MIN} to ${WEEKLY_MAX} weekly tasks (${tasksAtTop} a month) ` +
-          'plus the other levels',
+        claimed(phrase) <= covered,
+        `${plan.name}: ${formatMinutes(plan.monthlyMinutes)} is ` +
+          `${approximateSessions(plan.monthlyMinutes)} classes — ${covered} weekly ` +
+          `task(s) — but the copy says "${phrase}"`,
       );
-    }
+    });
+  }
+
+  /*
+   * The two surfaces that quote it must derive it, not retype it.
+   *
+   * This is the check that would have caught the original drift, and it is
+   * cheap: both files are literals. A hardcoded `WEEKLY_MAX` inside a sentence
+   * is exactly what went stale, so its absence is the invariant.
+   */
+  it('is derived in both places that sell it, not written by hand', () => {
+    const progreso = read('src', 'app', 'progreso', 'page.tsx');
+    const plans = read('src', 'lib', 'plans.ts');
+
+    assert.match(
+      progreso,
+      /weeklyTaskPhrase\(plan\)/,
+      'the paragraph on /progreso that asks for money must size its claim to the plan',
+    );
+    assert.match(
+      plans,
+      /weeklyTaskPhrase\(plan\)/,
+      'the pricing card bullet must size its claim to the plan',
+    );
   });
 
-  it('leaves room for the levels beyond the weekly task', () => {
-    // The sentence names them: "y para los otros N niveles, hasta el portafolio".
-    const plan = FALLBACK_PLANS.find((p) => p.id === 'founder')!;
-    const spare = approximateSessions(plan.monthlyMinutes)! - Math.floor(WEEKLY_MAX * WEEKS_PER_MONTH);
-    assert.ok(
-      spare >= LEVELS.length - 1,
-      `only ${spare} class(es) left for ${LEVELS.length - 1} further levels`,
-    );
+  /*
+   * The levels are a path, not a monthly guarantee.
+   *
+   * The old sentence said the minutes reached "los otros N niveles" as well as
+   * the weekly tasks, which at 60 minutes is not close to true. It now says the
+   * learner advances through them, which is a claim about the curriculum rather
+   * than about the month, so this pins that the levels are still named at all —
+   * understating the product is the other way to get this wrong.
+   */
+  it('still names every level the curriculum contains', () => {
+    const progreso = read('src', 'app', 'progreso', 'page.tsx');
+    assert.match(progreso, /\{LEVELS\.length\} niveles/);
+    assert.ok(LEVELS.length >= 4, `only ${LEVELS.length} levels`);
   });
 });
 

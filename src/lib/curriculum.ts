@@ -200,6 +200,17 @@ export const WEEKLY_MIN = 3;
 export const WEEKLY_MAX = 5;
 
 /**
+ * Weeks in an average month, for turning a weekly cadence into a monthly one.
+ *
+ * 4.345, not 4: the difference is four extra classes a year, and it lived only
+ * inside a test while the pricing copy did the same arithmetic in its head.
+ * Anything that converts between "tareas de tu semana" and an allowance in
+ * `plans.monthly_minutes` reads it from here, so the page and the test that
+ * checks the page cannot disagree about the calendar.
+ */
+export const WEEKS_PER_MONTH = 4.345;
+
+/**
  * Level 2. The durable half: why the thing that worked worked.
  *
  * Every objective is phrased against work the learner has already done, because
