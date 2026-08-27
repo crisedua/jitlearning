@@ -40,7 +40,7 @@ Going over the concurrency limit is billed at **$0.16/min**, double. With 30
 users, Pro's 20 concurrent sessions is the first ceiling worth watching — it is
 reached by 21 people talking *simultaneously*, not by 21 people having accounts.
 
-### The LLM — ~$0.061 / min
+### The LLM — ~$0.066 / min
 
 **ElevenLabs bills the LLM separately.** It is not covered by the included
 minutes; it is deducted from credits at cost. The agent runs
@@ -57,16 +57,22 @@ Per model turn, measured from `src/lib/agent.ts`:
 | **Input total** | | **8,400** |
 | Output | ~130 spoken words | 200 |
 
-At **2 model turns per minute** (a ~30-second question-and-answer cycle):
+At **2.34 model turns per minute**:
 
-    input   16,800 tok × $3/M   = $0.0504
-    output     400 tok × $15/M  = $0.0060
+    input   19,656 tok × $3/M   = $0.0590
+    output     468 tok × $15/M  = $0.0070
                                   ────────
-                                  $0.056 / min
+                                  $0.066 / min
 
-**Assumption to replace with data:** the 2 turns/minute figure and the 2,000-token
-history average are estimates. `coach_sessions.message_count` and
-`duration_seconds` together give the real turn rate after one month of use.
+**Measured, replacing the estimate.** This said 2 turns/minute and asked to be
+replaced with data after a month of use. The data is in: 57 real classes of a
+minute or more, 235.8 spoken minutes, 1,102 messages — **2.34 turns/minute**.
+Classes of five minutes or more, the ones that finish a task, run at 2.14.
+
+The guess was 15% low on a multiplier over the largest editable line in the
+model, so every margin computed before this was optimistic. Marginal cost is
+**$0.161/min**, not $0.152. The 2,000-token history average is still an
+estimate.
 
 **Possible upside, unverified:** the system prompt is ~4,400 stable tokens at the
 front of every request, well above the minimum for prompt caching. If ElevenLabs
@@ -93,10 +99,10 @@ and appears on neither the ElevenLabs nor the Supabase invoice.
 ### Marginal cost
 
     $0.080  ElevenLabs
-    $0.056  LLM
+    $0.066  LLM          (measured turn rate, not the old 2/min guess)
     $0.015  lookups
     ──────
-    $0.152  per spoken minute      →  $0.15 is the number to price against
+    $0.161  per spoken minute      →  $0.16 is the number to price against
 
 ---
 

@@ -119,7 +119,21 @@ export const DEFAULT_INPUTS: CostInputs = {
   users: 30,
   minutesPerUser: 60,
 
-  turnsPerMinute: 2,
+  /*
+   * Measured, not assumed. This was 2, guessed as "a ~30-second
+   * question-and-answer cycle", with a note in docs/pricing.md saying to replace
+   * it with data after a month of use.
+   *
+   * The data: 57 real classes of a minute or more, 235.8 spoken minutes and
+   * 1,102 messages, is 2.34 model turns per minute. Classes of five minutes or
+   * more — the ones that actually finish a task — run at 2.14.
+   *
+   * The guess was 15% low, and it is a multiplier on the largest editable line
+   * in the model, so every margin computed before this was optimistic. Left at
+   * the all-classes figure rather than the long-class one because short classes
+   * are billed too.
+   */
+  turnsPerMinute: 2.34,
   inputTokensPerTurn: 8_400,
   outputTokensPerTurn: 200,
   inputPricePerMTok: 3,

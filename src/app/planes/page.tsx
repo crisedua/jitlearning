@@ -504,6 +504,27 @@ export default async function PlanesPage() {
    */
   const freeMinutes = plans.find((p) => p.period === 'total')?.monthlyMinutes ?? null;
   const selfServe = plans.filter((p) => p.isPublic);
+
+  /*
+   * The team offer, which existed in the schema and nowhere a buyer could see.
+   *
+   * `empresa` is `is_public: false`, so it is correctly kept out of the card
+   * grid — it is not self-serve and there is no button that could complete it.
+   * But "not self-serve" was implemented as "not mentioned", and the arithmetic
+   * says that is the wrong trade: one twenty-seat client is worth more per month
+   * than a hundred Fundador subscribers, and it is one conversation instead of a
+   * hundred conversions.
+   *
+   * Read from the row rather than written into the prose, like every other
+   * number on this page, and absent entirely when the row is — a deployment that
+   * has not run 20260804000000_empresa_plan.sql simply does not show the band.
+   *
+   * No price is quoted. The row is in USD while this page now sells in pesos,
+   * and 20260823000000_mercadopago.sql is explicit that converting at a rate
+   * turns a price into an exchange rate. A seat price belongs in the reply to
+   * the first email, not in a number this page would have to invent.
+   */
+  const team = plans.find((p) => p.id === 'empresa') ?? null;
   const currency = plans[0]?.currency ?? 'USD';
 
   /*
@@ -578,6 +599,66 @@ export default async function PlanesPage() {
 
   
       </section>
+
+      {team && (
+        <section className="border-t border-line bg-surface-alt py-16 lg:py-20">
+          <div className="mx-auto grid max-w-[96rem] gap-10 px-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-16">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
+                Para equipos
+              </p>
+              {/*
+                Written here rather than read from `team.blurb`, which is the one
+                number-like thing on this page that is not taken from the row.
+
+                The row says "Su propio coach", and this product does not call
+                itself a coach anywhere a learner can see — `wording.test.ts`
+                fails the build over exactly that word. The blurb predates that
+                rule and is still in the database; until somebody updates the
+                row, quoting it here would put the wrong noun on the page in the
+                one section aimed at buyers.
+              */}
+              <h2 className="mt-4 max-w-[20ch] font-serif text-[clamp(1.75rem,3.5vw,2.5rem)] font-normal leading-[1.08] tracking-[-0.02em]">
+                Su propio profesor, con el material de ustedes.
+              </h2>
+              <p className="mt-5 max-w-[52ch] text-[17px] leading-relaxed text-muted">
+                Cada persona trae una tarea real de su semana y sale con dos números medidos: lo que
+                tardaba y lo que tarda ahora. Sumados por equipo, eso es lo que un área de personas
+                necesita reportar y lo que una licencia de cursos en video no puede entregar.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-5 self-center">
+              <dl className="grid grid-cols-2 gap-x-8 gap-y-5 border-t border-line pt-6">
+                <div>
+                  <dt className="text-[13px] text-soft">Desde</dt>
+                  <dd className="mt-1 font-serif text-[26px] leading-none text-ink">
+                    {team.seatMinimum ?? 20} personas
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[13px] text-soft">Por persona</dt>
+                  <dd className="mt-1 font-serif text-[26px] leading-none text-ink">
+                    {formatMinutes(team.monthlyMinutes)}/mes
+                  </dd>
+                </div>
+              </dl>
+              <p className="text-[15px] leading-relaxed text-muted">
+                Incluye la puesta en marcha: cargamos el material de ustedes al currículum y ajustamos
+                al profesor a su forma de trabajar. Cotizamos por asiento según el tamaño del equipo.
+              </p>
+              <a
+                href={`mailto:${PROFILE.email}?subject=${encodeURIComponent('ModoJIT para nuestro equipo')}&body=${encodeURIComponent(
+                  'Hola Eduardo,\n\nSomos [empresa] y somos [n] personas. Nos interesa ModoJIT para el equipo.\n\nLo que queremos que aprendan a resolver:\n\n',
+                )}`}
+                className="inline-flex w-fit items-center gap-2.5 rounded-full bg-accent px-6 py-3 text-[16px] font-medium text-bg transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-accent-hover"
+              >
+                Conversemos sobre su equipo
+              </a>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/*
         The question every metered product gets asked, answered before anyone
