@@ -33,6 +33,22 @@ export const MIGRATION_SENSITIVE: ReadonlyArray<{
   },
   { table: 'session_summaries', column: 'conversation_id', why: 'no commitments carry over' },
   { table: 'feedback', column: 'message', why: 'the /feedback deal cannot collect anybody' },
+  {
+    /*
+     * The sign-up form's own column, and the one that cannot be reconstructed
+     * from anywhere else.
+     *
+     * `/api/signups` names every column in one upsert, and Postgres rejects the
+     * whole statement when any of them is unknown rather than skipping the
+     * field. So a deployment that has not run 20260825000000_signups.sql does
+     * not lose the call name — it loses the sign-up, all four fields of it, for
+     * everybody who fills the form in, while the page goes on rendering and
+     * accepting submissions.
+     */
+    table: 'signups',
+    column: 'call_name',
+    why: 'nobody who fills in /registro is recorded at all',
+  },
   { table: 'billing_events', column: 'handled_at', why: 'a failed payment is never retried' },
   /*
    * Both halves of the Mercado Pago rail, and the first one is the dangerous

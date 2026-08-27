@@ -526,6 +526,7 @@ curl -X POST https://<app>.vercel.app/api/agent \
 | `/api/signed-url` | GET | learner session | Short-lived WebSocket URL, the dynamic variables, opens a usage row |
 | `/api/practica` | POST | learner session | The practice bench: one streamed message to Gemini/Claude/ChatGPT, metered against the same minutes |
 | `/api/lab` | POST | signed lab token | What the learner practised at iajit.vercel.app, reported back so the teacher can open on it. See `docs/lab.md` |
+| `/api/signups` | POST | open | Receives the form on `/registro` and writes one `signups` row |
 | `/api/sessions/[id]` | POST | learner session | Closes their own usage row when a call ends |
 | `/api/webhooks/elevenlabs` | POST | HMAC signature | Post-call analysis becomes the profile, the plan and the session row |
 | `/auth/login` | GET | open | Starts the Google handshake (sets the PKCE cookie) |
@@ -652,6 +653,7 @@ one and expires on its own.
 | [`/api/billing/portal`](src/app/api/billing/portal/route.ts) | Stripe's portal for changing a card, getting invoices and cancelling. Linked from `/progreso`, because a product that makes cancelling hard gets cancelled by chargeback instead. |
 | [`/api/intent`](src/app/api/intent/route.ts) | Records that somebody pressed a buy button, on both `/planes` and the offer under the measured hours. It exists because while checkout is unconfigured the click leaves for WhatsApp and the product would otherwise never know an attempt happened. Public, and safe to be: the row holds a plan id checked against the plans that exist, a channel checked against two literals, and a user id read from the cookie. No free-text column, so a stranger can inflate a count on an admin page and nothing else. |
 | [`/api/feedback`](src/app/api/feedback/route.ts) | Receives a submission from `/feedback` and writes it through the service role, since that table has RLS on and no policies. Open to people who never signed in, deliberately: somebody who bounced has the feedback a signup flow never hears. |
+| [`/api/signups`](src/app/api/signups/route.ts) | Receives the sign-up form on `/registro` — name, the name to say out loud, email, phone, and whether they study, work or are looking — and writes one row to `signups` through the service role. Open, and for a stronger reason than `/api/feedback` is: signing up is the step before having an account, so requiring Google first would invert the two and lose exactly the people still deciding. An upsert on the email, so filling the form in twice is an edit rather than a duplicate. |
 
 Setup, in order:
 

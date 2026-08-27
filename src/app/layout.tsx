@@ -88,6 +88,7 @@ const NAV = [
   { href: '/#como', label: 'Cómo funciona' },
   { href: '/progreso', label: 'Tu progreso' },
   { href: '/planes', label: 'Planes' },
+  { href: '/registro', label: 'Registro' },
   { href: '/feedback', label: 'Feedback' },
 ];
 
