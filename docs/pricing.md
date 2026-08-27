@@ -104,60 +104,57 @@ and appears on neither the ElevenLabs nor the Supabase invoice.
 
 This is the comparison the model did not make until now: the cost side priced
 minutes, the sell side sold allowances, and nothing put the two in one table.
-Stripe takes 2.9% + $0.30, which on a $9 subscription is 6% of the revenue.
+Payment processing takes roughly 2.9% + $0.30, which on a $9 subscription is 6%
+of the revenue.
 
-| Plan | Price | Net after Stripe | Minutes it covers | Minutes it promises | Underwater past |
+| Plan | Price | Net after fees | Minutes it funds | Minutes it promises | At full use |
 |---|---:|---:|---:|---:|---:|
-| Fundador | $9 | $8.44 | 56 | **60** | roughly break-even |
-| Estándar | $19 | $18.15 | 120 | 300 | 40% of the allowance |
+| Gratis | $0 | — | — | 10 | −$1.52, which is acquisition |
+| Fundador | $9 | $8.44 | 56 | **30** | **+$3.88** |
+| Estándar | $19 | $18.15 | 120 | **60** | **+$9.03** |
 
-**Estándar still loses money on a subscriber who uses what it sells.** At the full
-300 minutes it costs $45.60 and nets $18.15. Its break-even is 120.
+**This is the first version of the ladder that makes money from somebody who uses
+their whole plan**, rather than one that depends on them not using it.
 
-Fundador no longer does: `20260826000000_fundador_60_minutos.sql` cut it from 300
-to 60. That is six classes a month at `CLASS_CAP_MINUTES = 10`, which is about
-one weekly task — not the three to five the page used to promise. The promise
-moved with it rather than the price: `weeklyTaskPhrase` in `src/lib/plans.ts`
-now sizes the claim to `monthly_minutes`, so the card and the paragraph on
-`/progreso` say what the allowance actually buys.
+It did not before, and the shape of the failure is worth keeping. Both tiers sold
+300 minutes. A subscriber who used what they were sold cost $45.60 and paid
+$8.44 — so the better the product got at bringing people back, the more each
+enthusiastic customer cost. Growth and margin pointed in opposite directions.
 
-Honouring the old promise would have meant 240 minutes — 21 weekly tasks plus
-the three remaining levels — at $36.48 of cost against $8.44 of net revenue. No
-allowance is both honest at $9.900 and profitable at full use, which is the
-choice this records.
+`20260827000000_asignaciones_viables.sql` set the three allowances to what their
+prices fund: 10, 30 and 60 minutes. At `CLASS_CAP_MINUTES = 10` that is one
+class, three a month, and six a month.
 
-That is the ordinary shape of a subscription: allowances are sold on the
-assumption that average use sits far below them, and at 60 minutes a month the
-founder tier roughly breaks even. What makes it worth watching *here* is that
-this product is deliberately built to raise engagement — a first session that
-finishes real work, a number that recurs, a reason to come back for the next
-task. Every improvement moves average use toward the allowance, so the better it
-works the thinner this gets.
+The promise moved with the numbers rather than the price. `weeklyTaskPhrase` in
+`src/lib/plans.ts` derives the claim from `monthly_minutes`, so the card and the
+paragraph on `/progreso` follow an allowance down, and below one class a week the
+sentence stops being weekly at all — Fundador reads "3 tareas al mes, una por
+clase", because "cada semana" out of three classes would be a promise it cannot
+keep. That drift is what the old fixed string "las 3 a 5 tareas de tu semana"
+was: true of 300 minutes, and quietly false of anything else, on the sentence
+that asks for the money.
 
-Three ways out, in increasing order of how much they cost in trust:
+Honouring that old promise would have meant 240 minutes — 21 weekly tasks at the
+top of the range, plus the three remaining levels — costing $36.48 against $8.44
+of net revenue. No allowance is both honest at $9.900 and profitable at full use,
+which is why the promise was the thing that moved.
 
-1. **Lower the included minutes.** 120 on the founder tier is still four or five
-   classes a month and puts the tier comfortably ahead. Cheapest to do before
-   anyone has bought.
-2. **Raise the price.** $19 covers 120 minutes; $29 covers 190.
-3. **Leave it and watch `plan_usage` for a month.** Defensible while the number of
-   subscribers is small and the real distribution is unknown, which it is. This is
-   the current choice, and it is a choice, not an oversight.
+**What to watch now.** These margins hold at *full* use, which is the pessimistic
+case and the one that was underwater before. The risk has inverted: the tiers are
+small enough that an engaged learner hits the wall rather than the wall hitting
+the business. `plan_usage` is where that shows up — somebody exhausting 30
+minutes in the first week is a signal to raise the tier, not a loss.
 
-Repricing after people have subscribed is the expensive option, which is why the
-break-even table is on `/admin/costos` rather than only here.
-
-Option 1 was taken for Fundador, at 60 rather than 120, while nobody had
-subscribed yet — the cheap moment. It is
-[`supabase/migrations/20260826000000_fundador_60_minutos.sql`](../supabase/migrations/20260826000000_fundador_60_minutos.sql),
-a real migration rather than an optional file, because `pricing_tiers` upserts
-`monthly_minutes` and re-pasting the `npm run sql` bundle would otherwise put it
-back to 300 with no error.
+Two files are superseded and must not be run:
 [`supabase/optional/founder_allowance_120.sql`](../supabase/optional/founder_allowance_120.sql)
-is superseded and must not be run.
+and, in effect,
+[`20260826000000_fundador_60_minutos.sql`](../supabase/migrations/20260826000000_fundador_60_minutos.sql),
+which set Fundador to 60 and was never applied. The later migration wins by
+filename order, so re-pasting the whole `npm run sql` bundle lands on 30.
 
-**Estándar is still open.** It sells 300 minutes on $18.15 of net revenue and
-breaks even at 120.
+These are migrations rather than hand-edits to the table because `pricing_tiers`
+upserts `monthly_minutes`: a value typed into the Supabase editor is reverted the
+next time somebody pastes the bundle, with no error and nothing to notice.
 
 ### Fixed monthly costs
 

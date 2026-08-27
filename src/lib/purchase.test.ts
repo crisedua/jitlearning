@@ -11,13 +11,12 @@
  * early sale will happen in, so they are as real as the rest.
  */
 import assert from 'node:assert/strict';
-import { LEVELS, WEEKLY_MAX, WEEKLY_MIN } from './curriculum';
+import { LEVELS, WEEKS_PER_MONTH } from './curriculum';
 import {
   approximateSessions,
   FALLBACK_PLANS,
   formatMinutes,
   weeklyTaskPhrase,
-  weeklyTasksCovered,
 } from './plans';
 import { dominatedBy } from './plans';
 import { describe, it } from 'node:test';
@@ -265,23 +264,34 @@ describe('the offer under the measured hours', () => {
  * the sentence by hand again, and that the generated one never overstates.
  */
 describe('the allowance against what the offer promises it covers', () => {
-  /** The largest weekly-task count a phrase claims. No digits means one. */
-  const claimed = (phrase: string) => {
+  /*
+   * Tasks per month the copy implies, whichever unit it chose.
+   *
+   * The phrase is weekly above one class a week and monthly below it, so a
+   * weekly comparison breaks on exactly the plans that needed the monthly
+   * wording. Months are the unit both forms convert into, and one class is one
+   * task, so the allowance's own capacity is just its class count.
+   *
+   * Parsed from the rendered string rather than recomputed from the plan: a
+   * check that re-derives what it is checking passes by construction and would
+   * not notice the sentence being hand-edited back.
+   */
+  const impliedPerMonth = (phrase: string) => {
     const numbers = [...phrase.matchAll(/\d+/g)].map((m) => Number(m[0]));
-    return numbers.length ? Math.max(...numbers) : 1;
+    const most = numbers.length ? Math.max(...numbers) : 1;
+    return /de tu semana/.test(phrase) ? Math.ceil(most * WEEKS_PER_MONTH) : most;
   };
 
   for (const plan of FALLBACK_PLANS.filter((p) => p.priceMinor > 0 && p.isPublic)) {
-    it(`${plan.name} never promises more weekly tasks than it holds`, () => {
-      const covered = weeklyTasksCovered(plan);
-      if (covered === null) return; // unlimited covers any cadence
+    it(`${plan.name} never promises more tasks than it holds classes`, () => {
+      const classes = approximateSessions(plan.monthlyMinutes);
+      if (classes === null) return; // unlimited covers any cadence
 
       const phrase = weeklyTaskPhrase(plan);
       assert.ok(
-        claimed(phrase) <= covered,
-        `${plan.name}: ${formatMinutes(plan.monthlyMinutes)} is ` +
-          `${approximateSessions(plan.monthlyMinutes)} classes — ${covered} weekly ` +
-          `task(s) — but the copy says "${phrase}"`,
+        impliedPerMonth(phrase) <= classes,
+        `${plan.name}: ${formatMinutes(plan.monthlyMinutes)} is ${classes} classes a ` +
+          `month, but "${phrase}" implies ${impliedPerMonth(phrase)}`,
       );
     });
   }

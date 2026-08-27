@@ -133,7 +133,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     id: 'free',
     name: 'Gratis',
     period: 'total',
-    monthlyMinutes: 20,
+    monthlyMinutes: 10,
     monthlySessions: null,
     priceMinor: 0,
     currency: 'USD',
@@ -142,7 +142,10 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     setupMinor: null,
     isPublic: true,
     sortOrder: 10,
-    blurb: '20 minutos para resolver una tarea de tu semana y medir lo que ahorra.',
+    // No names a figure any more: it said "20 minutos" and the allowance is 10.
+    // A blurb is a free-text column, so nothing can derive it — the fix is to stop
+    // putting a number in the one string that cannot follow one.
+    blurb: 'Una clase para resolver una tarea de tu semana y medir lo que ahorra.',
     stripePriceId: null,
     mpPriceMinor: null,
   },
@@ -150,7 +153,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     id: 'founder',
     name: 'Fundador',
     period: 'month',
-    monthlyMinutes: 60,
+    monthlyMinutes: 30,
     monthlySessions: null,
     priceMinor: 900,
     currency: 'USD',
@@ -170,7 +173,7 @@ export const FALLBACK_PLANS: readonly Plan[] = [
     id: 'standard',
     name: 'Estándar',
     period: 'month',
-    monthlyMinutes: 300,
+    monthlyMinutes: 60,
     monthlySessions: null,
     priceMinor: 1900,
     currency: 'USD',
@@ -236,7 +239,7 @@ export function planFeatures(plan: Plan): readonly string[] {
    * task a week with room over — and the old bullet would have sold it seven
    * times what it holds, on the card asking for the money.
    *
-   * `weeklyTasksCovered` does the arithmetic the copy used to do in its head.
+   * `weeklyTaskPhrase` does the arithmetic the copy used to do in its head.
    * Change an allowance in Postgres and the sentence follows it down.
    */
   const phrase = weeklyTaskPhrase(plan);
@@ -451,18 +454,6 @@ export function formatOverage(plan: Plan): string {
 export const ASSUMED_SESSION_MINUTES = CLASS_CAP_MINUTES;
 
 /**
- * How many of a week's tasks the allowance actually reaches.
- *
- * The offer is priced against a weekly cadence and the plan is sold by the
- * month, so somewhere the two have to be converted into each other. That
- * conversion used to happen only in a test, comparing a hardcoded sentence
- * against `monthly_minutes` and failing when they drifted. Doing it here means
- * the sentence is generated from the number instead of checked against it, and
- * the drift stops being possible.
- *
- * Null for an unlimited allowance, which covers any cadence.
- */
-/**
  * The weekly cadence this plan can actually keep, as a phrase.
  *
  * One definition, used by the bullet on the pricing card and by the sentence on
@@ -473,18 +464,23 @@ export const ASSUMED_SESSION_MINUTES = CLASS_CAP_MINUTES;
  * Lowercase, because it is written to sit mid-sentence; the card capitalises it.
  */
 export function weeklyTaskPhrase(plan: Plan): string {
-  const covered = weeklyTasksCovered(plan);
-  if (covered === null || covered >= WEEKLY_MAX) {
-    return `las ${WEEKLY_MIN} a ${WEEKLY_MAX} tareas de tu semana, una por una`;
-  }
-  if (covered <= 1) return 'una tarea de tu semana, cada semana';
-  return `hasta ${covered} tareas de tu semana, cada semana`;
-}
-
-export function weeklyTasksCovered(plan: Plan): number | null {
   const classes = approximateSessions(plan.monthlyMinutes);
-  if (classes === null) return null;
-  return Math.floor(classes / WEEKS_PER_MONTH);
+  if (classes === null) return `las ${WEEKLY_MIN} a ${WEEKLY_MAX} tareas de tu semana, una por una`;
+
+  const perWeek = Math.floor(classes / WEEKS_PER_MONTH);
+  if (perWeek >= WEEKLY_MAX) return `las ${WEEKLY_MIN} a ${WEEKLY_MAX} tareas de tu semana, una por una`;
+  if (perWeek >= 2) return `hasta ${perWeek} tareas de tu semana, cada semana`;
+  if (perWeek === 1) return 'una tarea de tu semana, cada semana';
+
+  /*
+   * Fewer than one class a week, so the sentence stops being weekly.
+   *
+   * "una tarea de tu semana, cada semana" out of an allowance holding three
+   * classes a month is the same lie the fixed "3 a 5" was, one order of
+   * magnitude down: it promises 4.3 and delivers 3. A plan below the weekly
+   * cadence has to be sold by the month, which is the only unit it can keep.
+   */
+  return classes === 1 ? 'una tarea al mes' : `${classes} tareas al mes, una por clase`;
 }
 
 export function approximateSessions(minutes: number | null): number | null {
