@@ -412,6 +412,46 @@ export async function listConversations(
   });
 }
 
+/* ----------------------------------------------------------------- webhooks */
+
+/**
+ * A workspace webhook as ElevenLabs reports it.
+ *
+ * The last four fields are the interesting ones and are the reason this exists:
+ * they are the only place that knows whether deliveries are actually landing.
+ * Nothing inside the deployment can tell a signing secret that matches from one
+ * that merely exists — the route refuses a wrong signature with a 401 that looks
+ * exactly like a refusal of an attacker — and this is where that 401 is written
+ * down.
+ */
+export interface WorkspaceWebhook {
+  webhook_id: string;
+  name?: string;
+  webhook_url?: string;
+  is_disabled?: boolean;
+  /** True when ElevenLabs switched it off itself, after enough failures. */
+  is_auto_disabled?: boolean;
+  most_recent_failure_error_code?: number | null;
+  most_recent_failure_timestamp?: number | null;
+  retry_enabled?: boolean;
+}
+
+export async function listWorkspaceWebhooks(): Promise<{ webhooks: WorkspaceWebhook[] }> {
+  return request('/workspace/webhooks', { method: 'GET' });
+}
+
+export interface ConvaiSettings {
+  webhooks?: {
+    post_call_webhook_id?: string | null;
+    events?: string[] | null;
+  } | null;
+}
+
+/** Which webhook, of the ones the workspace has, is the post-call one. */
+export async function getConvaiSettings(): Promise<ConvaiSettings> {
+  return request('/convai/settings', { method: 'GET' });
+}
+
 export interface ConversationDetail {
   conversation_id: string;
   /** 'done' once the call has ended and been processed; only then is analysis present. */

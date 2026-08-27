@@ -24,7 +24,15 @@
  * Never returns key material — only whether things work.
  */
 import { NextResponse } from 'next/server';
-import { getAgent, listDocuments, listTools } from '@/lib/elevenlabs';
+import {
+  getAgent,
+  getConvaiSettings,
+  listDocuments,
+  listTools,
+  listWorkspaceWebhooks,
+  type WorkspaceWebhook,
+} from '@/lib/elevenlabs';
+import { postCallWebhookVerdict } from '@/lib/webhook-health';
 import { agentId, embeddingModel } from '@/lib/config';
 import { ownsDocument, TEACHER } from '@/lib/teacher';
 import { FIRST_MESSAGE, LOOKUP_TOOL_NAME, teacherSystemPrompt } from '@/lib/agent';
@@ -384,17 +392,50 @@ export async function GET(req: Request) {
    * lost. Checking it here is the same knowledge moved to where it is read
    * before that happens.
    *
-   * Presence only. Whether the value matches what ElevenLabs signs with cannot
-   * be settled without a real delivery, but a missing one is decisive on its
-   * own and is what actually happened here.
+   * Delivery, not presence, and that distinction cost nine days.
+   *
+   * This check used to ask whether the variable was set and report green when it
+   * was. A secret that is set and *wrong* is refused by our own route with a 401
+   * — correct behaviour, indistinguishable from refusing a stranger — while
+   * every check that reads the environment goes on saying the variable is there.
+   * Eleven classes ran in that state and none of them was recorded, with
+   * `ready: true` on this endpoint the whole time.
+   *
+   * ElevenLabs is the only party that can tell a secret that matches from one
+   * that merely exists, because it is the one being refused. So it is asked.
    */
-  checks.webhookSecret = process.env.ELEVENLABS_WEBHOOK_SECRET?.trim()
-    ? { state: 'ok', detail: 'ELEVENLABS_WEBHOOK_SECRET is set; post-call transcripts can be accepted' }
-    : {
-        state: 'fail',
-        detail:
-          'ELEVENLABS_WEBHOOK_SECRET is missing, so /api/webhooks/elevenlabs answers 503 to every post-call delivery and no class is ever saved.',
-      };
+  {
+    const secretSet = Boolean(process.env.ELEVENLABS_WEBHOOK_SECRET?.trim());
+    let asked = false;
+    let postCallId: string | null = null;
+    let hook: WorkspaceWebhook | null = null;
+
+    if (secretSet && hasKey) {
+      try {
+        const settings = await getConvaiSettings();
+        postCallId = settings.webhooks?.post_call_webhook_id ?? null;
+        if (postCallId) {
+          const { webhooks } = await listWorkspaceWebhooks();
+          hook = webhooks.find((w) => w.webhook_id === postCallId) ?? null;
+        }
+        asked = true;
+      } catch {
+        // Reported as "could not be asked" rather than as a fault of the
+        // webhook's own: connectivity and key scope are checked above, and
+        // blaming this for a missing permission would send somebody to the
+        // wrong dashboard.
+        asked = false;
+      }
+    }
+
+    checks.postCallWebhook = postCallWebhookVerdict({
+      secretSet,
+      asked,
+      postCallId,
+      hook,
+      nowSeconds: Math.floor(Date.now() / 1000),
+    });
+  }
 
   /*
    * 6. Did the migrations actually run *here*?
@@ -517,18 +558,46 @@ export async function GET(req: Request) {
    */
   const bench = openrouterConfigured();
 
-  const ready = Object.values(checks).every((c) => c.state === 'ok');
-  const selling = Boolean(
+  /*
+   * `skipped` is not a failure, and treating it as one made this verdict wrong
+   * for every deployment that declined an optional rail.
+   *
+   * Three of these checks report three states on purpose — Mercado Pago when it
+   * is not set up, the post-call webhook when ElevenLabs cannot be asked, the
+   * convai scope with no key — and each comment says so in as many words: not
+   * selling through Mercado Pago "is a legitimate configuration and must not
+   * paint a deployment red". Requiring every check to be `ok` painted it red
+   * anyway. Only `fail` means something is broken.
+   */
+  const ready = Object.values(checks).every((c) => c.state !== 'fail');
+
+  /*
+   * Either rail counts, because either rail takes money.
+   *
+   * This read the two Stripe variables and nothing else, which was true when
+   * Stripe was the only way to pay. It is not any more: this product prices in
+   * pesos and sells through Mercado Pago, `checks.mercadoPago` above confirms
+   * that rail can charge and can hear back, and `/planes` really does offer both
+   * plans through it. Meanwhile this returned `selling: false` and a detail
+   * saying paid plans "fall back to writing to a person" — the one field an
+   * operator reads to answer "am I selling?", saying no while the site sold.
+   */
+  const stripe = Boolean(
     process.env.STRIPE_SECRET_KEY?.trim() && process.env.STRIPE_WEBHOOK_SECRET?.trim(),
   );
+  const mercadoPago = Boolean(
+    process.env.MP_ACCESS_TOKEN?.trim() && process.env.MP_WEBHOOK_SECRET?.trim(),
+  );
+  const selling = stripe || mercadoPago;
+  const rails = [stripe && 'Stripe', mercadoPago && 'Mercado Pago'].filter(Boolean).join(' and ');
 
   return NextResponse.json(
     {
       ready,
       selling,
       sellingDetail: selling
-        ? 'Stripe is configured; a completed payment can grant a plan.'
-        : 'No Stripe keys: paid plans fall back to writing to a person. Not counted against `ready`.',
+        ? `${rails} configured; a completed payment can grant a plan.`
+        : 'Neither Stripe nor Mercado Pago is configured: paid plans fall back to writing to a person. Not counted against `ready`.',
       bench,
       benchDetail: bench
         ? `Practice bench is on: ${PRACTICE_MODELS.map((m) => `${m.label} (${m.model})`).join(', ')}. Metering is covered by \`checks.schema\`.`
