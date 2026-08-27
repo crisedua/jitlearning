@@ -20,7 +20,12 @@ import './env';
 import { readdirSync, readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
-import { getAgent, listDocuments } from '../src/lib/elevenlabs';
+import {
+  getAgent,
+  getSubscription,
+  listDocuments,
+  minutesThisMonth,
+} from '../src/lib/elevenlabs';
 import { agentId, embeddingModel } from '../src/lib/config';
 import { ownsDocument, TEACHER } from '../src/lib/teacher';
 import {
@@ -43,7 +48,7 @@ import { firstMissingRung } from '../src/lib/setup';
 import { deliveryReport } from '../src/lib/delivery';
 import { parity } from '../src/lib/parity';
 import { billingConfigured, stripe as stripeClient } from '../src/lib/billing';
-import { breakEven, DEFAULT_INPUTS } from '../src/lib/costs';
+import { breakEven, DEFAULT_INPUTS, tierAdvice } from '../src/lib/costs';
 import { configuredOrigin, DEFAULT_ORIGIN } from '../src/lib/canonical';
 
 const ok = (m: string) => console.log(`  ok    ${m}`);
@@ -1926,6 +1931,72 @@ async function main() {
     }
   } catch {
     note('Could not reach the deployment to ask whether its bench is on.');
+  }
+
+  /*
+   * Is the ElevenLabs subscription the right size for what is actually used?
+   *
+   * Nothing asked, and it went unasked while the account sat on Pro — $99 a
+   * month for 1,238 included minutes — against a busiest month of 226. Every
+   * check in this file was green throughout and correctly so: an
+   * over-provisioned subscription is not a fault. It works perfectly. It just
+   * costs about $920 a year more than it needs to, and the only place that
+   * shows is the invoice, which no check reads.
+   *
+   * The minutes come from ElevenLabs rather than `coach_sessions`, because the
+   * invoice is computed from the former and the doctor is often run without a
+   * service key. Every agent in the workspace counts, since the bill does.
+   */
+  console.log('\nSubscription against use\n');
+  if (key) {
+    try {
+      const { minutes, complete } = await minutesThisMonth();
+      const { tier } = await getSubscription();
+      const advice = tierAdvice(tier, minutes, DEFAULT_INPUTS.elevenLabsOveragePerMinute);
+
+      const named = advice.current?.name ?? tier;
+      console.log(`  ${minutes} min used this month · subscribed to ${named}`);
+      if (!complete) {
+        note('Counted the most recent 500 conversations only, so the total is a floor.');
+      }
+
+      if (advice.nonCommercial) {
+        bad(`${named} forbids commercial use, and this deployment takes payments.`);
+        failures++;
+      } else if (advice.worthMoving) {
+        /*
+         * A note, not a failure. Overpaying is a decision an operator may make
+         * knowingly — for concurrency headroom before a launch, say — and a
+         * red line in a health check is for things that are broken.
+         */
+        note(
+          `${named} costs $${advice.currentTotal} this month; ${advice.best.name} would cost ` +
+            `$${advice.bestTotal.toFixed(2)} — $${advice.saving.toFixed(2)}/mo, about ` +
+            `$${(advice.saving * 12).toFixed(0)} a year.`,
+        );
+        note(
+          `The trade is concurrency: ${advice.current?.concurrency} simultaneous conversations ` +
+            `down to ${advice.best.concurrency}. Over that ceiling minutes bill at double.`,
+        );
+        note('Changing the plan is a dashboard action; there is no API for it.');
+      } else if (advice.current) {
+        ok(`${named} is the right size for ${minutes} min (next best saves $${advice.saving.toFixed(2)})`);
+      } else {
+        note(`Subscribed tier "${tier}" is not in the published ladder, so no comparison was made.`);
+      }
+
+      /*
+       * Said every time, because it is the fact that makes the advice above
+       * only ever point downward and is easy to get backwards.
+       */
+      note('The Agents ladder has no volume discount: every tier is its included');
+      note('minutes at the $0.08 overage rate. A bigger tier buys concurrency, not a');
+      note('better rate, so upgrading to save money is never right.');
+    } catch (err) {
+      note(`Could not read the subscription: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  } else {
+    note('No ELEVENLABS_API_KEY, so the subscription could not be compared against use.');
   }
 
   console.log('\nSite promises against persona behaviour\n');

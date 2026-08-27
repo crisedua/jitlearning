@@ -14,7 +14,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CostProjector, type LiveUsage } from '@/components/CostProjector';
-import { breakEven, DEFAULT_INPUTS, usd } from '@/lib/costs';
+import { breakEven, DEFAULT_INPUTS, tierAdvice, usd } from '@/lib/costs';
+import { getSubscription, minutesThisMonth } from '@/lib/elevenlabs';
 import { FALLBACK_PLANS } from '@/lib/plans';
 import { checkAdmin } from '@/lib/admin';
 import { signInPath } from '@/lib/paths';
@@ -143,6 +144,40 @@ export default async function CostosPage() {
     return <NotAdmin email={gate.email} path="/admin/costos" />;
   }
 
+  /*
+   * The subscription against what is actually spoken, which nothing asked until
+   * it had cost about $920 a year.
+   *
+   * The account sat on Pro — $99 a month for 1,238 included minutes — against a
+   * busiest month of 226. Nothing was broken and no check went red, correctly:
+   * an over-provisioned plan works perfectly and shows up only on the invoice,
+   * which no page here reads.
+   *
+   * Minutes come from `minutesThisMonth`, the same source `npm run doctor`
+   * uses, rather than from `live.minutes` below. The two count different things
+   * — `coach_sessions` only sees what this app minted a URL for — and a page
+   * and a script disagreeing about the number under a money decision is the
+   * failure this repo keeps paying for.
+   *
+   * Best-effort: a cost page must still render when ElevenLabs is unreachable.
+   */
+  const subscription = await (async () => {
+    try {
+      const [{ minutes, complete }, { tier }] = await Promise.all([
+        minutesThisMonth(),
+        getSubscription(),
+      ]);
+      return {
+        minutes,
+        complete,
+        advice: tierAdvice(tier, minutes, DEFAULT_INPUTS.elevenLabsOveragePerMinute),
+        raw: tier,
+      };
+    } catch {
+      return null;
+    }
+  })();
+
   const live = await loadLiveUsage();
   const capped = live.sessions >= MAX_SESSIONS_SCANNED;
 
@@ -165,6 +200,61 @@ export default async function CostosPage() {
           Se alcanzó el tope de {MAX_SESSIONS_SCANNED.toLocaleString('es-CL')} conversaciones leídas
           en una carga. Los totales de «este mes» están recortados y son un piso, no la cifra real.
         </p>
+      )}
+
+      {subscription && (
+        <div
+          className={`mt-8 max-w-[62ch] rounded-lg border px-4 py-3.5 text-[14px] leading-relaxed ${
+            subscription.advice.nonCommercial || subscription.advice.worthMoving
+              ? 'border-warning/35 bg-warning-soft/50 text-ink/85'
+              : 'border-line bg-surface text-muted'
+          }`}
+        >
+          <p className="font-medium text-ink">
+            {subscription.minutes} min hablados este mes · plan{' '}
+            {subscription.advice.current?.name ?? subscription.raw}
+            {!subscription.complete && ' (piso, no la cifra exacta)'}
+          </p>
+
+          {subscription.advice.nonCommercial ? (
+            <p className="mt-1.5">
+              Ese plan no permite uso comercial y acá se cobra. Es un problema de licencia, no de
+              precio: ningún ahorro lo vuelve el plan correcto.
+            </p>
+          ) : subscription.advice.worthMoving ? (
+            <>
+              <p className="mt-1.5">
+                Cuesta {usd(subscription.advice.currentTotal ?? 0)} este mes.{' '}
+                {subscription.advice.best.name} costaría {usd(subscription.advice.bestTotal)}:{' '}
+                <span className="font-medium text-ink">
+                  {usd(subscription.advice.saving)} al mes
+                </span>
+                , unos {usd(subscription.advice.saving * 12)} al año.
+              </p>
+              <p className="mt-1.5">
+                Lo que se entrega a cambio es concurrencia:{' '}
+                {subscription.advice.current?.concurrency} conversaciones simultáneas bajan a{' '}
+                {subscription.advice.best.concurrency}. Pasado ese techo el minuto se cobra al
+                doble. Cambiar el plan se hace en el panel de ElevenLabs; no hay API para eso.
+              </p>
+            </>
+          ) : (
+            <p className="mt-1.5">
+              Es el tamaño correcto para este mes. El siguiente más barato ahorraría{' '}
+              {usd(subscription.advice.saving)}.
+            </p>
+          )}
+
+          {/*
+            Dicho siempre, porque es el hecho que hace que este consejo solo
+            apunte hacia abajo y es fácil de entender al revés.
+          */}
+          <p className="mt-2 text-[13px] text-soft">
+            La escalera de Agents no tiene descuento por volumen: cada plan vale exactamente sus
+            minutos incluidos al precio de excedente. Un plan más grande compra concurrencia, no una
+            tarifa mejor, así que subir para ahorrar nunca es correcto.
+          </p>
+        </div>
       )}
 
       <div className="mt-12">

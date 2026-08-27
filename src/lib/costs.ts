@@ -395,3 +395,83 @@ export function number(value: number, decimals = 0): string {
     maximumFractionDigits: decimals,
   });
 }
+
+/* ------------------------------------------------- am I on the right tier? */
+
+/**
+ * The smallest monthly saving worth telling somebody about.
+ *
+ * `elevenLabsCost` will happily report that Starter beats Creator by four
+ * dollars in a quiet month, and acting on that means a downgrade, a tighter
+ * concurrency ceiling and an overage line the moment usage recovers. A check
+ * that fires on noise gets ignored, and then it is not there for the month it
+ * matters.
+ */
+export const TIER_ADVICE_FLOOR = 10;
+
+export interface TierAdvice {
+  /** The tier actually subscribed to, or null when the name was not recognised. */
+  current: ElevenLabsTier | null;
+  /** The cheapest commercial tier for this many minutes. */
+  best: ElevenLabsTier;
+  /** What the current tier costs this month, subscription plus overage. */
+  currentTotal: number | null;
+  bestTotal: number;
+  /** Money left on the table each month. Never negative. */
+  saving: number;
+  /** Past `TIER_ADVICE_FLOOR`, and actually a different tier. */
+  worthMoving: boolean;
+  /** Simultaneous conversations given up (negative) or gained by moving. */
+  concurrencyChange: number | null;
+  /**
+   * True when the subscription forbids commercial use, which the free tier
+   * does. Separate from the money: a deployment taking payments on it is a
+   * licensing problem and no saving makes that the right tier.
+   */
+  nonCommercial: boolean;
+}
+
+/**
+ * Whether the ElevenLabs subscription matches what is actually being used.
+ *
+ * Nothing asked this before, and it went unasked for over a month while the
+ * account sat on Pro — $99 for 1,238 included minutes — against a busiest month
+ * of 226. Creator serves that for $22. Every check in this repo was green
+ * throughout, correctly: an over-provisioned subscription is not a fault, it
+ * works perfectly, it just costs about $920 a year more than it needs to.
+ *
+ * It is worth checking every month rather than once, because the ladder has no
+ * volume discount — every tier is priced at exactly the $0.08 overage rate
+ * times its included minutes — so a higher tier buys nothing but concurrency.
+ * The right tier is therefore the cheapest one whose concurrency you need, and
+ * that answer moves with usage in both directions.
+ *
+ * Pure, so the doctor and /admin/costos can share one answer: they had a copy
+ * of the ladder each once already.
+ */
+export function tierAdvice(
+  subscribedTierId: string | null,
+  minutes: number,
+  overagePerMinute: number,
+): TierAdvice {
+  const current =
+    ELEVENLABS_TIERS.find((t) => t.id === subscribedTierId?.trim().toLowerCase()) ?? null;
+
+  const best = elevenLabsCost(minutes, overagePerMinute, 'auto');
+  const currentCost = current
+    ? elevenLabsCost(minutes, overagePerMinute, current.id)
+    : null;
+
+  const saving = currentCost ? Math.max(0, currentCost.total - best.total) : 0;
+
+  return {
+    current,
+    best: best.tier,
+    currentTotal: currentCost?.total ?? null,
+    bestTotal: best.total,
+    saving,
+    worthMoving: Boolean(current) && current!.id !== best.tier.id && saving >= TIER_ADVICE_FLOOR,
+    concurrencyChange: current ? best.tier.concurrency - current.concurrency : null,
+    nonCommercial: current ? !current.commercial : false,
+  };
+}

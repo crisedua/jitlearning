@@ -397,7 +397,8 @@ export interface ConversationSummary {
 }
 
 export async function listConversations(
-  agentId: string,
+  /** Null totals the whole workspace, which is what the invoice covers. */
+  agentId: string | null,
   pageSize = 30,
   cursor?: string,
 ): Promise<{
@@ -408,8 +409,35 @@ export async function listConversations(
 }> {
   return request('/convai/conversations', {
     method: 'GET',
-    query: { agent_id: agentId, page_size: pageSize, cursor },
+    query: { agent_id: agentId ?? undefined, page_size: pageSize, cursor },
   });
+}
+
+/* ------------------------------------------------------------ subscription */
+
+/**
+ * Which Agents plan this account is actually on.
+ *
+ * The one thing the cost model could not know and therefore never checked. It
+ * projects what a given number of minutes *should* cost and picks the cheapest
+ * tier; without this it had no idea which tier was being paid for, so it could
+ * not notice the two disagreeing. They disagreed by $77 a month for over a
+ * month.
+ *
+ * Read-only: `GET /v1/user/subscription` is the only subscription endpoint
+ * ElevenLabs exposes. Changing the plan is a dashboard action, so the most this
+ * can do is say which way to go.
+ */
+export interface Subscription {
+  /** 'free' | 'starter' | 'creator' | 'pro' | 'scale' | 'business'. */
+  tier: string;
+  status?: string;
+  character_count?: number;
+  character_limit?: number;
+}
+
+export async function getSubscription(): Promise<Subscription> {
+  return request('/user/subscription', { method: 'GET' });
 }
 
 /* ----------------------------------------------------------------- webhooks */
@@ -438,6 +466,47 @@ export interface WorkspaceWebhook {
 
 export async function listWorkspaceWebhooks(): Promise<{ webhooks: WorkspaceWebhook[] }> {
   return request('/workspace/webhooks', { method: 'GET' });
+}
+
+/**
+ * Spoken minutes billed this calendar month, across every agent.
+ *
+ * The number the subscription should be sized against, taken from the side that
+ * computes the invoice. `coach_sessions` is the wrong source for this even
+ * though it is closer to hand: it counts only what this app minted a signed URL
+ * for, misses anything tried in the ElevenLabs dashboard, and carries
+ * self-reported durations until `sync:usage` reconciles them.
+ *
+ * `complete` is false when the page cap was reached before the start of the
+ * month, so a caller can say the total is a floor instead of quoting it as
+ * fact. The cap exists because an unbounded paging loop inside a diagnostic is
+ * a hang.
+ */
+export async function minutesThisMonth(maxPages = 5): Promise<{
+  minutes: number;
+  complete: boolean;
+}> {
+  const now = new Date();
+  const monthStart = Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1) / 1000);
+
+  let seconds = 0;
+  let cursor: string | undefined;
+  let reachedStart = false;
+
+  for (let page = 0; page < maxPages; page++) {
+    const batch = await listConversations(null, 100, cursor);
+    for (const c of batch.conversations) {
+      if (c.start_time_unix_secs >= monthStart) seconds += c.call_duration_secs ?? 0;
+      else reachedStart = true;
+    }
+    cursor = batch.next_cursor ?? undefined;
+    if (reachedStart || !batch.has_more || !cursor) {
+      reachedStart = true;
+      break;
+    }
+  }
+
+  return { minutes: Math.round(seconds / 60), complete: reachedStart };
 }
 
 export interface ConvaiSettings {
